@@ -353,6 +353,7 @@ mixin _AuthInternals on _$AccordAuth {
               GatewayIntents.members,
               GatewayIntents.presences,
               GatewayIntents.voiceStates,
+              GatewayIntents.soundboard,
               GatewayIntents.experiences,
               GatewayIntents.scheduledEvents,
             ],

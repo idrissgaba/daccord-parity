@@ -124,6 +124,10 @@ class SettingsController extends _$SettingsController {
   void setSfxVolume(double volume) =>
       _update(state.copyWith(sfxVolume: volume.clamp(0.0, 1.0).toDouble()));
 
+  void setSoundboardVolume(double volume) => _update(
+    state.copyWith(soundboardVolume: volume.clamp(0.0, 1.0).toDouble()),
+  );
+
   void setVideoResolution(int index) => _update(
     state.copyWith(
       videoResolution: index.clamp(

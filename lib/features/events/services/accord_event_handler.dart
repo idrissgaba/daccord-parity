@@ -26,6 +26,8 @@ import 'package:bonfire/features/user/controllers/blocked_users.dart';
 import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
+import 'package:bonfire/features/voice/services/soundboard_player.dart';
+import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -598,6 +600,40 @@ VoidCallback handleAccordEvents(
       ref
           .read(accordMembersControllerProvider(serverKey, spaceId).notifier)
           .removeMember(userId);
+    }),
+  );
+
+  // ── Soundboard ───────────────────────────────────────────────────────────
+  // The server only broadcasts the play to the space; each client in the
+  // sender's voice channel plays the clip itself.
+  subs.add(
+    client.onSoundboardPlay.listen((data) {
+      final sound = data['sound'];
+      if (sound is! Map<String, dynamic>) return;
+      final senderId = data['user_id']?.toString();
+      final voice = ref.read(voiceControllerProvider);
+      final cache = ref.read(voiceStatesControllerProvider(serverKey));
+      final volumes = ref
+          .read(settingsControllerProvider)
+          .userVolumesFor(serverKey);
+      final play = SoundboardPlayer.shouldPlay(
+        eventServerKey: serverKey,
+        spaceId: data['space_id']?.toString(),
+        senderId: senderId,
+        myUserId: currentUserId,
+        voiceServerKey: voice.serverKey,
+        voiceSpaceId: voice.spaceId,
+        voiceChannelId: voice.channelId,
+        deafened: voice.selfDeaf || voice.serverDeaf,
+        senderChannelId: senderId == null ? null : _channelOf(cache, senderId),
+        senderLocallyMuted: senderId != null && volumes[senderId] == 0,
+      );
+      if (!play) return;
+      final parsed = AccordSound.fromJson(sound);
+      soundboardPlayer.play(
+        AccordCDN.resolvePath(parsed.audioUrl, cdnUrl: client.config.cdnUrl),
+        gain: parsed.volume,
+      );
     }),
   );
 

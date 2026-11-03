@@ -8,6 +8,7 @@ import 'package:bonfire/features/authentication/utils/hive.dart';
 import 'package:bonfire/features/notifications/controllers/background_connection.dart';
 import 'package:bonfire/features/notifications/services/notification.dart';
 import 'package:bonfire/features/notifications/services/sound.dart';
+import 'package:bonfire/features/voice/services/soundboard_player.dart';
 import 'package:bonfire/features/notifications/services/taskbar_badge.dart';
 import 'package:bonfire/features/onboarding/views/onboarding_tour.dart';
 import 'package:bonfire/features/updates/views/release_notes_dialog.dart';
@@ -424,6 +425,7 @@ class _MainWindowState extends ConsumerState<MainWindow> {
         (s) => (
           soundsEnabled: s.soundsEnabled,
           sfxVolume: s.sfxVolume,
+          soundboardVolume: s.soundboardVolume,
           themePreset: s.themePreset,
           accentColor: s.accentColor,
           uiScale: s.uiScale,
@@ -445,6 +447,7 @@ class _MainWindowState extends ConsumerState<MainWindow> {
     ref.watch(taskbarBadgeControllerProvider);
     soundManager.enabled = settings.soundsEnabled;
     soundManager.volume = settings.sfxVolume;
+    soundboardPlayer.volume = settings.soundboardVolume;
     soundManager.disabledSounds = settings.disabledSounds.toSet();
     final theme = buildAppTheme(
       settings.themePreset,

@@ -84,6 +84,7 @@ class AccordSettings {
     this.backgroundConnection = false,
     this.soundsEnabled = true,
     this.sfxVolume = 1.0,
+    this.soundboardVolume = 1.0,
     this.videoResolution = 1,
     this.videoFps = 30,
     this.screenShareResolution = defaultScreenShareResolution,
@@ -177,6 +178,10 @@ class AccordSettings {
 
   /// SFX playback volume, 0.0–1.0.
   final double sfxVolume;
+
+  /// Playback volume of soundboard sounds played in our voice channel,
+  /// 0.0–1.0 (multiplied by each sound's own gain).
+  final double soundboardVolume;
 
   /// Camera capture resolution index into [videoResolutionLabels]
   /// (0 = 480p, 1 = 720p, 2 = 1080p).
@@ -425,6 +430,7 @@ class AccordSettings {
     bool? backgroundConnection,
     bool? soundsEnabled,
     double? sfxVolume,
+    double? soundboardVolume,
     int? videoResolution,
     int? videoFps,
     int? screenShareResolution,
@@ -494,6 +500,7 @@ class AccordSettings {
       backgroundConnection: backgroundConnection ?? this.backgroundConnection,
       soundsEnabled: soundsEnabled ?? this.soundsEnabled,
       sfxVolume: sfxVolume ?? this.sfxVolume,
+      soundboardVolume: soundboardVolume ?? this.soundboardVolume,
       videoResolution: videoResolution ?? this.videoResolution,
       videoFps: videoFps ?? this.videoFps,
       screenShareResolution:
@@ -723,6 +730,7 @@ class AccordSettings {
     'backgroundConnection': backgroundConnection,
     'soundsEnabled': soundsEnabled,
     'sfxVolume': sfxVolume,
+    'soundboardVolume': soundboardVolume,
     'videoResolution': videoResolution,
     'videoFps': videoFps,
     'screenShareQuality': screenShareResolution,
@@ -795,6 +803,7 @@ class AccordSettings {
       backgroundConnection: json['backgroundConnection'] as bool? ?? false,
       soundsEnabled: json['soundsEnabled'] as bool? ?? true,
       sfxVolume: (json['sfxVolume'] as num?)?.toDouble() ?? 1.0,
+      soundboardVolume: (json['soundboardVolume'] as num?)?.toDouble() ?? 1.0,
       videoResolution: (json['videoResolution'] as num?)?.toInt() ?? 1,
       videoFps: (json['videoFps'] as num?)?.toInt() ?? 30,
       // Missing screen-share keys use the motion-friendly defaults, not the

@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:accordkit/accordkit.dart';
+import 'package:bonfire/features/settings/controllers/settings.dart';
+import 'package:bonfire/features/voice/controllers/voice.dart';
+import 'package:bonfire/features/voice/services/soundboard_player.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/dialog_title_bar.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
@@ -11,10 +16,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Opens the soundboard for [spaceId]: a grid of sounds with play buttons, plus
-/// add/remove controls when [canManage] is set. Playback is triggered
-/// server-side (the sound plays into the active voice channel) — this client
-/// only fires the play request.
+/// Opens the soundboard for [spaceId], laid out like Discord's: a grid of
+/// sounds that play into your voice channel (everyone in it hears them), a
+/// preview button on each to listen privately, a soundboard volume slider,
+/// and add/rename/volume/remove controls when [canManage] is set.
+///
+/// Playing only fires the request: the server broadcasts `soundboard.play`
+/// and each client in the channel (this one included) plays the clip — see
+/// `SoundboardPlayer`.
 Future<void> showAccordSoundboard(
   BuildContext context, {
   required String spaceId,
@@ -41,6 +50,11 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
   bool _busy = false;
   String _query = '';
 
+  /// Sounds just played: highlighted and not replayable for [_cooldown], like
+  /// Discord's per-sound cooldown.
+  final Set<String> _cooling = {};
+  static const _cooldown = Duration(milliseconds: 1500);
+
   AccordClient? get _client => ref.accordClient;
 
   @override
@@ -61,10 +75,29 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
   Future<void> _play(AccordSound sound) async {
     final client = _client;
     final id = sound.id;
-    if (client == null || id == null) return;
+    if (client == null || id == null || _cooling.contains(id)) return;
+    setState(() {
+      _cooling.add(id);
+      error = null;
+    });
+    unawaited(
+      Future<void>.delayed(_cooldown, () {
+        if (mounted) setState(() => _cooling.remove(id));
+      }),
+    );
     final result = await client.soundboard.play(widget.spaceId, id);
     if (!mounted || result.ok) return;
-    setState(() => error = 'Failed to play (join a voice channel first)');
+    setState(() => error = result.errorOr('Failed to play sound'));
+  }
+
+  /// Plays [sound] for us only, without sending it to the channel.
+  void _preview(AccordSound sound) {
+    final client = _client;
+    if (client == null) return;
+    soundboardPlayer.play(
+      AccordCDN.resolvePath(sound.audioUrl, cdnUrl: client.config.cdnUrl),
+      gain: sound.volume,
+    );
   }
 
   Future<void> _add() async {
@@ -161,11 +194,16 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
     final colors = BonfireThemeExtension.of(context);
     final theme = Theme.of(context);
     final sounds = items;
+    final voice = ref.watch(voiceControllerProvider);
+    final inVoice = voice.channelId != null && voice.spaceId == widget.spaceId;
+    final soundboardVolume = ref.watch(
+      settingsControllerProvider.select((s) => s.soundboardVolume),
+    );
     return Dialog(
       backgroundColor: colors.foreground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 480, maxHeight: 520),
+        constraints: dialogConstraints(context, maxWidth: 480, maxHeight: 560),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -185,6 +223,31 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
                 ],
               ),
               const SizedBox(height: 8),
+              if (!inVoice)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.darkGray,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: colors.gray),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Join a voice channel in this space to play sounds. '
+                          'You can still preview them.',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (sounds != null && sounds.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -239,16 +302,19 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
                           }
                           return GridView.count(
                             crossAxisCount: 3,
-                            mainAxisSpacing: 10,
-                            crossAxisSpacing: 10,
-                            childAspectRatio: 1.1,
+                            mainAxisSpacing: 8,
+                            crossAxisSpacing: 8,
+                            childAspectRatio: 2.4,
                             shrinkWrap: true,
                             children: [
                               for (final sound in filtered)
                                 _SoundTile(
                                   sound: sound,
                                   canManage: widget.canManage,
+                                  enabled: inVoice,
+                                  playing: _cooling.contains(sound.id),
                                   onPlay: () => _play(sound),
+                                  onPreview: () => _preview(sound),
                                   onDelete: () => _delete(sound),
                                   onRename: () => _rename(sound),
                                   onVolume: () => _setVolume(sound),
@@ -262,6 +328,37 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
                 const SizedBox(height: 10),
                 InlineError(error!, centered: false),
               ],
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Tooltip(
+                    message: 'Soundboard volume',
+                    child: Icon(
+                      soundboardVolume == 0
+                          ? Icons.volume_off
+                          : Icons.volume_up,
+                      size: 18,
+                      color: colors.gray,
+                    ),
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: soundboardVolume,
+                      onChanged: ref
+                          .read(settingsControllerProvider.notifier)
+                          .setSoundboardVolume,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 40,
+                    child: Text(
+                      '${(soundboardVolume * 100).round()}%',
+                      textAlign: TextAlign.end,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -274,7 +371,10 @@ class _SoundTile extends StatelessWidget {
   const _SoundTile({
     required this.sound,
     required this.canManage,
+    required this.enabled,
+    required this.playing,
     required this.onPlay,
+    required this.onPreview,
     required this.onDelete,
     required this.onRename,
     required this.onVolume,
@@ -282,7 +382,14 @@ class _SoundTile extends StatelessWidget {
 
   final AccordSound sound;
   final bool canManage;
+
+  /// Whether we're in a voice channel of this space, i.e. can play to it.
+  final bool enabled;
+
+  /// Just played: highlighted while its cooldown runs.
+  final bool playing;
   final VoidCallback onPlay;
+  final VoidCallback onPreview;
   final VoidCallback onDelete;
   final VoidCallback onRename;
   final VoidCallback onVolume;
@@ -291,38 +398,39 @@ class _SoundTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
-    return Material(
-      color: colors.darkGray,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onPlay,
-        child: Stack(
-          children: [
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.play_circle_fill, size: 32, color: colors.primary),
-                  const SizedBox(height: 6),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Text(
-                      sound.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  ),
-                ],
+    return Tooltip(
+      message: enabled ? sound.name : 'Join a voice channel to play',
+      waitDuration: const Duration(milliseconds: 600),
+      child: Material(
+        color: playing
+            ? colors.primary.withValues(alpha: 0.35)
+            : colors.darkGray,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: enabled ? onPlay : null,
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Preview',
+                visualDensity: VisualDensity.compact,
+                iconSize: 18,
+                onPressed: onPreview,
+                icon: Icon(Icons.volume_up, color: colors.gray),
               ),
-            ),
-            if (canManage)
-              Positioned(
-                top: 0,
-                right: 0,
-                child: PopupMenuButton<String>(
+              Expanded(
+                child: Text(
+                  sound.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: enabled ? null : colors.gray,
+                  ),
+                ),
+              ),
+              if (canManage)
+                PopupMenuButton<String>(
                   iconSize: 16,
                   tooltip: 'Manage',
                   padding: EdgeInsets.zero,
@@ -342,9 +450,11 @@ class _SoundTile extends StatelessWidget {
                     PopupMenuItem(value: 'volume', child: Text('Volume')),
                     PopupMenuItem(value: 'delete', child: Text('Remove')),
                   ],
-                ),
-              ),
-          ],
+                )
+              else
+                const SizedBox(width: 8),
+            ],
+          ),
         ),
       ),
     );
