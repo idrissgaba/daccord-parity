@@ -73,3 +73,6 @@ store-media/ios-generator/out/
 
 # Isolated coordinated server sources/builds used by the experience CI gate.
 /.experience-fixture/
+
+# Discord reference screenshots (private: contain real account/friend data)
+docs/discord-ref/
