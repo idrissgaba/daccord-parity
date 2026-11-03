@@ -304,4 +304,4 @@ de l'app (`docs/discord-ref/app-*.jpg`, build web local, même viewport 1568×71
 | Date | Lot | Commit | Captures avant/après | Écarts restants | À confirmer |
 |---|---|---|---|---|---|
 | 2026-11-03 | Étape 0 — audit | (ce fichier) | — | tout | voir §1.1 |
-| 2026-11-03 | Lot D — partage d'écran / Live | (voir git log) | `desktop-stream-*` (11) / `app-stream-*` (8) | sélecteur desktop (capture Discord desktop à fournir), stream distant (second compte requis : spectateurs, Watch Stream, 2 streams) | §1.1 points 2, 4 (autre streamer), 5, 6 |
+| 2026-11-03 | Lot D — partage d'écran / Live | `a8c987b6` (serveur `ecdfa2c`) | `desktop-stream-*` (11) / `app-stream-*` (8) | sélecteur desktop (capture Discord desktop à fournir), stream distant (second compte requis : spectateurs, Watch Stream, 2 streams) | §1.1 points 2, 4 (autre streamer), 5, 6 |
