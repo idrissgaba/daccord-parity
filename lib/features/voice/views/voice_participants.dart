@@ -317,6 +317,8 @@ class _ParticipantRowState extends State<_ParticipantRow> {
           onExit: (_) => _leave(),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
+            // Double-clicking a live member watches their stream.
+            onDoubleTap: widget.isSelf ? null : widget.onWatchStream,
             onSecondaryTapUp: openVolume == null
                 ? null
                 : (d) => openVolume(d.globalPosition),
@@ -546,6 +548,27 @@ class _StreamCard extends StatelessWidget {
                 label: Text(isSelf ? "You're Streaming!" : 'Watch Stream'),
               ),
             ),
+            if (!isSelf) ...[
+              const SizedBox(height: 8),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'PROTIP: ',
+                      style: TextStyle(
+                        color: colors.green,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const TextSpan(text: 'Double click user to watch'),
+                  ],
+                ),
+                style: theme.textTheme.bodySmall!.copyWith(
+                  color: colors.gray,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ],
         ),
       ),

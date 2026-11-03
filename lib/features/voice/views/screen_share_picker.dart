@@ -1,19 +1,27 @@
 import 'dart:async';
 
+import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
-import 'package:bonfire/shared/components/dialog_title_bar.dart';
+import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/theme/theme.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:universal_platform/universal_platform.dart';
 
-/// Shows the desktop screen-share window: a first step picking an
+/// Lists the capturable sources of one kind; tests swap it for a fake since
+/// the desktop capturer only exists inside the native plugin.
+typedef ScreenShareSourceLoader =
+    Future<List<rtc.DesktopCapturerSource>> Function(rtc.SourceType type);
+
+/// Shows the desktop "Screen Share" window: a first step picking an
 /// application window or a screen (live thumbnails), then — unless
 /// [changing] an already live stream — the stream quality step ending in
-/// "Go Live". Returns the chosen source, or null if cancelled.
+/// "Go Live". [channelName] names the channel being streamed to. Returns the
+/// chosen source, or null if cancelled.
 ///
 /// Not LiveKit's bundled `ScreenSelectDialog`: it calls `setState` from
 /// flutter_webrtc's thumbnail stream without a `mounted` guard or cancelling on
@@ -21,11 +29,17 @@ import 'package:universal_platform/universal_platform.dart';
 Future<rtc.DesktopCapturerSource?> showScreenShareSourcePicker(
   BuildContext context, {
   bool changing = false,
+  String? channelName,
+  @visibleForTesting ScreenShareSourceLoader? sourceLoader,
 }) {
   return showDialog<rtc.DesktopCapturerSource>(
     context: context,
     barrierDismissible: true,
-    builder: (_) => _ScreenShareSourceDialog(changing: changing),
+    builder: (_) => ScreenShareDialog(
+      changing: changing,
+      channelName: channelName,
+      sourceLoader: sourceLoader,
+    ),
   );
 }
 
@@ -40,15 +54,18 @@ Future<void> toggleScreenShareWithPicker(
   WidgetRef ref,
 ) async {
   final notifier = ref.read(voiceControllerProvider.notifier);
-  final sharing = ref.read(voiceControllerProvider).selfStream;
+  final voice = ref.read(voiceControllerProvider);
 
-  if (sharing) {
+  if (voice.selfStream) {
     await notifier.toggleScreenShare();
     return;
   }
 
   if (UniversalPlatform.isDesktop) {
-    final source = await showScreenShareSourcePicker(context);
+    final source = await showScreenShareSourcePicker(
+      context,
+      channelName: _voiceChannelName(ref, voice),
+    );
     if (source == null) return; // cancelled
     await notifier.toggleScreenShare(sourceId: source.id);
   } else {
@@ -56,19 +73,40 @@ Future<void> toggleScreenShareWithPicker(
   }
 }
 
-class _ScreenShareSourceDialog extends StatefulWidget {
-  const _ScreenShareSourceDialog({required this.changing});
+String? _voiceChannelName(WidgetRef ref, VoiceConnection voice) {
+  final spaceId = voice.spaceId;
+  final serverKey = voice.serverKey ?? ref.readActiveServerKey();
+  if (spaceId == null || serverKey == null) return null;
+  return ref
+      .read(accordChannelsControllerProvider(serverKey, spaceId))
+      ?.firstWhereOrNull((c) => c.id == voice.channelId)
+      ?.name;
+}
+
+/// The desktop "Screen Share" window (see [showScreenShareSourcePicker]).
+class ScreenShareDialog extends StatefulWidget {
+  const ScreenShareDialog({
+    super.key,
+    this.changing = false,
+    this.channelName,
+    this.sourceLoader,
+  });
 
   /// Only the source is being changed: no quality step, the choice applies
   /// at once.
   final bool changing;
 
+  /// The voice channel streamed to, for the "Streaming channel" row.
+  final String? channelName;
+
+  /// Replaces the desktop capturer's source list (tests).
+  final ScreenShareSourceLoader? sourceLoader;
+
   @override
-  State<_ScreenShareSourceDialog> createState() =>
-      _ScreenShareSourceDialogState();
+  State<ScreenShareDialog> createState() => _ScreenShareDialogState();
 }
 
-class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
+class _ScreenShareDialogState extends State<ScreenShareDialog>
     with SingleTickerProviderStateMixin {
   // Applications first, screens second, as in other chat apps.
   late final TabController _tabs = TabController(length: 2, vsync: this)
@@ -88,24 +126,26 @@ class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
   void initState() {
     super.initState();
 
-    _subscriptions.add(
-      rtc.desktopCapturer.onAdded.stream.listen((source) {
-        if (!mounted) return;
-        setState(() => _sources[source.id] = source);
-      }),
-    );
-    _subscriptions.add(
-      rtc.desktopCapturer.onRemoved.stream.listen((source) {
-        if (!mounted) return;
-        setState(() => _sources.remove(source.id));
-      }),
-    );
-    _subscriptions.add(
-      rtc.desktopCapturer.onThumbnailChanged.stream.listen((_) {
-        if (!mounted) return;
-        setState(() {});
-      }),
-    );
+    if (widget.sourceLoader == null) {
+      _subscriptions.add(
+        rtc.desktopCapturer.onAdded.stream.listen((source) {
+          if (!mounted) return;
+          setState(() => _sources[source.id] = source);
+        }),
+      );
+      _subscriptions.add(
+        rtc.desktopCapturer.onRemoved.stream.listen((source) {
+          if (!mounted) return;
+          setState(() => _sources.remove(source.id));
+        }),
+      );
+      _subscriptions.add(
+        rtc.desktopCapturer.onThumbnailChanged.stream.listen((_) {
+          if (!mounted) return;
+          setState(() {});
+        }),
+      );
+    }
 
     _loadSources();
   }
@@ -133,15 +173,17 @@ class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
 
   Future<void> _loadSources() async {
     try {
-      final sources = await rtc.desktopCapturer.getSources(
-        types: [_sourceType],
-      );
+      final loader = widget.sourceLoader;
+      final sources = loader != null
+          ? await loader(_sourceType)
+          : await rtc.desktopCapturer.getSources(types: [_sourceType]);
       if (!mounted) return;
       setState(() {
         _sources
           ..clear()
           ..addEntries(sources.map((s) => MapEntry(s.id, s)));
       });
+      if (loader != null) return;
       _refreshTimer?.cancel();
       _refreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
         unawaited(rtc.desktopCapturer.updateSources(types: [_sourceType]));
@@ -172,11 +214,52 @@ class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
     final colors = BonfireThemeExtension.of(context);
     return Dialog(
       backgroundColor: colors.foreground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 600),
+        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
         child: _qualityStep ? _qualityPage(colors) : _sourcePage(colors),
       ),
+    );
+  }
+
+  Widget _header(BonfireThemeExtension colors, {String? subtitle}) {
+    final theme = Theme.of(context);
+    return Stack(
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, subtitle == null ? 16 : 8),
+          child: Column(
+            children: [
+              Text(
+                'Screen Share',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colors.dirtyWhite,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.gray,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Positioned(
+          right: 8,
+          top: 8,
+          child: IconButton(
+            tooltip: 'Close',
+            onPressed: _cancel,
+            icon: Icon(Icons.close, color: colors.gray),
+          ),
+        ),
+      ],
     );
   }
 
@@ -189,36 +272,48 @@ class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
-          child: DialogTitleBar(
-            widget.changing ? 'Change Stream' : 'Screen Share',
-            icon: Icons.screen_share_outlined,
-          ),
+        _header(
+          colors,
+          subtitle: widget.changing
+              ? 'Select something else to stream.'
+              : 'Select something to stream and have your friends grab a seat!',
         ),
-        TabBar(
-          controller: _tabs,
-          tabs: const [
-            Tab(text: 'Applications'),
-            Tab(text: 'Screens'),
-          ],
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TabBar(
+            controller: _tabs,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            dividerHeight: 0,
+            labelColor: colors.dirtyWhite,
+            unselectedLabelColor: colors.gray,
+            indicatorColor: colors.dirtyWhite,
+            tabs: const [
+              Tab(text: 'Applications'),
+              Tab(text: 'Screens'),
+            ],
+          ),
         ),
         Flexible(
           child: sources.isEmpty
-              ? Center(
-                  child: Text(
-                    'No sources available',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.gray,
+              ? SizedBox(
+                  height: 200,
+                  child: Center(
+                    child: Text(
+                      'No sources available',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.gray,
+                      ),
                     ),
                   ),
                 )
               : GridView.count(
-                  padding: const EdgeInsets.all(16),
-                  crossAxisCount: _sourceType == rtc.SourceType.Screen ? 2 : 3,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.4,
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.45,
                   children: [
                     for (final source in sources)
                       _SourceTile(
@@ -230,13 +325,17 @@ class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
                   ],
                 ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(onPressed: _cancel, child: const Text('Cancel')),
-            ],
+        _footer(
+          colors,
+          left: TextButton(
+            onPressed: _cancel,
+            style: TextButton.styleFrom(foregroundColor: colors.dirtyWhite),
+            child: const Text('Cancel'),
+          ),
+          right: FilledButton(
+            key: const Key('share-go-live'),
+            onPressed: _selectedSource == null ? null : _confirm,
+            child: const Text('Go Live'),
           ),
         ),
       ],
@@ -246,107 +345,167 @@ class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
   Widget _qualityPage(BonfireThemeExtension colors) {
     final theme = Theme.of(context);
     final source = _selectedSource!;
-    final thumbnail = source.thumbnail;
+    final label = theme.textTheme.labelSmall?.copyWith(
+      color: colors.gray,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.3,
+    );
+    final isScreen = source.type == rtc.SourceType.Screen;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 16, 12, 0),
-          child: DialogTitleBar(
-            'Screen Share',
-            icon: Icons.screen_share_outlined,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: SizedBox(
-                  width: 160,
-                  height: 90,
-                  child: ColoredBox(
-                    color: colors.background,
-                    child: thumbnail != null && thumbnail.isNotEmpty
-                        ? Image.memory(
-                            thumbnail,
-                            gaplessPlayback: true,
-                            fit: BoxFit.contain,
-                          )
-                        : const SizedBox.shrink(),
+        _header(colors),
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text("WHAT YOU'RE STREAMING", style: label),
+                const SizedBox(height: 8),
+                _Field(
+                  colors: colors,
+                  icon: isScreen
+                      ? Icons.desktop_windows_outlined
+                      : Icons.web_asset_outlined,
+                  text: source.name,
+                  trailing: TextButton(
+                    key: const Key('share-change-source'),
+                    onPressed: _back,
+                    style: TextButton.styleFrom(
+                      backgroundColor: colors.darkGray,
+                      foregroundColor: colors.dirtyWhite,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: const Text('Change'),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 8),
+                Row(
                   children: [
-                    Text(
-                      source.type == rtc.SourceType.Screen
-                          ? 'Screen'
-                          : 'Application',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.gray,
+                    Icon(Icons.info_outline, size: 16, color: colors.gray),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        // Desktop captures carry no sound (the share's audio
+                        // only exists in a browser).
+                        isScreen
+                            ? 'Sound may not be available when sharing a '
+                                  'screen on your device.'
+                            : 'Sound may not be available when sharing an '
+                                  'application on your device.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.gray,
+                        ),
                       ),
-                    ),
-                    Text(
-                      source.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.dirtyWhite,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    TextButton(
-                      key: const Key('share-change-source'),
-                      onPressed: _back,
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('Change'),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Text(
-            'STREAM QUALITY',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colors.gray,
-              fontWeight: FontWeight.w700,
+                if (widget.channelName != null) ...[
+                  const SizedBox(height: 20),
+                  Text('STREAMING CHANNEL', style: label),
+                  const SizedBox(height: 8),
+                  _Field(
+                    colors: colors,
+                    icon: Icons.volume_up,
+                    text: widget.channelName!,
+                  ),
+                ],
+                const SizedBox(height: 20),
+                Text('STREAM QUALITY', style: label),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: colors.background),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const ShareQualityRow(),
+                ),
+              ],
             ),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
-          child: ShareQualityRow(),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(onPressed: _cancel, child: const Text('Cancel')),
-              const SizedBox(width: 8),
-              FilledButton(
-                key: const Key('share-go-live'),
-                onPressed: _confirm,
-                child: const Text('Go Live'),
-              ),
-            ],
+        _footer(
+          colors,
+          left: TextButton(
+            onPressed: _back,
+            style: TextButton.styleFrom(
+              backgroundColor: colors.darkGray,
+              foregroundColor: colors.dirtyWhite,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+            ),
+            child: const Text('Back'),
+          ),
+          right: FilledButton(
+            key: const Key('share-go-live'),
+            onPressed: _confirm,
+            child: const Text('Go Live'),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _footer(
+    BonfireThemeExtension colors, {
+    required Widget left,
+    required Widget right,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [left, right],
+      ),
+    );
+  }
+}
+
+/// A read-only row of the quality step: icon, text and an optional button.
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.colors,
+    required this.icon,
+    required this.text,
+    this.trailing,
+  });
+
+  final BonfireThemeExtension colors;
+  final IconData icon;
+  final String text;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: colors.dirtyWhite),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: colors.dirtyWhite),
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
     );
   }
 }
@@ -371,25 +530,25 @@ class _SourceTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: colors.background,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            width: 2,
-            color: selected ? colors.primary : Colors.transparent,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: colors.background,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  width: 2,
+                  color: selected ? colors.primary : Colors.transparent,
+                ),
+              ),
               child: thumbnail != null && thumbnail.isNotEmpty
                   ? Image.memory(
                       thumbnail,
                       gaplessPlayback: true,
-                      fit: BoxFit.contain,
+                      fit: BoxFit.cover,
                     )
                   : const Center(
                       child: SizedBox(
@@ -399,26 +558,26 @@ class _SourceTile extends StatelessWidget {
                       ),
                     ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              source.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: selected ? colors.dirtyWhite : colors.gray,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            source.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.dirtyWhite,
+              fontWeight: FontWeight.w500,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
 /// Stream quality picked right before going live, as in other voice chat
-/// apps: resolution and frame rate (the same settings as Voice & Video).
+/// apps: a preset (smoother video or sharper text), then resolution and frame
+/// rate side by side (the same settings as Voice & Video).
 class ShareQualityRow extends ConsumerWidget {
   const ShareQualityRow({super.key});
 
@@ -427,49 +586,141 @@ class ShareQualityRow extends ConsumerWidget {
     final settings = ref.watch(settingsControllerProvider);
     final controller = ref.read(settingsControllerProvider.notifier);
     final colors = BonfireThemeExtension.of(context);
-    final label = Theme.of(
-      context,
-    ).textTheme.labelSmall?.copyWith(color: colors.gray);
-    return Wrap(
-      spacing: 16,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    final label = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: colors.gray,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.3,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('RESOLUTION', style: label),
-        SegmentedButton<int>(
-          key: const Key('share-quality'),
-          showSelectedIcon: false,
-          segments: [
-            for (
-              var i = 0;
-              i < AccordSettings.screenShareResolutionLabels.length;
-              i++
-            )
-              ButtonSegment(
-                value: i,
-                label: Text(
-                  AccordSettings.screenShareResolutionLabels[i]
-                      .split(' ')
-                      .first,
-                ),
+        Container(
+          decoration: BoxDecoration(
+            color: colors.background,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: DropdownButton<bool>(
+            key: const Key('share-preset'),
+            value: settings.screenShareMotionPriority,
+            isExpanded: true,
+            underline: const SizedBox.shrink(),
+            items: const [
+              DropdownMenuItem(value: true, child: Text('Smoother Video')),
+              DropdownMenuItem(
+                value: false,
+                child: Text('Better Text Readability'),
               ),
-          ],
-          selected: {settings.screenShareResolution},
-          onSelectionChanged: (v) =>
-              controller.setScreenShareResolution(v.first),
+            ],
+            onChanged: (v) {
+              if (v != null) controller.setScreenShareMotionPriority(v);
+            },
+          ),
         ),
-        Text('FRAME RATE', style: label),
-        SegmentedButton<int>(
-          key: const Key('share-fps'),
-          showSelectedIcon: false,
-          segments: [
-            for (final fps in AccordSettings.screenShareFpsOptions)
-              ButtonSegment(value: fps, label: Text('$fps')),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('RESOLUTION', style: label),
+                  const SizedBox(height: 6),
+                  _Segments<int>(
+                    key: const Key('share-quality'),
+                    values: [
+                      for (
+                        var i = 0;
+                        i < AccordSettings.screenShareResolutionLabels.length;
+                        i++
+                      )
+                        (
+                          i,
+                          AccordSettings.screenShareResolutionLabels[i]
+                              .replaceFirst('p', '')
+                              .toUpperCase(),
+                        ),
+                    ],
+                    selected: settings.screenShareResolution,
+                    onSelected: controller.setScreenShareResolution,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('FRAME RATE', style: label),
+                  const SizedBox(height: 6),
+                  _Segments<int>(
+                    key: const Key('share-fps'),
+                    values: [
+                      for (final fps in AccordSettings.screenShareFpsOptions)
+                        (fps, '$fps'),
+                    ],
+                    selected: settings.screenShareFps,
+                    onSelected: controller.setScreenShareFps,
+                  ),
+                ],
+              ),
+            ),
           ],
-          selected: {settings.screenShareFps},
-          onSelectionChanged: (v) => controller.setScreenShareFps(v.first),
         ),
       ],
+    );
+  }
+}
+
+/// A row of joined option buttons, the chosen one filled with the accent.
+class _Segments<T> extends StatelessWidget {
+  const _Segments({
+    super.key,
+    required this.values,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<(T, String)> values;
+  final T selected;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          for (final (value, text) in values)
+            Expanded(
+              child: InkWell(
+                onTap: () => onSelected(value),
+                child: Container(
+                  height: 32,
+                  alignment: Alignment.center,
+                  color: value == selected ? colors.primary : null,
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: value == selected
+                          ? Colors.white
+                          : colors.dirtyWhite,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

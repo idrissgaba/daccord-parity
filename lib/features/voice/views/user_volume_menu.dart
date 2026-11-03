@@ -31,12 +31,26 @@ Future<void> showUserVolumeMenu(
   String? channelId,
   bool showVolume = true,
   bool stream = false,
+  VoidCallback? onStopWatching,
+  VoidCallback? onPopOut,
 }) {
   final moderation = spaceId != null && channelId != null;
   final panel = Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
+      // A watched stream's menu opens with the way out, as in other chat
+      // apps: Stop Watching, then Mute and the Stream Volume slider.
+      if (onStopWatching != null)
+        ListTile(
+          key: const Key('stream-stop-watching'),
+          dense: true,
+          title: const Text('Stop Watching'),
+          onTap: () {
+            Navigator.of(context).pop();
+            onStopWatching();
+          },
+        ),
       if (showVolume)
         UserVolumePanel(
           serverKey: serverKey,
@@ -52,6 +66,16 @@ Future<void> showUserVolumeMenu(
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall,
           ),
+        ),
+      if (onPopOut != null)
+        ListTile(
+          key: const Key('stream-pop-out'),
+          dense: true,
+          title: const Text('Pop Out Stream'),
+          onTap: () {
+            Navigator.of(context).pop();
+            onPopOut();
+          },
         ),
       if (moderation)
         VoiceModerationPanel(
@@ -75,7 +99,11 @@ Future<void> showUserVolumeMenu(
       ),
       items: [
         _PanelMenuEntry(
-          height: (showVolume ? 200 : 48) + (moderation ? 200 : 0),
+          height:
+              (showVolume ? 200 : 48) +
+              (moderation ? 200 : 0) +
+              (onStopWatching != null ? 40 : 0) +
+              (onPopOut != null ? 40 : 0),
           child: panel,
         ),
       ],
@@ -162,7 +190,12 @@ class UserVolumePanel extends ConsumerWidget {
             title: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(stream ? 'Stream Volume' : 'User Volume'),
+                Flexible(
+                  child: Text(
+                    stream ? 'Stream Volume' : 'User Volume',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 Text(muted ? 'Muted' : '$shown%'),
               ],
             ),
@@ -179,7 +212,7 @@ class UserVolumePanel extends ConsumerWidget {
           ),
           CheckboxListTile(
             dense: true,
-            title: Text(stream ? 'Mute stream' : 'Mute for me'),
+            title: Text(stream ? 'Mute' : 'Mute for me'),
             value: muted,
             onChanged: (v) =>
                 controller.setUserLocallyMuted(serverKey, id, v ?? false),

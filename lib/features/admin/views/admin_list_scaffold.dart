@@ -50,10 +50,10 @@ class AdminListScaffold extends StatelessWidget {
           child: loading
               ? const LoadingView()
               : isEmpty
-                  ? Center(
-                      child: Text(emptyMessage,
-                          style: theme.textTheme.bodyMedium))
-                  : list,
+              ? Center(
+                  child: Text(emptyMessage, style: theme.textTheme.bodyMedium),
+                )
+              : list,
         ),
       ],
     );

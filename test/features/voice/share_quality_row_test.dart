@@ -34,14 +34,14 @@ void main() {
         ),
       ),
     );
-    for (final label in ['480p', '720p', '1080p']) {
+    for (final label in ['720', '1080', '1440', 'SOURCE']) {
       expect(find.text(label), findsOneWidget);
     }
-    await tester.tap(find.text('480p'));
+    await tester.tap(find.text('1440'));
     await tester.tap(find.text('30'));
     await tester.pump();
     final s = container.read(settingsControllerProvider);
-    expect(s.screenShareDimensions, (854, 480));
+    expect(s.screenShareDimensions, (2560, 1440));
     expect(s.screenShareFps, 30);
   });
 }

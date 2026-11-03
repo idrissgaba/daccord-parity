@@ -453,7 +453,7 @@ void main() {
       expect(s.videoResolution, 2);
       expect(s.videoFps, 30);
       expect(s.videoDimensions, (1920, 1080));
-      expect(s.screenShareDimensions, (1280, 720));
+      expect(s.screenShareDimensions, (1920, 1080));
       expect(s.screenShareFps, 60);
     });
   });

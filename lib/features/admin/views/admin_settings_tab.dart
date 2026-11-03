@@ -98,12 +98,14 @@ class _AdminSettingsTabState extends ConsumerState<AdminSettingsTab> {
       _tosText.text = d['tos_text']?.toString() ?? '';
       _tosUrl.text = d['tos_url']?.toString() ?? '';
       _tosVersion = asInt(d['tos_version'], 1);
-      _hasUploadBudgets = d.containsKey('upload_requests_per_minute') ||
+      _hasUploadBudgets =
+          d.containsKey('upload_requests_per_minute') ||
           d.containsKey('upload_bytes_per_minute');
       _uploadRequests.text = d['upload_requests_per_minute']?.toString() ?? '';
       final uploadBytes = asInt(d['upload_bytes_per_minute']);
-      _uploadMb.text =
-          uploadBytes > 0 ? formatUploadMbPerMinute(uploadBytes) : '';
+      _uploadMb.text = uploadBytes > 0
+          ? formatUploadMbPerMinute(uploadBytes)
+          : '';
     });
   }
 
@@ -124,15 +126,21 @@ class _AdminSettingsTabState extends ConsumerState<AdminSettingsTab> {
       uploadRequests = parseUploadRequestsPerMinute(_uploadRequests.text);
       uploadBytes = parseUploadMbPerMinute(_uploadMb.text);
       if (uploadRequests == null) {
-        setState(() => _error = 'Uploads per minute must be a whole number '
-            'from $kMinUploadRequestsPerMinute to '
-            '$kMaxUploadRequestsPerMinute.');
+        setState(
+          () => _error =
+              'Uploads per minute must be a whole number '
+              'from $kMinUploadRequestsPerMinute to '
+              '$kMaxUploadRequestsPerMinute.',
+        );
         return;
       }
       if (uploadBytes == null) {
-        setState(() => _error = 'Upload MB per minute must be more than 0 '
-            'and at most ${formatUploadMbPerMinute(kMaxUploadBytesPerMinute)} '
-            'MB (1 TiB).');
+        setState(
+          () => _error =
+              'Upload MB per minute must be more than 0 '
+              'and at most ${formatUploadMbPerMinute(kMaxUploadBytesPerMinute)} '
+              'MB (1 TiB).',
+        );
         return;
       }
     }
@@ -160,8 +168,7 @@ class _AdminSettingsTabState extends ConsumerState<AdminSettingsTab> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (!result.ok) {
-      setState(() =>
-          _error = result.errorOr('Failed to save settings'));
+      setState(() => _error = result.errorOr('Failed to save settings'));
       return;
     }
     showInfoSnack(context, 'Server settings saved');
@@ -205,7 +212,9 @@ class _AdminSettingsTabState extends ConsumerState<AdminSettingsTab> {
                 items: const [
                   DropdownMenuItem(value: 'open', child: Text('Open')),
                   DropdownMenuItem(
-                      value: 'invite_only', child: Text('Invite only')),
+                    value: 'invite_only',
+                    child: Text('Invite only'),
+                  ),
                   DropdownMenuItem(value: 'closed', child: Text('Closed')),
                 ],
                 onChanged: (v) => setState(() => _policy = v ?? _policy),
@@ -325,17 +334,17 @@ class _AdminSettingsTabState extends ConsumerState<AdminSettingsTab> {
                 onChanged: (v) => setState(() => _publicListing = v),
               ),
               const Divider(height: 24),
-              Text('Terms of Service',
-                  style: theme.textTheme.titleSmall),
+              Text('Terms of Service', style: theme.textTheme.titleSmall),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Require ToS acceptance during registration'),
                 value: _tosEnabled,
                 onChanged: (v) => setState(() => _tosEnabled = v),
               ),
-              Text('Current version: $_tosVersion',
-                  style: theme.textTheme.bodySmall!
-                      .copyWith(color: colors.gray)),
+              Text(
+                'Current version: $_tosVersion',
+                style: theme.textTheme.bodySmall!.copyWith(color: colors.gray),
+              ),
               const SizedBox(height: 12),
               _Label('ToS text (markdown)'),
               TextField(
@@ -399,10 +408,10 @@ class _Label extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 4),
       child: Text(
         text.toUpperCase(),
-        style: Theme.of(context)
-            .textTheme
-            .labelSmall!
-            .copyWith(color: colors.gray, letterSpacing: 0.6),
+        style: Theme.of(context).textTheme.labelSmall!.copyWith(
+          color: colors.gray,
+          letterSpacing: 0.6,
+        ),
       ),
     );
   }

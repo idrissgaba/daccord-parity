@@ -7,10 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('captureDownscale', () {
     test('fits a phone panel to the chosen resolution', () {
-      expect(
-        captureDownscale(sourceLongSide: 3200, targetLongSide: 1280),
-        2.5,
-      );
+      expect(captureDownscale(sourceLongSide: 3200, targetLongSide: 1280), 2.5);
     });
 
     test('never scales up or divides by zero', () {

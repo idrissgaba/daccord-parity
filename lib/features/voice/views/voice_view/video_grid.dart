@@ -228,32 +228,21 @@ class _ConnectedBody extends ConsumerWidget {
         );
       }
       if (!t.watching) return null;
-      final volume = volumeMenuFor(t);
-      return (position) => showAccordContextMenu(
+      // Stop Watching, Mute, Stream Volume (and Pop Out on the web), as in
+      // other chat apps.
+      return (position) => showUserVolumeMenu(
         context,
+        serverKey: serverKey ?? '',
+        userId: t.userId,
+        name: t.name,
         globalPosition: position,
-        title: "${t.name}'s stream",
-        entries: [
-          AccordMenuEntry(
-            label: 'Stop Watching',
-            icon: Icons.visibility_off_outlined,
-            onSelected: () => stopWatching(t),
-          ),
-          if (volume != null)
-            AccordMenuEntry(
-              label: 'Stream Volume',
-              icon: Icons.volume_up_outlined,
-              onSelected: () => volume(position),
-            ),
-          if (t.track != null && canPopOutStream) ...[
-            const AccordMenuEntry.divider(),
-            AccordMenuEntry(
-              label: 'Pop Out Stream',
-              icon: Icons.open_in_new,
-              onSelected: () => popOutStream(t.track!),
-            ),
-          ],
-        ],
+        spaceId: spaceId,
+        channelId: channelId,
+        stream: true,
+        onStopWatching: () => stopWatching(t),
+        onPopOut: t.track != null && canPopOutStream
+            ? () => popOutStream(t.track!)
+            : null,
       );
     }
 
@@ -500,7 +489,7 @@ class _StripChevron extends StatelessWidget {
     final colors = BonfireThemeExtension.of(context);
     return Center(
       child: Tooltip(
-        message: hidden ? 'Show participants' : 'Hide participants',
+        message: hidden ? 'Show Members' : 'Hide Members',
         child: Material(
           color: colors.background,
           borderRadius: BorderRadius.circular(16),

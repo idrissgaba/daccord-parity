@@ -415,8 +415,9 @@ class VoiceController extends _$VoiceController with _VoiceAfk, _PushToTalk {
       final started = await _session?.setScreenShareEnabled(
         true,
         sourceId: sourceId,
-        width: width,
-        height: height,
+        // "Source" keeps the capture's own size.
+        width: width == 0 ? null : width,
+        height: height == 0 ? null : height,
         fps: settings.screenShareFps,
         bitrate: settings.screenShareBitrate,
         motionPriority: settings.screenShareMotionPriority,
@@ -458,8 +459,8 @@ class VoiceController extends _$VoiceController with _VoiceAfk, _PushToTalk {
     final settings = ref.read(settingsControllerProvider);
     final (width, height) = settings.screenShareDimensions;
     await _session?.updateScreenShareQuality(
-      width: width,
-      height: height,
+      width: width == 0 ? null : width,
+      height: height == 0 ? null : height,
       fps: settings.screenShareFps,
       bitrate: settings.screenShareBitrate,
     );

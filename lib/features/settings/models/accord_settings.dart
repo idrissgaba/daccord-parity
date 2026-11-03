@@ -37,22 +37,25 @@ class AccordSettings {
   /// Selectable camera frame rates, matching `config_voice.gd` `FPS_OPTIONS`.
   static const List<int> videoFpsOptions = [15, 30, 60];
 
-  /// Screen-share capture resolution labels, indexed by [screenShareResolution].
-  /// 480p is there for weak uplinks; shared text is hard to read at it.
+  /// Screen-share resolution labels, indexed by [screenShareResolution]:
+  /// the same four steps other chat apps offer, "Source" being the capture's
+  /// native size.
   static const List<String> screenShareResolutionLabels = [
-    '480p',
     '720p',
     '1080p',
     '1440p',
-    '2160p (4K)',
+    'Source',
   ];
+
+  /// The [screenShareResolution] index that keeps the capture's native size.
+  static const int screenShareSourceResolution = 3;
 
   /// Selectable screen-share frame rates.
   static const List<int> screenShareFpsOptions = [15, 30, 60];
 
   /// Default screen-share resolution index (720p): roughly half the pixel rate
   /// of 1080p60, so most machines and links can sustain it at 60 fps.
-  static const int defaultScreenShareResolution = 1;
+  static const int defaultScreenShareResolution = 0;
 
   /// Default screen-share frame rate; see [screenShareFps].
   static const int defaultScreenShareFps = 60;
@@ -640,17 +643,15 @@ class AccordSettings {
   }
 
   /// Screen-share capture dimensions (width, height) for the selected
-  /// [screenShareResolution].
+  /// [screenShareResolution]; (0, 0) for "Source", the capture's own size.
   (int, int) get screenShareDimensions {
     switch (screenShareResolution) {
-      case 0:
-        return (854, 480);
-      case 2:
+      case 1:
         return (1920, 1080);
-      case 3:
+      case 2:
         return (2560, 1440);
-      case 4:
-        return (3840, 2160);
+      case screenShareSourceResolution:
+        return (0, 0);
       default:
         return (1280, 720);
     }
@@ -685,10 +686,9 @@ class AccordSettings {
   /// rates scale sub-linearly: less-correlated frames each cost more.
   int get screenShareBitrate {
     final base = switch (screenShareResolution) {
-      0 => 1500000, // 480p60
-      2 => 6000000, // 1080p60
-      3 => 9000000, // 1440p60
-      4 => 16000000, // 2160p60
+      1 => 6000000, // 1080p60
+      2 => 9000000, // 1440p60
+      screenShareSourceResolution => 12000000, // native size, 60 fps
       _ => 3000000, // 720p60
     };
     final scale = screenShareFps <= 15
@@ -733,7 +733,7 @@ class AccordSettings {
     'soundboardVolume': soundboardVolume,
     'videoResolution': videoResolution,
     'videoFps': videoFps,
-    'screenShareQuality': screenShareResolution,
+    'screenShareQuality2': screenShareResolution,
     'screenShareFps': screenShareFps,
     'screenShareMotionPriority': screenShareMotionPriority,
     'audioInputDeviceId': audioInputDeviceId,
@@ -959,9 +959,23 @@ class AccordSettings {
 /// with 480p at 0; the older `screenShareResolution` started at 720p, one step
 /// up. Out-of-range values are clamped; nothing saved gives the default.
 int _screenShareQualityFrom(Map json) {
-  final current = (json['screenShareQuality'] as num?)?.toInt();
-  final legacy = (json['screenShareResolution'] as num?)?.toInt();
-  final index = current ?? (legacy == null ? null : legacy + 1);
-  if (index == null) return AccordSettings.defaultScreenShareResolution;
-  return index.clamp(0, AccordSettings.screenShareResolutionLabels.length - 1);
+  final current = (json['screenShareQuality2'] as num?)?.toInt();
+  if (current != null) {
+    return current.clamp(
+      0,
+      AccordSettings.screenShareResolutionLabels.length - 1,
+    );
+  }
+  // Earlier installs stored a 480p/720p/1080p/1440p/2160p index
+  // (`screenShareQuality`), and before that one without 480p.
+  final five = (json['screenShareQuality'] as num?)?.toInt();
+  final four = (json['screenShareResolution'] as num?)?.toInt();
+  final old = five ?? (four == null ? null : four + 1);
+  if (old == null) return AccordSettings.defaultScreenShareResolution;
+  return switch (old) {
+    <= 1 => 0, // 480p, 720p → 720p
+    2 => 1, // 1080p
+    3 => 2, // 1440p
+    _ => AccordSettings.screenShareSourceResolution, // 2160p → Source
+  };
 }

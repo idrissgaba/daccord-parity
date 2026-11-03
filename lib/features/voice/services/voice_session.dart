@@ -542,9 +542,11 @@ class VoiceSession {
 
     final resolvedFps = fps ?? defaultScreenShareFps;
     final resolvedBitrate = bitrate ?? defaultScreenShareBitrate;
+    // No size = "Source": the capture keeps its own dimensions and the
+    // encoder gets a generous cap.
     final dimensions = (width != null && height != null)
         ? VideoDimensions(width, height)
-        : const VideoDimensions(1280, 720);
+        : const VideoDimensions(3840, 2160);
     final encoding = VideoEncoding(
       maxBitrate: resolvedBitrate,
       maxFramerate: resolvedFps,

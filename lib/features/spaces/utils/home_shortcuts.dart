@@ -242,16 +242,16 @@ String? physicalKeyName(int usbHidUsage) {
     0x57 => 'Numpad +',
     0x58 => 'Numpad Enter',
     0x63 => 'Numpad .',
-    _ => usage >= 0x59 && usage <= 0x62
-        ? 'Numpad ${usage == 0x62 ? 0 : usage - 0x58}'
-        : null,
+    _ =>
+      usage >= 0x59 && usage <= 0x62
+          ? 'Numpad ${usage == 0x62 ? 0 : usage - 0x58}'
+          : null,
   };
 }
 
 /// What the Keybinds page calls each action.
-String homeShortcutLabel(HomeShortcut shortcut) => homeShortcutBindings
-    .firstWhere((b) => b.shortcut == shortcut)
-    .label;
+String homeShortcutLabel(HomeShortcut shortcut) =>
+    homeShortcutBindings.firstWhere((b) => b.shortcut == shortcut).label;
 
 /// The built-in chord of [shortcut].
 HomeShortcutBinding defaultBindingFor(HomeShortcut shortcut) =>

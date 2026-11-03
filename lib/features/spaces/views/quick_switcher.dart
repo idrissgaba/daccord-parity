@@ -54,8 +54,7 @@ List<QuickSwitchEntry> filterQuickSwitchEntries(
     final name = entry.channelName.toLowerCase();
     if (name.startsWith(q)) {
       prefix.add(entry);
-    } else if (name.contains(q) ||
-        entry.spaceName.toLowerCase().contains(q)) {
+    } else if (name.contains(q) || entry.spaceName.toLowerCase().contains(q)) {
       contains.add(entry);
     }
   }
@@ -90,7 +89,9 @@ class _QuickSwitcherDialogState extends ConsumerState<_QuickSwitcherDialog> {
     return [
       for (final space in spaces)
         for (final channel
-            in ref.watch(accordChannelsControllerProvider(activeKey, space.id)) ??
+            in ref.watch(
+                  accordChannelsControllerProvider(activeKey, space.id),
+                ) ??
                 const <AccordChannel>[])
           if (channel.type != 'category')
             QuickSwitchEntry(
@@ -114,15 +115,15 @@ class _QuickSwitcherDialogState extends ConsumerState<_QuickSwitcherDialog> {
       return KeyEventResult.ignored;
     }
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.arrowUp) {
+    if (key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowUp) {
       if (_matches.isEmpty) return KeyEventResult.handled;
       final step = key == LogicalKeyboardKey.arrowDown ? 1 : -1;
-      setState(
-        () => _highlighted = (_highlighted + step) % _matches.length,
-      );
+      setState(() => _highlighted = (_highlighted + step) % _matches.length);
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
       if (event is KeyDownEvent && _matches.isNotEmpty) {
         _pick(_matches[_highlighted.clamp(0, _matches.length - 1)]);
       }
