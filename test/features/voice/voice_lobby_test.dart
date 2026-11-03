@@ -280,7 +280,10 @@ void main() {
     tester,
   ) async {
     addTearDown(() => voiceViewExpanded.value = false);
-    final voice = _RecordingVoiceController(const VoiceConnection());
+    // Full screen is a call control: it sits in the connected view's bar.
+    final voice = _RecordingVoiceController(
+      const VoiceConnection(channelId: 'c1', spaceId: 's1'),
+    );
     await tester.pumpWidget(_host(voice: voice, channelId: 'c1'));
     await tester.pump();
     final view = tester.element(find.byType(VoiceChannelView));

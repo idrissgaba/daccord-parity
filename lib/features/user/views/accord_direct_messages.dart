@@ -1,4 +1,5 @@
 import 'package:accordkit/accordkit.dart';
+import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/channels/controllers/read_state.dart';
 import 'package:bonfire/features/channels/utils/mark_channel_read.dart';
@@ -27,6 +28,7 @@ import 'package:bonfire/features/voice/views/voice_view.dart';
 import 'package:bonfire/features/spaces/utils/message_time.dart';
 import 'package:bonfire/features/spaces/views/accord_reports.dart';
 import 'package:bonfire/theme/theme.dart';
+import 'package:collection/collection.dart' show IterableExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,6 +91,43 @@ Future<void> showAccordDirectMessages(
     context: context,
     builder: (_) => _DirectMessagesDialog(initialChannel: initialChannel),
   );
+}
+
+/// Brings the DM conversation [channelId] on screen for its call: the call
+/// view lives above that conversation's messages. Nothing happens when the
+/// conversation is already the visible channel (no second dialog, and no
+/// second set of video renderers).
+Future<void> showAccordDmCall(
+  BuildContext context,
+  WidgetRef ref,
+  String channelId,
+) async {
+  final serverKey =
+      ref.read(voiceControllerProvider).serverKey ?? ref.readActiveServerKey();
+  if (serverKey == null) return;
+  if (accordVisibleChannel?.channelId == channelId) return;
+  final dmChannels = ref.read(dmChannelsControllerProvider(serverKey).notifier);
+  var channel = ref
+      .read(dmChannelsControllerProvider(serverKey))
+      ?.firstWhereOrNull((c) => c.id == channelId);
+  if (channel == null) {
+    // A first call from someone we never messaged: the conversation isn't
+    // cached yet. Fetch it, or open a bare one rather than no call view.
+    final client = ref
+        .read(accordAuthProvider.notifier)
+        .clientForKey(serverKey);
+    final data = client == null
+        ? null
+        : (await client.channels.fetch(channelId)).data;
+    if (data is AccordChannel) {
+      dmChannels.upsert(data);
+      channel = data;
+    } else {
+      channel = AccordChannel(id: channelId, type: 'dm');
+    }
+    if (!context.mounted) return;
+  }
+  await showAccordDirectMessages(context, initialChannel: channel);
 }
 
 /// Opens a cached 1:1 conversation with [userId], or creates one using a
@@ -414,15 +453,82 @@ class _DirectMessagesDialogState extends ConsumerState<_DirectMessagesDialog>
     final colors = BonfireThemeExtension.of(context);
     final theme = Theme.of(context);
     final openChannel = _openChannel;
-    final dialog = Dialog(
+    final voiceChannelId = ref.watch(
+      voiceControllerProvider.select((v) => v.channelId),
+    );
+    // Voice full screen on this conversation's call: the dialog itself grows
+    // to the window, keeping the conversation (and its video) in place.
+    final expanded = ValueListenableBuilder<bool>(
+      valueListenable: voiceViewExpanded,
+      builder: (context, expanded, _) => _dialog(
+        context,
+        colors,
+        theme,
+        openChannel,
+        expanded:
+            expanded && openChannel != null && openChannel.id == voiceChannelId,
+      ),
+    );
+    final inDmCall = ref.watch(
+      voiceControllerProvider.select(
+        (voice) => voice.isConnected && voice.spaceId == null,
+      ),
+    );
+    return Stack(
+      children: [
+        expanded,
+        // The home screen's PiP sits below this modal route. Host a DM-only
+        // copy here so leaving the call's conversation keeps a visible,
+        // interactive preview instead of hiding it behind the dialog.
+        // Space calls keep using the home overlay, whose channel opener can
+        // restore the correct space and tab.
+        if (inDmCall)
+          VoicePipOverlay(
+            shownChannelId: openChannel?.id,
+            onOpen: (_, _) {
+              // This overlay is only mounted for spaceless calls, which reopen
+              // through [onOpenDm].
+            },
+            onOpenDm: (channelId) {
+              final channel = ref
+                  .read(dmChannelsControllerProvider(_serverKey))
+                  ?.firstWhereOrNull((c) => c.id == channelId);
+              if (channel != null) setState(() => _openChannel = channel);
+            },
+          ),
+      ],
+    );
+  }
+
+  String get _serverKey =>
+      ref.read(voiceControllerProvider).serverKey ??
+      ref.readActiveServerKey() ??
+      '';
+
+  Widget _dialog(
+    BuildContext context,
+    BonfireThemeExtension colors,
+    ThemeData theme,
+    AccordChannel? openChannel, {
+    required bool expanded,
+  }) {
+    return Dialog(
       backgroundColor: colors.foreground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      insetPadding: expanded
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(expanded ? 0 : 12),
+      ),
       child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 900, maxHeight: 720),
+        constraints: expanded
+            ? const BoxConstraints.expand()
+            : dialogConstraints(context, maxWidth: 900, maxHeight: 720),
         child: openChannel != null
             ? _DmConversation(
                 channel: openChannel,
                 selfId: _selfId,
+                expanded: expanded,
                 onBack: () => setState(() => _openChannel = null),
               )
             : Column(
@@ -468,29 +574,6 @@ class _DirectMessagesDialogState extends ConsumerState<_DirectMessagesDialog>
                 ],
               ),
       ),
-    );
-    final inDmCall = ref.watch(
-      voiceControllerProvider.select(
-        (voice) => voice.isConnected && voice.spaceId == null,
-      ),
-    );
-    return Stack(
-      children: [
-        dialog,
-        // The home screen's PiP sits below this modal route. Host a DM-only
-        // copy here so minimizing the full-screen call returns to a visible,
-        // interactive preview instead of hiding it behind the conversation.
-        // Space calls keep using the home overlay, whose channel opener can
-        // restore the correct space and tab.
-        if (inDmCall)
-          VoicePipOverlay(
-            shownChannelId: null,
-            onOpen: (_, _) {
-              // This overlay is only mounted for spaceless calls, which reopen
-              // themselves without consulting the space-channel callback.
-            },
-          ),
-      ],
     );
   }
 }

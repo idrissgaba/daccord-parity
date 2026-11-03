@@ -397,6 +397,11 @@ void main() {
       expect(lastSent(conn)['data']['self_mute'], true);
       expect(lastSent(conn)['data']['self_deaf'], true);
 
+      socket.updateVoiceState('7', '5', streamWatching: '9');
+      expect(lastSent(conn)['data']['stream_watching'], '9');
+      socket.updateVoiceState('7', '5');
+      expect(lastSent(conn)['data']['stream_watching'], isNull);
+
       await socket.dispose();
     });
   });

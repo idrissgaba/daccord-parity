@@ -406,7 +406,11 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           tileRow,
-          VoiceParticipantList(channelId: channel.id, spaceId: widget.spaceId),
+          VoiceParticipantList(
+            channelId: channel.id,
+            spaceId: widget.spaceId,
+            onOpenChannel: widget.onTap,
+          ),
         ],
       ),
     );

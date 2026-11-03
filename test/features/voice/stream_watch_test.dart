@@ -8,6 +8,7 @@ import 'package:bonfire/features/voice/controllers/voice_states.dart';
 import 'package:bonfire/features/voice/services/voice_session.dart';
 import 'package:bonfire/features/voice/views/voice_view.dart';
 import 'package:bonfire/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -96,15 +97,16 @@ void main() {
     // Nothing is received by default: the tile only says they are live.
     expect(find.text('LIVE'), findsOneWidget);
     expect(find.byKey(const Key('watch-stream-u2')), findsOneWidget);
-    expect(find.byKey(const Key('stop-watching-u2')), findsNothing);
+    expect(find.byKey(const Key('stream-menu-u2')), findsNothing);
     expect(session.calls, isEmpty);
 
     await tester.tap(find.byKey(const Key('watch-stream-u2')));
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(session.calls, [('u2', true)]);
-    expect(find.text('LIVE'), findsNothing);
-    expect(find.byKey(const Key('stop-watching-u2')), findsOneWidget);
+    // Watched, the tile keeps its LIVE badge but no longer offers to watch.
+    expect(find.text('LIVE'), findsOneWidget);
+    expect(find.byKey(const Key('watch-stream-u2')), findsNothing);
 
     // The watched stream is spotlighted above the strip of other tiles; the
     // chevron folds the strip away so the stream has the whole body.
@@ -117,7 +119,22 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('voice-strip-hide')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('stop-watching-u2')));
+    // The stream's menu (hover "…", right-click, long-press) stops watching.
+    final tile = find.byKey(const Key('stream-menu-u2'));
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await gesture.moveTo(tester.getCenter(find.text('LIVE')));
+    await tester.pump();
+    expect(tile, findsOneWidget);
+    await tester.tap(tile);
+    // The tile also listens for double taps, so a tap resolves only after
+    // the double-tap window.
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('Stop Watching'), findsOneWidget);
+    await tester.tap(find.text('Stop Watching'));
+    await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(session.calls, [('u2', true), ('u2', false)]);

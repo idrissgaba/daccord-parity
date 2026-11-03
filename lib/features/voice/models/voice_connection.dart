@@ -26,6 +26,7 @@ class VoiceConnection {
     this.serverDeaf = false,
     this.suppressed = false,
     this.stage = false,
+    this.streamWatching,
   });
 
   final String? channelId;
@@ -69,6 +70,10 @@ class VoiceConnection {
   /// The channel is a stage.
   final bool stage;
 
+  /// The streamer whose screen share we watch, as reported to the server for
+  /// the stream's viewer count (null when we watch nobody).
+  final String? streamWatching;
+
   bool get isConnected => channelId != null;
 
   /// Whether the server carries our microphone right now.
@@ -100,6 +105,8 @@ class VoiceConnection {
     bool? serverDeaf,
     bool? suppressed,
     bool? stage,
+    String? streamWatching,
+    bool clearStreamWatching = false,
   }) {
     return VoiceConnection(
       channelId: channelId ?? this.channelId,
@@ -118,6 +125,9 @@ class VoiceConnection {
       serverDeaf: serverDeaf ?? this.serverDeaf,
       suppressed: suppressed ?? this.suppressed,
       stage: stage ?? this.stage,
+      streamWatching: clearStreamWatching
+          ? null
+          : (streamWatching ?? this.streamWatching),
     );
   }
 }

@@ -12,6 +12,7 @@ import 'package:bonfire/features/voice/services/voice_session.dart';
 import 'package:bonfire/features/voice/utils/audio_output_support.dart';
 import 'package:bonfire/features/voice/views/mic_level_meter.dart';
 import 'package:bonfire/features/voice/views/screen_share_picker.dart';
+import 'package:bonfire/features/voice/views/stream_menu.dart';
 import 'package:bonfire/features/voice/views/voice_connection_info.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:collection/collection.dart';
@@ -122,6 +123,16 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Live: a "Go Live" card above the connection row, with the
+            // button that ends the stream.
+            if (voice.selfStream) ...[
+              _GoLiveCard(
+                onStop: () => ref
+                    .read(voiceControllerProvider.notifier)
+                    .toggleScreenShare(),
+              ),
+              Divider(height: 9, thickness: 1, color: colors.background),
+            ],
             InkWell(
               onTap: widget.onTapStatus,
               child: Padding(
@@ -212,14 +223,27 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
                       ref.read(voiceControllerProvider.notifier).toggleVideo(),
                 ),
                 if (canShareScreen)
-                  _VoiceButton(
-                    icon: voice.selfStream
-                        ? Icons.stop_screen_share
-                        : Icons.screen_share,
-                    tooltip: voice.selfStream ? 'Stop sharing' : 'Screen share',
-                    active: voice.selfStream,
-                    activeColor: colors.green,
-                    onPressed: () => toggleScreenShareWithPicker(context, ref),
+                  Builder(
+                    builder: (context) => _VoiceButton(
+                      key: const Key('voice-bar-screen-share'),
+                      icon: voice.selfStream
+                          ? Icons.stop_screen_share
+                          : Icons.screen_share,
+                      tooltip: voice.selfStream
+                          ? 'Stream options'
+                          : 'Share Your Screen',
+                      active: voice.selfStream,
+                      activeColor: colors.green,
+                      // Live, the button opens the stream's menu (stop,
+                      // change source) instead of ending it outright.
+                      onPressed: voice.selfStream
+                          ? () => showStreamMenu(
+                              context,
+                              ref,
+                              globalPosition: menuAnchorOf(context),
+                            )
+                          : () => toggleScreenShareWithPicker(context, ref),
+                    ),
                   ),
                 if (canUseSoundboard && spaceId != null)
                   _VoiceButton(
@@ -345,6 +369,63 @@ class _PushToTalkButtonState extends State<_PushToTalkButton> {
   }
 }
 
+/// The card above the connection row while we stream: the stream icon, "Go
+/// Live", and the button that ends the stream.
+class _GoLiveCard extends StatelessWidget {
+  const _GoLiveCard({required this.onStop});
+
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Padding(
+      key: const Key('voice-bar-go-live'),
+      padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: colors.yellow,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.screen_share,
+              size: 18,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Go Live',
+              style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colors.dirtyWhite,
+              ),
+            ),
+          ),
+          IconButton(
+            key: const Key('voice-bar-stop-stream'),
+            tooltip: 'Stop Streaming',
+            onPressed: onStop,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(
+              Icons.stop_screen_share_outlined,
+              size: 18,
+              color: colors.gray,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _VoiceButton extends StatelessWidget {
   const _VoiceButton({
     super.key,
@@ -369,12 +450,16 @@ class _VoiceButton extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 2),
       child: Material(
-        color: active ? activeColor.withValues(alpha: 0.3) : Colors.transparent,
+        color: active ? activeColor : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         child: IconButton(
           tooltip: tooltip,
           onPressed: onPressed,
-          icon: Icon(icon, size: 18, color: iconColor ?? colors.dirtyWhite),
+          icon: Icon(
+            icon,
+            size: 18,
+            color: active ? Colors.white : (iconColor ?? colors.dirtyWhite),
+          ),
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),

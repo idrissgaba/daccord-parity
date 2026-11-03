@@ -20,6 +20,7 @@ import 'package:bonfire/shared/components/app_shell.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -258,8 +259,8 @@ final _decline = find.descendant(
 );
 
 void main() {
-  testWidgets('placing a DM call opens the themed call view over the '
-      'conversation, then returns to it on hang-up', (tester) async {
+  testWidgets('placing a DM call shows the call view above the conversation, '
+      'which stays on hang-up', (tester) async {
     final h = _Harness();
     await _openConversation(tester, h);
 
@@ -274,21 +275,21 @@ void main() {
     expect(
       Theme.of(tester.element(view)).extension<BonfireThemeExtension>(),
       isNotNull,
-      reason: 'the call view must be pushed inside the themed app',
+      reason: 'the call view must build inside the themed app',
     );
 
     // Joined, then rung — and the view reflects both.
     expect(h.requests, contains('POST /api/v1/channels/dm1/call/ring'));
     expect(find.text('Calling Alice…'), findsOneWidget);
     expect(_hangUp, findsOneWidget);
-    // Full-screen opens with the chat panel, which is the real message pane.
-    expect(find.byType(MessagePane), findsWidgets);
+    // The conversation's own messages stay under the call: one pane, the
+    // call view embedded above it rather than a second route.
+    expect(find.byType(MessagePane), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
 
     // Hanging up while still ringing cancels the call, and ending the call
-    // pops the view back to the conversation it was placed from.
+    // leaves the conversation it was placed from.
     await tester.tap(_hangUp);
-    // Once the call view has popped nothing is left animating, so the route's
-    // exit transition can be waited out rather than pumped by hand.
     await tester.pumpAndSettle();
     expect(h.requests, contains('POST /api/v1/channels/dm1/call/cancel'));
     expect(h.voice.leaves, 1);
@@ -322,53 +323,56 @@ void main() {
         );
     await _settle(tester);
 
-    // Both the dialog route and the call route are pages on the app's root
-    // navigator; the banner host sits above that navigator, so it is on top.
+    // The dialog route is a page on the app's root navigator; the banner host
+    // sits above that navigator, so it is on top.
     expect(_decline, findsOneWidget);
     expect(_decline.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the full-screen DM call view renders with its chat panel open', (
-    tester,
-  ) async {
-    // The second shape of the report: the view itself, presented full-screen
-    // for a DM (no space) — its chat panel builds a MessagePane with no
-    // channel object and no space, which must not be a problem.
+  testWidgets('opening the conversation of a call in progress embeds the call '
+      'view, and full screen grows it in place', (tester) async {
     final h = _Harness(
       voice: _StubVoice(
         initial: VoiceConnection(channelId: 'dm1', serverKey: _serverKey),
       ),
     );
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-    addTearDown(h.client.dispose);
-
-    await tester.pumpWidget(
-      h.app(
-        const Scaffold(
-          body: SafeArea(
-            child: VoiceChannelView(
-              channelId: 'dm1',
-              spaceId: null,
-              channelName: 'Alice',
-              fullScreen: true,
-            ),
-          ),
-        ),
-      ),
-    );
+    addTearDown(() => voiceViewExpanded.value = false);
+    await _openConversation(tester, h);
     await _settle(tester);
 
     expect(tester.takeException(), isNull);
+    final view = find.byType(VoiceChannelView);
+    expect(view, findsOneWidget);
+    expect(tester.widget<VoiceChannelView>(view).embedded, isTrue);
     expect(find.byType(MessagePane), findsOneWidget);
-    expect(find.byTooltip('Close chat'), findsOneWidget);
     expect(_hangUp, findsOneWidget);
     // Connected but not ringing: no "Calling…" banner.
     expect(find.textContaining('Calling'), findsNothing);
     // Both participants have a tile.
     expect(find.text('Alice'), findsWidgets);
+    // The embedded view has no header or chat panel of its own: the
+    // conversation around it is the chat.
+    expect(find.byTooltip('Show chat'), findsNothing);
+    expect(find.byTooltip('Hide chat'), findsNothing);
+
+    // Full screen: the same element fills the dialog, messages hidden.
+    final element = tester.element(view);
+    await tester.tap(find.byKey(const Key('voice-full-screen')));
+    await _settle(tester);
+    expect(voiceViewExpanded.value, isTrue);
+    expect(find.byType(VoiceChannelView), findsOneWidget);
+    expect(tester.element(find.byType(VoiceChannelView)), same(element));
+    expect(find.byType(MessagePane), findsNothing);
+    final size = tester.getSize(find.byType(VoiceChannelView));
+    expect(size.width, 1200);
+    expect(size.height, 800);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await _settle(tester);
+    expect(voiceViewExpanded.value, isFalse);
+    expect(find.byType(MessagePane), findsOneWidget);
+    expect(tester.element(find.byType(VoiceChannelView)), same(element));
   });
 
   testWidgets('a rejected voice join is reported on the conversation and '

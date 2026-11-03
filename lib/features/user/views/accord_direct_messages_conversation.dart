@@ -5,11 +5,16 @@ class _DmConversation extends ConsumerStatefulWidget {
     required this.channel,
     required this.selfId,
     required this.onBack,
+    this.expanded = false,
   });
 
   final AccordChannel channel;
   final String? selfId;
   final VoidCallback onBack;
+
+  /// The dialog is in voice full screen: a call on this conversation fills
+  /// it, messages hidden.
+  final bool expanded;
 
   @override
   ConsumerState<_DmConversation> createState() => _DmConversationState();
@@ -19,6 +24,11 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
   late AccordChannel _channel = widget.channel;
   late final String _serverKey = ref.readActiveServerKey() ?? '';
   ServerChannelKey? _previousVisibleChannel;
+
+  /// The call view keeps its element (and video renderers) when it moves
+  /// between the top of the conversation and the whole dialog in full
+  /// screen: rebuilding a renderer mid-call crashes the engine on Windows.
+  final _callKey = GlobalKey();
 
   @override
   void initState() {
@@ -186,12 +196,10 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
     );
   }
 
-  /// Places an outgoing DM call: rings the other participant(s) and opens the
-  /// full-screen call view. The callee gets a `call.ring` and can accept/decline.
+  /// Places an outgoing DM call: rings the other participant(s). The call
+  /// view then appears above the messages (see [build]); the callee gets a
+  /// `call.ring` and can accept/decline.
   Future<void> _startCall({required bool video}) async {
-    // The app's root navigator is go_router's (see `buildAppShell`): the call
-    // view goes above this dialog, under the incoming-call banner host.
-    final navigator = Navigator.of(context, rootNavigator: true);
     await ref
         .read(callControllerProvider.notifier)
         .startCall(_channel, video: video);
@@ -202,14 +210,7 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
     if (ref.read(voiceControllerProvider).channelId != _channel.id) {
       final error = ref.read(voiceControllerProvider).error;
       if (error != null) showInfoSnack(context, error);
-      return;
     }
-    await showFullScreenVoice(
-      navigator.context,
-      channelId: _channel.id,
-      spaceId: null,
-      channelName: _channelTitle(_channel, widget.selfId),
-    );
   }
 
   void _showMembers() {
@@ -256,11 +257,44 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
     final directUser = group || others.isEmpty ? null : others.first;
     final title = _channelTitle(_channel, widget.selfId);
     final origin = _dmRemoteOrigin(_channel, widget.selfId);
+    // In a call on this conversation the call view sits above the messages;
+    // full screen, it is the whole conversation.
+    final inCall = ref.watch(
+      voiceControllerProvider.select((v) => v.channelId == _channel.id),
+    );
+    final callView = !inCall
+        ? null
+        : VoiceChannelView(
+            key: _callKey,
+            channelId: _channel.id,
+            spaceId: null,
+            channelName: title,
+            embedded: true,
+          );
+    if (callView != null && widget.expanded) {
+      // Esc leaves full screen; the dialog route must not also take it as
+      // "dismiss" (the hardware-keyboard handler in the voice view runs, but
+      // the focus tree still receives the key).
+      return Focus(
+        autofocus: true,
+        skipTraversal: true,
+        onKeyEvent: (node, event) {
+          if (event is! KeyDownEvent ||
+              event.logicalKey != LogicalKeyboardKey.escape) {
+            return KeyEventResult.ignored;
+          }
+          setVoiceViewExpanded(false);
+          return KeyEventResult.handled;
+        },
+        child: callView,
+      );
+    }
     return MessagePane(
       channel: _channel,
       channelId: _channel.id,
       spaceId: null,
       composerTitle: title,
+      topPanel: callView,
       canManageMessagesOverride: true,
       headerLeading: Row(
         mainAxisSize: MainAxisSize.min,

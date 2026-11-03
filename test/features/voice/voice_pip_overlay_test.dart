@@ -72,6 +72,7 @@ Widget _host({
   bool hasVideo = true,
   List<AccordChannel>? dms,
   void Function(String channelId, String spaceId)? onOpen,
+  void Function(String channelId)? onOpenDm,
 }) {
   return ProviderScope(
     overrides: [
@@ -90,6 +91,7 @@ Widget _host({
             VoicePipOverlay(
               shownChannelId: shownChannelId,
               onOpen: onOpen ?? (_, _) {},
+              onOpenDm: onOpenDm,
               // A real LiveKit VideoTrack can't be built off-device; this
               // stands in for the track preview.
               previewBuilder: () =>
@@ -169,10 +171,11 @@ void main() {
     expect(find.byType(VoicePipOverlay), findsNothing);
   });
 
-  testWidgets('tapping a DM call PiP reopens the full-screen call view', (
+  testWidgets('tapping a DM call PiP reopens the DM conversation', (
     tester,
   ) async {
     final voice = _StubVoiceController(const VoiceConnection(channelId: 'dm1'));
+    final opened = <String>[];
     await tester.pumpWidget(
       _host(
         voice: voice,
@@ -181,43 +184,47 @@ void main() {
         // The space channel opener can't resolve a DM channel, so it must not
         // be the route back into the call.
         onOpen: (_, _) => fail('a DM call must not route through _openChannel'),
+        onOpenDm: opened.add,
       ),
     );
     await tester.pump();
 
     await tester.tap(_pip);
-    // Not pumpAndSettle: the pushed call view holds a progress indicator that
-    // never settles. Two pumps finish the route transition.
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
 
-    final view = tester.widget<VoiceChannelView>(find.byType(VoiceChannelView));
-    expect(view.channelId, 'dm1');
-    expect(view.spaceId, isNull);
-    // Titled from the DM's recipients, since a 1:1 DM has no channel name.
-    expect(view.channelName, 'Alice');
-    expect(view.fullScreen, isTrue);
+    // The call view lives above that conversation's messages; there is no
+    // separate call route to push.
+    expect(opened, ['dm1']);
+    expect(find.byType(VoiceChannelView), findsNothing);
   });
 
-  testWidgets('a group DM PiP reopens under the group name', (tester) async {
-    final voice = _StubVoiceController(const VoiceConnection(channelId: 'g1'));
-    await tester.pumpWidget(
-      _host(
-        voice: voice,
-        shownChannelId: 'other',
-        dms: [AccordChannel(id: 'g1', type: 'group_dm', name: 'Book club')],
-      ),
-    );
-    await tester.pump();
+  testWidgets('the DM dialog reopens the call conversation from its PiP', (
+    tester,
+  ) async {
+    final voice = _StubVoiceController(const VoiceConnection(channelId: 'dm1'));
+    await tester.pumpWidget(_dialogHost(voice: voice));
 
-    await tester.tap(_pip);
-    // Not pumpAndSettle: the pushed call view holds a progress indicator that
-    // never settles. Two pumps finish the route transition.
+    await tester.tap(find.text('Open DM'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    // On the list, the call is off screen: the PiP shows.
+    expect(find.byType(VoicePipOverlay), findsOneWidget);
+    expect(find.byType(VoiceChannelView), findsNothing);
 
-    final view = tester.widget<VoiceChannelView>(find.byType(VoiceChannelView));
-    expect(view.channelName, 'Book club');
+    // The dialog's own PiP opens the conversation, with the call embedded
+    // above its messages, and the PiP hides. (No LiveKit track off-device, so
+    // the PiP has nothing to draw: drive its callback directly.)
+    tester.widget<VoicePipOverlay>(find.byType(VoicePipOverlay)).onOpenDm!(
+      'dm1',
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(VoiceChannelView), findsOneWidget);
+    expect(
+      tester.widget<VoiceChannelView>(find.byType(VoiceChannelView)).embedded,
+      isTrue,
+    );
+    expect(_pip, findsNothing);
   });
 
   testWidgets('an audio-only DM call shows no PiP', (tester) async {

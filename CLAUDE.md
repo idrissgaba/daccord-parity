@@ -224,6 +224,15 @@ The web composer leaves paste shortcuts to the browser editor; native clients
 retain image and large-text clipboard handling. `voiceRelayOnly` is an opt-in
 persisted setting passed to LiveKit on initial connection and every reconnect;
 it requires TURN support and never falls back to direct candidates on failure.
+Screen share (lot D of `DISCORD_PARITY.md`): the LiveKit room joins with
+`autoSubscribe: false` — voice and cameras are subscribed as they are
+published, a peer's stream only on "Watch Stream" — and `dynacast`; the
+share's source and quality change live via `VoiceSession.changeScreenShareSource`
+/ `updateScreenShareQuality` (no republish). The voice state carries
+`stream_watching` (server + SDK) for viewer counts. There is one full-screen
+mechanism, `voiceViewExpanded` (in place); DM calls render inside the
+conversation through `MessagePane.topPanel`. Pop-out exists only on the web
+(native Picture-in-Picture, `voice/services/stream_popout.dart`).
 
 MCP's optional `space_management` group provides create/update space and
 create/update/delete/reorder channel tools. Its schemas and validated handlers

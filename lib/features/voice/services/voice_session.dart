@@ -81,10 +81,18 @@ class VoiceSession {
   /// Fires when a peer starts ([started]) or stops sharing their screen.
   void Function(String userId, {required bool started})? onRemoteStreamChanged;
 
-  /// Peers whose screen share we chose to watch. Every other share stays
-  /// unsubscribed — a tile says they are live, nothing downloads — the way
-  /// other chat apps leave a stream alone until you click "Watch".
-  final Set<String> _watchedStreams = {};
+  /// Peers whose screen share we chose to watch, oldest first. Every other
+  /// share stays unsubscribed — a tile says they are live, nothing downloads —
+  /// the way other chat apps leave a stream alone until you click "Watch".
+  /// The room joins with `autoSubscribe: false`; microphones and cameras are
+  /// subscribed as they are published (see [_wireListener]), screen shares
+  /// only here.
+  final List<String> _watchedStreams = [];
+
+  /// The streamer we watched most recently and still watch, or null: what we
+  /// report to the server as `stream_watching` for the viewer count.
+  String? get watchingStreamOf =>
+      _watchedStreams.isEmpty ? null : _watchedStreams.last;
 
   /// Fires when the session transitions to a new lifecycle [state].
   void Function(VoiceSessionState state)? onStateChanged;
@@ -119,6 +127,17 @@ class VoiceSession {
   VideoTrack? remoteScreenTrack(String userId) =>
       _videoTrackOf(_remoteByIdentity(userId), TrackSource.screenShareVideo);
 
+  /// The published size of [userId]'s screen share (reported by its
+  /// publisher), or null when they aren't sharing or it isn't known yet.
+  VideoDimensions? remoteScreenDimensions(String userId) {
+    final participant = _remoteByIdentity(userId);
+    if (participant == null) return null;
+    for (final pub in participant.videoTrackPublications) {
+      if (pub.source == TrackSource.screenShareVideo) return pub.dimensions;
+    }
+    return null;
+  }
+
   /// Whether [userId] has a screen share published, watched or not.
   bool remoteIsStreaming(String userId) =>
       _remoteByIdentity(userId)?.videoTrackPublications.any(
@@ -130,11 +149,8 @@ class VoiceSession {
 
   /// Starts or stops receiving [userId]'s screen share (video and its audio).
   Future<void> setWatchingStream(String userId, bool watch) async {
-    if (watch) {
-      _watchedStreams.add(userId);
-    } else {
-      _watchedStreams.remove(userId);
-    }
+    _watchedStreams.remove(userId);
+    if (watch) _watchedStreams.add(userId);
     final participant = _remoteByIdentity(userId);
     if (participant is RemoteParticipant) {
       for (final pub in participant.trackPublications.values) {
@@ -152,18 +168,16 @@ class VoiceSession {
       pub.source == TrackSource.screenShareVideo ||
       pub.source == TrackSource.screenShareAudio;
 
-  /// The room subscribes to everything it is offered; a screen share we did
-  /// not ask to watch is dropped again as soon as it shows up.
-  void _dropUnwatchedStream(
-    RemoteParticipant participant,
-    TrackPublication pub,
-  ) {
-    if (!_isScreenShare(pub) ||
-        _watchedStreams.contains(participant.identity)) {
+  /// A remote publication appeared (a new track, or a participant's existing
+  /// tracks on join/reconnect). Voice and camera are always wanted; a screen
+  /// share only once we chose to watch it.
+  void _subscribeWanted(RemoteParticipant participant, TrackPublication pub) {
+    if (_isScreenShare(pub) &&
+        !_watchedStreams.contains(participant.identity)) {
       return;
     }
-    if (pub is RemoteTrackPublication) {
-      unawaited(_guardMedia('unwatched stream', pub.unsubscribe));
+    if (pub is RemoteTrackPublication && !pub.subscribed) {
+      unawaited(_guardMedia('subscribe', pub.subscribe));
     }
   }
 
@@ -359,7 +373,9 @@ class VoiceSession {
   Room _ensureRoom() {
     var room = _room;
     if (room != null) return room;
-    room = Room();
+    // Dynacast lets the SFU pause a video layer nobody receives, so a stream
+    // with no viewer yet costs its publisher no uplink.
+    room = Room(roomOptions: const RoomOptions(dynacast: true));
     _room = room;
     room.addListener(_onRoomChanged);
     final listener = room.createListener();
@@ -656,6 +672,91 @@ class VoiceSession {
     }
   }
 
+  /// Our published screen-share track, or null when not sharing.
+  LocalVideoTrack? get _localScreenTrack {
+    final track = _room?.localParticipant
+        ?.getTrackPublicationBySource(TrackSource.screenShareVideo)
+        ?.track;
+    return track is LocalVideoTrack ? track : null;
+  }
+
+  /// Points the live screen share at another screen or window ([sourceId];
+  /// null lets the platform prompt again, as on web) without unpublishing:
+  /// the sender's track is replaced, so viewers keep watching and nobody
+  /// hears a stream end. Returns false when the capture could not start (the
+  /// prompt was cancelled); the old capture then keeps streaming.
+  Future<bool> changeScreenShareSource(String? sourceId) async {
+    final track = _localScreenTrack;
+    final options = track?.currentOptions;
+    if (track == null || options is! ScreenShareCaptureOptions) return false;
+    final next = ScreenShareCaptureOptions(
+      sourceId: (sourceId != null && sourceId.isNotEmpty) ? sourceId : null,
+      maxFrameRate: options.maxFrameRate,
+      params: options.params,
+      captureScreenAudio: options.captureScreenAudio,
+    );
+    return _restartScreenShare(track, next);
+  }
+
+  /// Re-encodes the live screen share at a new size, frame rate and bitrate
+  /// without unpublishing it (same source, viewers stay attached). A null
+  /// size keeps the capture's native resolution.
+  Future<bool> updateScreenShareQuality({
+    required int? width,
+    required int? height,
+    required int fps,
+    required int bitrate,
+  }) async {
+    final track = _localScreenTrack;
+    final options = track?.currentOptions;
+    if (track == null || options is! ScreenShareCaptureOptions) return false;
+    final next = ScreenShareCaptureOptions(
+      sourceId: options.deviceId,
+      maxFrameRate: fps.toDouble(),
+      params: VideoParameters(
+        dimensions: width != null && height != null
+            ? VideoDimensions(width, height)
+            : options.params.dimensions,
+        encoding: VideoEncoding(maxBitrate: bitrate, maxFramerate: fps),
+      ),
+      captureScreenAudio: options.captureScreenAudio,
+    );
+    if (!await _restartScreenShare(track, next)) return false;
+    // The restart changes the capture; the sender's encoding cap is set
+    // separately and would otherwise keep the old bitrate and frame rate.
+    final sender = track.sender;
+    if (sender == null) return true;
+    final params = sender.parameters;
+    final encodings = params.encodings;
+    if (encodings == null || encodings.isEmpty) return true;
+    for (final e in encodings) {
+      e.maxBitrate = bitrate;
+      e.maxFramerate = fps;
+    }
+    await _guardMedia(
+      'screen share encoding',
+      () => sender.setParameters(params),
+    );
+    return true;
+  }
+
+  /// Restarts [track] with [options] on the same sender. A failed capture
+  /// (cancelled prompt) is reported as false; the previous frames resume.
+  Future<bool> _restartScreenShare(
+    LocalVideoTrack track,
+    ScreenShareCaptureOptions options,
+  ) async {
+    final ok = await _guardMedia(
+      'change screen share',
+      () => track.restartTrack(options),
+    );
+    if (ok) {
+      await _fitAndroidCapture(track, options.params.dimensions);
+      onTracksChanged?.call();
+    }
+    return ok;
+  }
+
   /// Switches the active microphone to [deviceId] (empty = system default),
   /// republishing the mic track so it takes effect mid-call.
   Future<void> setAudioInputDevice(String deviceId) async {
@@ -936,7 +1037,6 @@ class VoiceSession {
   void _wireListener(EventsListener<RoomEvent> listener) {
     listener
       ..on<TrackSubscribedEvent>((e) async {
-        _dropUnwatchedStream(e.participant, e.publication);
         if (e.publication.kind == TrackType.AUDIO) {
           // Keep new remote audio muted while deafened, else apply our gain.
           if (_deafened) {
@@ -960,7 +1060,7 @@ class VoiceSession {
       ..on<TrackMutedEvent>((_) => onTracksChanged?.call())
       ..on<TrackUnmutedEvent>((_) => onTracksChanged?.call())
       ..on<TrackPublishedEvent>((e) {
-        _dropUnwatchedStream(e.participant, e.publication);
+        _subscribeWanted(e.participant, e.publication);
         if (e.publication.source == TrackSource.screenShareVideo) {
           onRemoteStreamChanged?.call(e.participant.identity, started: true);
         }
@@ -1026,7 +1126,13 @@ class VoiceSession {
 }
 
 /// Keep the policy explicit on every initial connection and reconnect.
+///
+/// Nothing is subscribed automatically: the session picks what it receives
+/// (voice and cameras at once, a screen share only when watched), so a stream
+/// nobody clicked never downloads — not even for the instant it used to take
+/// to unsubscribe it again.
 ConnectOptions voiceConnectOptions(bool relayOnly) => ConnectOptions(
+  autoSubscribe: false,
   rtcConfiguration: RTCConfiguration(
     iceTransportPolicy: relayOnly
         ? RTCIceTransportPolicy.relay

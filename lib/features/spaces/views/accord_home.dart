@@ -693,6 +693,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
       onOpen: (channelId, spaceId) async {
         await _openChannel(channelId, spaceId: spaceId);
       },
+      onOpenDm: (channelId) => showAccordDmCall(context, ref, channelId),
     );
 
     final hasMembers = effectiveSpaceId != null;

@@ -413,6 +413,18 @@ void main() {
       expect(v.channelId, isNull);
       expect(v.toJson().containsKey('channel_id'), isFalse);
     });
+
+    test('stream_watching round-trips and stays absent when unset', () {
+      final v = AccordVoiceState.fromJson({'user_id': '1'});
+      expect(v.streamWatching, isNull);
+      expect(v.toJson().containsKey('stream_watching'), isFalse);
+      final w = AccordVoiceState.fromJson({
+        'user_id': '1',
+        'stream_watching': 42,
+      });
+      expect(w.streamWatching, '42');
+      expect(w.toJson()['stream_watching'], '42');
+    });
   });
 
   group('AccordRelationship', () {

@@ -435,14 +435,51 @@ class VoiceController extends _$VoiceController with _VoiceAfk, _PushToTalk {
   bool isWatchingStream(String userId) =>
       _session?.isWatchingStream(userId) ?? false;
 
-  /// Starts or stops receiving [userId]'s screen share.
+  /// Starts or stops receiving [userId]'s screen share, and tells the server
+  /// whose stream we watch so its viewer count follows.
   Future<void> setWatchingStream(String userId, bool watch) async {
-    await _session?.setWatchingStream(userId, watch);
+    final session = _session;
+    if (session == null) return;
+    await session.setWatchingStream(userId, watch);
+    _syncStreamWatching();
+  }
+
+  /// Points the live screen share at another screen or window without ending
+  /// it ([sourceId] from the desktop picker; null re-prompts on web).
+  Future<void> changeScreenShareSource(String? sourceId) async {
+    if (!state.selfStream) return;
+    await _session?.changeScreenShareSource(sourceId);
+  }
+
+  /// Re-encodes the live screen share with the current screen-share settings
+  /// (resolution, frame rate, bitrate) without ending it.
+  Future<void> applyScreenShareQuality() async {
+    if (!state.selfStream) return;
+    final settings = ref.read(settingsControllerProvider);
+    final (width, height) = settings.screenShareDimensions;
+    await _session?.updateScreenShareQuality(
+      width: width,
+      height: height,
+      fps: settings.screenShareFps,
+      bitrate: settings.screenShareBitrate,
+    );
+  }
+
+  /// Publishes which stream we watch (the most recent one still watched).
+  void _syncStreamWatching() {
+    final watching = _session?.watchingStreamOf;
+    if (watching == state.streamWatching) return;
+    state = watching == null
+        ? state.copyWith(clearStreamWatching: true)
+        : state.copyWith(streamWatching: watching);
+    _sendVoiceStateUpdate();
   }
 
   /// A peer in our channel went live or ended their stream.
   void _onRemoteStreamChanged(String userId, {required bool started}) {
     soundManager.play(started ? 'stream_start' : 'stream_stop');
+    // A stream that ended is no longer watched; stop counting as its viewer.
+    if (!started) _syncStreamWatching();
   }
 
   /// Fresh LiveKit credentials arrived over the gateway. Reconnects only when
@@ -477,9 +514,11 @@ class VoiceController extends _$VoiceController with _VoiceAfk, _PushToTalk {
       channelId: info.channelId,
       spaceId: info.spaceId.isEmpty ? null : info.spaceId,
       sessionState: VoiceSessionState.connecting,
-      // Camera and screen share don't follow us into the new room.
+      // Camera, screen share and the stream we watched don't follow us into
+      // the new room.
       selfVideo: false,
       selfStream: false,
+      clearStreamWatching: true,
       serverMute: flags?.mute ?? false,
       serverDeaf: flags?.deaf ?? false,
       suppressed: flags?.suppress ?? false,
@@ -707,6 +746,7 @@ class VoiceController extends _$VoiceController with _VoiceAfk, _PushToTalk {
       selfDeaf: state.selfDeaf,
       selfVideo: state.selfVideo,
       selfStream: state.selfStream,
+      streamWatching: state.streamWatching,
     );
   }
 }

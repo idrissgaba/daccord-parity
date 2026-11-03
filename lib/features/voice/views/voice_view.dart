@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'dart:math' as math;
 
 import 'package:accordkit/accordkit.dart'
     show AccordMember, AccordUser, AccordVoiceState;
@@ -18,10 +19,15 @@ import 'package:bonfire/features/voice/views/voice_moderation_menu.dart';
 import 'package:bonfire/features/voice/views/stage_view.dart';
 import 'package:bonfire/features/voice/utils/stage_logic.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
+import 'package:bonfire/features/voice/services/stream_popout.dart';
 import 'package:bonfire/features/voice/views/screen_share_picker.dart';
+import 'package:bonfire/features/voice/views/stream_menu.dart';
 import 'package:bonfire/features/voice/views/voice_settings_screen.dart';
 import 'package:bonfire/features/voice/views/voice_text_panel.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/shared/components/horizontal_wheel_scroll.dart';
+import 'package:bonfire/shared/utils/platform.dart';
+import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:bonfire/features/member/views/accord_member_avatar.dart';
 import 'package:bonfire/features/voice/views/voice_lobby.dart';
@@ -37,13 +43,10 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 part 'voice_view/video_grid.dart';
 part 'voice_view/control_bar.dart';
 
-/// Presents the voice channel full-screen as its own route, rendering
-/// [VoiceChannelView] in [VoiceChannelView.fullScreen] mode so its header
-/// shows a "minimize" button that pops back.
-/// Whether the voice view in the message pane fills the window. Full screen
-/// happens in place — the home screen hides everything around the view —
-/// rather than by pushing a second view: building a second set of video
-/// renderers (and tearing one down) crashes the Flutter engine on Windows.
+/// Whether the voice view fills the window. Full screen happens in place —
+/// the screen hosting the view hides everything around it — never by pushing
+/// a second view: building a second set of video renderers (and tearing one
+/// down) crashes the Flutter engine on Windows.
 final voiceViewExpanded = ValueNotifier<bool>(false);
 
 /// Expands the voice view to fill the window (and the screen, on desktop), or
@@ -86,73 +89,31 @@ bool get _hasDesktopWindow =>
         UniversalPlatform.isLinux ||
         UniversalPlatform.isMacOS);
 
-/// How many full-screen voice views are open. While one is, the views under
-/// it (and the PiP) stop rendering video: flutter_webrtc on Windows crashes
-/// when one track feeds two renderers and one of them is torn down.
-final voiceFullScreenOpen = ValueNotifier<int>(0);
-
-Future<void> showFullScreenVoice(
-  BuildContext context, {
-  required String channelId,
-  required String? spaceId,
-  required String? channelName,
-}) async {
-  voiceFullScreenOpen.value += 1;
-  try {
-    await _pushFullScreenVoice(
-      context,
-      channelId: channelId,
-      spaceId: spaceId,
-      channelName: channelName,
-    );
-  } finally {
-    voiceFullScreenOpen.value -= 1;
-  }
-}
-
-Future<void> _pushFullScreenVoice(
-  BuildContext context, {
-  required String channelId,
-  required String? spaceId,
-  required String? channelName,
-}) {
-  return Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (_) => Scaffold(
-        body: SafeArea(
-          child: VoiceChannelView(
-            channelId: channelId,
-            spaceId: spaceId,
-            channelName: channelName,
-            fullScreen: true,
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
 /// The voice channel screen shown in the message pane: a header, the video
 /// grid (one tile per participant, camera/screen tracks or an initials
 /// placeholder), an optional side text-chat panel, and a control bar
 /// (reference: `main_window_voice_view.gd`).
+///
+/// A DM call embeds the same view above the conversation's messages
+/// ([embedded]); there is no second, full-screen presentation of a call —
+/// [setVoiceViewExpanded] grows this one in place.
 class VoiceChannelView extends ConsumerStatefulWidget {
   const VoiceChannelView({
     super.key,
     required this.channelId,
     required this.spaceId,
     required this.channelName,
-    this.fullScreen = false,
+    this.embedded = false,
   });
 
   final String channelId;
   final String? spaceId;
   final String? channelName;
 
-  /// Whether this is the pushed full-screen presentation (see
-  /// [showFullScreenVoice]). Swaps the header's maximize button for a minimize
-  /// button that pops the route.
-  final bool fullScreen;
+  /// Hosted inside a conversation (a DM call): the conversation's own header
+  /// and messages surround the view, so it draws neither its header nor a
+  /// chat panel of its own.
+  final bool embedded;
 
   @override
   ConsumerState<VoiceChannelView> createState() => _VoiceChannelViewState();
@@ -171,10 +132,10 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
   /// body in full screen.
   bool _stripHidden = false;
 
-  /// Whether the voice text-chat panel is open. Defaults open in full-screen and
-  /// in the lobby, and closed for a call already in progress in the narrower
-  /// message-pane presentation; the header toggle then wins until the view
-  /// switches to another channel.
+  /// Whether the voice text-chat panel is open. Defaults open in the lobby
+  /// and closed for a call already in progress; the header toggle then wins
+  /// until the view switches to another channel. Never in an embedded view,
+  /// whose conversation already shows the messages.
   late bool _chatOpen = _defaultChatOpen();
 
   /// Below this width the chat panel takes over the body instead of sitting
@@ -182,16 +143,17 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
   static const double _sidePanelBreakpoint = 720;
 
   bool _defaultChatOpen() {
+    if (widget.embedded) return false;
     final connectedHere =
         ref.read(voiceControllerProvider).channelId == widget.channelId;
-    return widget.fullScreen || !connectedHere;
+    return !connectedHere;
   }
 
   @override
   void dispose() {
     // Leaving the voice view (another channel, another space) ends full
     // screen; scheduled because the home screen rebuilds on it.
-    if (!widget.fullScreen && voiceViewExpanded.value) {
+    if (voiceViewExpanded.value) {
       Future.microtask(() => setVoiceViewExpanded(false));
     }
     super.dispose();
@@ -219,20 +181,6 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
       voiceControllerProvider.select((v) => v.channelId == widget.channelId),
     );
 
-    // A DM call presented full-screen pops itself once the call ends (we leave,
-    // the peer declines, or the room empties) rather than stranding the user on
-    // an un-rejoinable DM lobby.
-    if (widget.fullScreen && _isDmCall) {
-      ref.listen(voiceControllerProvider.select((v) => v.channelId), (
-        prev,
-        next,
-      ) {
-        if (prev == widget.channelId && next != widget.channelId && mounted) {
-          Navigator.of(context).maybePop();
-        }
-      });
-    }
-
     final ringing =
         _isDmCall &&
         connectedHere &&
@@ -246,7 +194,7 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
       color: colors.background,
       child: Column(
         children: [
-          _header(context, colors),
+          if (!widget.embedded) _header(context, colors),
           if (ringing) _RingingBanner(name: widget.channelName),
           Expanded(child: _body(connectedHere)),
           if (connectedHere)
@@ -264,9 +212,8 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
               tileKeys: _tileKeys,
               channelId: widget.channelId,
               spaceId: widget.spaceId,
-              fullScreen: widget.fullScreen,
               // Full screen: the video runs edge to edge, no gutter.
-              edgeToEdge: expanded || widget.fullScreen,
+              edgeToEdge: expanded,
               spotlightUserId: _spotlightUserId,
               onToggleSpotlight: (userId) => setState(
                 () => _spotlightUserId = _spotlightUserId == userId
@@ -283,7 +230,7 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
             channelName: widget.channelName,
           );
 
-    if (!_chatOpen) return primary;
+    if (!_chatOpen || widget.embedded) return primary;
 
     final chat = VoiceTextPanel(
       channelId: widget.channelId,
@@ -326,7 +273,22 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
     );
   }
 
+  /// The user whose screen share is focused, or null when no stream is.
+  String? get _focusedStreamUserId {
+    final key = _spotlightUserId;
+    if (key == null || !key.endsWith(':screen')) return null;
+    return key.substring(0, key.length - ':screen'.length);
+  }
+
   Widget _header(BuildContext context, BonfireThemeExtension colors) {
+    // A focused stream names itself in the header — "General • X's Screen" —
+    // with its quality and LIVE at the right.
+    final streamUserId = _focusedStreamUserId;
+    final connectedHere =
+        ref.watch(voiceControllerProvider).channelId == widget.channelId;
+    final stream = streamUserId == null || !connectedHere
+        ? null
+        : _focusedStream(streamUserId);
     return Container(
       height: 48,
       alignment: Alignment.centerLeft,
@@ -344,13 +306,43 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
             color: colors.dirtyWhite,
           ),
           const SizedBox(width: 6),
-          Expanded(
-            child: Text(
+          if (stream == null)
+            Expanded(
+              child: Text(
+                widget.channelName ?? '',
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            )
+          else ...[
+            Text(
               widget.channelName ?? '',
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleSmall,
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('•', style: TextStyle(color: colors.gray)),
+            ),
+            AccordMemberAvatar(
+              avatarUrl: stream.display.avatarUrl,
+              initial: accordInitial(stream.display.name),
+              radius: 10,
+              backgroundColor: stream.display.color,
+              initialStyle: const TextStyle(fontSize: 10),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                "${stream.display.name}'s Screen",
+                key: const Key('voice-header-stream'),
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+            _StreamQualityPill(quality: stream.quality),
+            const SizedBox(width: 8),
+          ],
           IconButton(
             tooltip: _chatOpen ? 'Hide chat' : 'Show chat',
             onPressed: () => setState(() => _chatOpen = !_chatOpen),
@@ -360,41 +352,74 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
               color: _chatOpen ? colors.primary : colors.dirtyWhite,
             ),
           ),
-          if (widget.fullScreen || _isDmCall)
-            IconButton(
-              tooltip: widget.fullScreen ? 'Exit full screen' : 'Full screen',
-              onPressed: () {
-                if (widget.fullScreen) {
-                  Navigator.of(context).maybePop();
-                } else {
-                  showFullScreenVoice(
-                    context,
-                    channelId: widget.channelId,
-                    spaceId: widget.spaceId,
-                    channelName: widget.channelName,
-                  );
-                }
-              },
-              icon: Icon(
-                widget.fullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                size: 20,
-                color: colors.dirtyWhite,
-              ),
-            )
-          else
-            ValueListenableBuilder<bool>(
-              valueListenable: voiceViewExpanded,
-              builder: (context, expanded, _) => IconButton(
-                key: const Key('voice-full-screen'),
-                tooltip: expanded ? 'Exit full screen (Esc)' : 'Full screen',
-                onPressed: () => setVoiceViewExpanded(!expanded),
-                icon: Icon(
-                  expanded ? Icons.fullscreen_exit : Icons.fullscreen,
-                  size: 20,
-                  color: colors.dirtyWhite,
-                ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The focused stream's owner and quality, for the header.
+typedef _FocusedStream = ({ParticipantDisplay display, String? quality});
+
+extension on _VoiceChannelViewState {
+  _FocusedStream _focusedStream(String userId) {
+    final serverKey = ref.readActiveServerKey() ?? '';
+    final spaceId = widget.spaceId;
+    final members = spaceId == null
+        ? null
+        : ref.watch(accordMembersControllerProvider(serverKey, spaceId));
+    final users = ref.watch(accordUsersControllerProvider(serverKey));
+    final display = participantDisplay(
+      userId,
+      members: members,
+      users: users,
+      cdnUrl: ref.watchCdnUrl(),
+    );
+    ref.watch(
+      settingsControllerProvider.select(
+        (s) => (s.screenShareResolution, s.screenShareFps),
+      ),
+    );
+    final quality = streamQualityLabel(
+      ref,
+      ref.read(voiceControllerProvider.notifier).session,
+      userId,
+      myId: ref.watchUserId(),
+    );
+    return (display: display, quality: quality);
+  }
+}
+
+/// "720p 30FPS  LIVE" at the right of the header while a stream is focused.
+class _StreamQualityPill extends StatelessWidget {
+  const _StreamQualityPill({required this.quality});
+
+  final String? quality;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 2, 2, 2),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (quality != null) ...[
+            Text(
+              quality!.replaceFirst('P ', 'p '),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
+            const SizedBox(width: 6),
+          ],
+          const LiveBadge(),
         ],
       ),
     );

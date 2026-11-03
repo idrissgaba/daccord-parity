@@ -124,7 +124,31 @@ class UserPanel extends ConsumerWidget {
                             color: colors.dirtyWhite,
                           ),
                         ),
-                        if (subtitle.isNotEmpty)
+                        // Streaming says so, over the username / custom
+                        // status, as in other chat apps.
+                        if (voice.selfStream)
+                          Row(
+                            key: const Key('user-panel-streaming'),
+                            children: [
+                              Icon(
+                                Icons.desktop_windows,
+                                size: 12,
+                                color: colors.green,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'Sharing their screen',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colors.gray,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        else if (subtitle.isNotEmpty)
                           Text(
                             subtitle,
                             maxLines: 1,

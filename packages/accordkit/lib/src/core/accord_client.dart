@@ -191,6 +191,7 @@ class AccordClient {
     bool selfDeaf = false,
     bool selfVideo = false,
     bool selfStream = false,
+    String? streamWatching,
   }) =>
       gateway.updateVoiceState(
         spaceId,
@@ -199,6 +200,7 @@ class AccordClient {
         selfDeaf: selfDeaf,
         selfVideo: selfVideo,
         selfStream: selfStream,
+        streamWatching: streamWatching,
       );
 
   /// Releases the REST client and gateway.

@@ -416,6 +416,7 @@ class GatewaySocket {
     bool selfDeaf = false,
     bool selfVideo = false,
     bool selfStream = false,
+    String? streamWatching,
   }) {
     _send({
       'op': GatewayOpcodes.voiceStateUpdate,
@@ -426,6 +427,9 @@ class GatewaySocket {
         'self_deaf': selfDeaf,
         'self_video': selfVideo,
         'self_stream': selfStream,
+        // The streamer whose share we are watching (null = none), so others
+        // can count and list a stream's viewers.
+        'stream_watching': streamWatching,
       },
     });
   }

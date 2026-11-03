@@ -10,27 +10,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
 import 'package:universal_platform/universal_platform.dart';
 
-/// Shows a desktop screen/window source picker (Screen and Window tabs with
-/// live thumbnails). Returns the chosen source, or null if cancelled.
+/// Shows the desktop screen-share window: a first step picking an
+/// application window or a screen (live thumbnails), then — unless
+/// [changing] an already live stream — the stream quality step ending in
+/// "Go Live". Returns the chosen source, or null if cancelled.
 ///
 /// Not LiveKit's bundled `ScreenSelectDialog`: it calls `setState` from
 /// flutter_webrtc's thumbnail stream without a `mounted` guard or cancelling on
 /// dispose, so a late thumbnail throws "setState() called after dispose()".
 Future<rtc.DesktopCapturerSource?> showScreenShareSourcePicker(
-  BuildContext context,
-) {
+  BuildContext context, {
+  bool changing = false,
+}) {
   return showDialog<rtc.DesktopCapturerSource>(
     context: context,
     barrierDismissible: true,
-    builder: (_) => const _ScreenShareSourceDialog(),
+    builder: (_) => _ScreenShareSourceDialog(changing: changing),
   );
 }
 
 /// Starts or stops screen sharing for the current voice session.
 ///
-/// On desktop, starting first prompts the user to pick a screen or window;
-/// cancelling the picker aborts without sharing. On web/mobile the platform
-/// shows its own native capture prompt, so we toggle directly.
+/// On desktop, starting first prompts the user to pick a window or screen
+/// and a quality; cancelling aborts without sharing. On web/mobile the
+/// platform shows its own native capture prompt and the share starts as soon
+/// as it is confirmed, so we toggle directly (quality comes from Settings).
 Future<void> toggleScreenShareWithPicker(
   BuildContext context,
   WidgetRef ref,
@@ -53,7 +57,11 @@ Future<void> toggleScreenShareWithPicker(
 }
 
 class _ScreenShareSourceDialog extends StatefulWidget {
-  const _ScreenShareSourceDialog();
+  const _ScreenShareSourceDialog({required this.changing});
+
+  /// Only the source is being changed: no quality step, the choice applies
+  /// at once.
+  final bool changing;
 
   @override
   State<_ScreenShareSourceDialog> createState() =>
@@ -62,15 +70,19 @@ class _ScreenShareSourceDialog extends StatefulWidget {
 
 class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
     with SingleTickerProviderStateMixin {
+  // Applications first, screens second, as in other chat apps.
   late final TabController _tabs = TabController(length: 2, vsync: this)
     ..addListener(_onTabChanged);
 
   final List<StreamSubscription<rtc.DesktopCapturerSource>> _subscriptions = [];
   final Map<String, rtc.DesktopCapturerSource> _sources = {};
 
-  rtc.SourceType _sourceType = rtc.SourceType.Screen;
+  rtc.SourceType _sourceType = rtc.SourceType.Window;
   rtc.DesktopCapturerSource? _selectedSource;
   Timer? _refreshTimer;
+
+  /// Step two: the stream quality, after a source was chosen.
+  bool _qualityStep = false;
 
   @override
   void initState() {
@@ -112,8 +124,8 @@ class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
   void _onTabChanged() {
     if (_tabs.indexIsChanging) return;
     final type = _tabs.index == 0
-        ? rtc.SourceType.Screen
-        : rtc.SourceType.Window;
+        ? rtc.SourceType.Window
+        : rtc.SourceType.Screen;
     if (type == _sourceType) return;
     _sourceType = type;
     _loadSources();
@@ -140,91 +152,201 @@ class _ScreenShareSourceDialogState extends State<_ScreenShareSourceDialog>
     }
   }
 
+  void _pick(rtc.DesktopCapturerSource source) {
+    if (widget.changing) {
+      Navigator.of(context).pop(source);
+      return;
+    }
+    setState(() {
+      _selectedSource = source;
+      _qualityStep = true;
+    });
+  }
+
   void _confirm() => Navigator.of(context).pop(_selectedSource);
   void _cancel() => Navigator.of(context).pop();
+  void _back() => setState(() => _qualityStep = false);
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
-    final sources = _sources.values
-        .where((s) => s.type == _sourceType)
-        .toList(growable: false);
-
     return Dialog(
       backgroundColor: colors.foreground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640, maxHeight: 600),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 16, 12, 0),
-              child: DialogTitleBar(
-                'Choose what to share',
-                icon: Icons.screen_share_outlined,
-              ),
-            ),
-            TabBar(
-              controller: _tabs,
-              tabs: const [
-                Tab(text: 'Entire Screen'),
-                Tab(text: 'Window'),
-              ],
-            ),
-            Flexible(
-              child: sources.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No sources available',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.gray,
-                        ),
-                      ),
-                    )
-                  : GridView.count(
-                      padding: const EdgeInsets.all(16),
-                      crossAxisCount: _sourceType == rtc.SourceType.Screen
-                          ? 2
-                          : 3,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.4,
-                      children: [
-                        for (final source in sources)
-                          _SourceTile(
-                            source: source,
-                            selected: _selectedSource?.id == source.id,
-                            colors: colors,
-                            onTap: () =>
-                                setState(() => _selectedSource = source),
-                          ),
-                      ],
-                    ),
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 4, 20, 0),
-              child: ShareQualityRow(),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(onPressed: _cancel, child: const Text('Cancel')),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _selectedSource == null ? null : _confirm,
-                    child: const Text('Share'),
-                  ),
-                ],
-              ),
-            ),
+        child: _qualityStep ? _qualityPage(colors) : _sourcePage(colors),
+      ),
+    );
+  }
+
+  Widget _sourcePage(BonfireThemeExtension colors) {
+    final theme = Theme.of(context);
+    final sources = _sources.values
+        .where((s) => s.type == _sourceType)
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+          child: DialogTitleBar(
+            widget.changing ? 'Change Stream' : 'Screen Share',
+            icon: Icons.screen_share_outlined,
+          ),
+        ),
+        TabBar(
+          controller: _tabs,
+          tabs: const [
+            Tab(text: 'Applications'),
+            Tab(text: 'Screens'),
           ],
         ),
-      ),
+        Flexible(
+          child: sources.isEmpty
+              ? Center(
+                  child: Text(
+                    'No sources available',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.gray,
+                    ),
+                  ),
+                )
+              : GridView.count(
+                  padding: const EdgeInsets.all(16),
+                  crossAxisCount: _sourceType == rtc.SourceType.Screen ? 2 : 3,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.4,
+                  children: [
+                    for (final source in sources)
+                      _SourceTile(
+                        source: source,
+                        selected: _selectedSource?.id == source.id,
+                        colors: colors,
+                        onTap: () => _pick(source),
+                      ),
+                  ],
+                ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: _cancel, child: const Text('Cancel')),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _qualityPage(BonfireThemeExtension colors) {
+    final theme = Theme.of(context);
+    final source = _selectedSource!;
+    final thumbnail = source.thumbnail;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 16, 12, 0),
+          child: DialogTitleBar(
+            'Screen Share',
+            icon: Icons.screen_share_outlined,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: SizedBox(
+                  width: 160,
+                  height: 90,
+                  child: ColoredBox(
+                    color: colors.background,
+                    child: thumbnail != null && thumbnail.isNotEmpty
+                        ? Image.memory(
+                            thumbnail,
+                            gaplessPlayback: true,
+                            fit: BoxFit.contain,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      source.type == rtc.SourceType.Screen
+                          ? 'Screen'
+                          : 'Application',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.gray,
+                      ),
+                    ),
+                    Text(
+                      source.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.dirtyWhite,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    TextButton(
+                      key: const Key('share-change-source'),
+                      onPressed: _back,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Change'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Text(
+            'STREAM QUALITY',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colors.gray,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: ShareQualityRow(),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: _cancel, child: const Text('Cancel')),
+              const SizedBox(width: 8),
+              FilledButton(
+                key: const Key('share-go-live'),
+                onPressed: _confirm,
+                child: const Text('Go Live'),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -295,8 +417,8 @@ class _SourceTile extends StatelessWidget {
   }
 }
 
-/// Stream quality picked right before sharing, as in other voice chat apps:
-/// resolution and frame rate (the same settings as Voice & Video).
+/// Stream quality picked right before going live, as in other voice chat
+/// apps: resolution and frame rate (the same settings as Voice & Video).
 class ShareQualityRow extends ConsumerWidget {
   const ShareQualityRow({super.key});
 
@@ -313,7 +435,7 @@ class ShareQualityRow extends ConsumerWidget {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text('QUALITY', style: label),
+        Text('RESOLUTION', style: label),
         SegmentedButton<int>(
           key: const Key('share-quality'),
           showSelectedIcon: false,

@@ -2,8 +2,9 @@ import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/features/channels/controllers/dm_channels.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
+import 'package:bonfire/features/user/views/accord_direct_messages.dart'
+    show showAccordDmCall;
 import 'package:bonfire/features/voice/controllers/call.dart';
-import 'package:bonfire/features/voice/views/voice_view.dart';
 import 'package:bonfire/router/controller.dart' show rootNavigatorKey;
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -191,27 +192,12 @@ class IncomingCallOverlay extends ConsumerWidget {
     final navigator =
         Navigator.maybeOf(context, rootNavigator: true) ??
         rootNavigatorKey.currentState;
-    final users = ref.read(accordUsersControllerProvider(incoming.serverKey));
-    final channels = ref.read(dmChannelsControllerProvider(incoming.serverKey));
-    final channel = channels
-        ?.where((c) => c.id == incoming.channelId)
-        .firstOrNull;
-    final isGroup =
-        channel?.type == 'group_dm' || incoming.participants.length > 2;
-    final name = isGroup
-        ? (channel?.name?.isNotEmpty == true ? channel!.name! : 'Group call')
-        : accordUserName(users[incoming.callerId], fallback: 'Call');
-
     final channelId = await ref
         .read(callControllerProvider.notifier)
         .acceptIncoming();
     if (channelId == null || navigator == null || !navigator.mounted) return;
-    await showFullScreenVoice(
-      navigator.context,
-      channelId: channelId,
-      spaceId: null,
-      channelName: name,
-    );
+    // The call view lives above that conversation's messages.
+    await showAccordDmCall(navigator.context, ref, channelId);
   }
 }
 

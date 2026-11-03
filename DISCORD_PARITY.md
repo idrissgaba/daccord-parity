@@ -52,6 +52,16 @@ dans votre Chrome (même interface que le client desktop), fenêtre 1600×900, v
 | `desktop-voice-connected-sidebar.jpg`, `desktop-voice-panel-userpanel-zoom.png` | Participant sous le salon vocal, panneau « Voice Connected », panneau utilisateur « In voice » |
 | `desktop-call-view-idle.jpg` / `desktop-call-view-controlbar.jpg` | Vue d'appel (tuile + panneau activités) et barre de contrôle en bas |
 | `desktop-menu-voice-participant-sidebar.jpg` / `desktop-menu-voice-tile.jpg` | Clic droit participant (ligne / tuile) |
+| `desktop-stream-own-started.jpg` | **Lot D** (prises le 2026-11-03, Discord web, viewport 1568×711) : mon stream vient de démarrer — tuile stream + LIVE, badge LIVE dans la liste, carte « Go Live » dans le panneau vocal, panneau utilisateur « Sharing their screen » |
+| `desktop-stream-live-badge-hover.jpg` | Survol de la ligne LIVE : carte « Streaming Now » (badge LIVE, miniature, bouton « You're Streaming! » / « Watch Stream ») |
+| `desktop-stream-share-button-menu.jpg` / `desktop-stream-controlbar-chevron-menu.jpg` | Menu du bouton partage actif (panneau vocal) et du chevron de la barre d'appel : Stop Streaming (rouge) / Change Stream / Report Problem |
+| `desktop-stream-own-hover-controlbar.jpg` | Survol de la vue d'appel en stream : pilule « 720P 30FPS » + LIVE en haut à droite de la tuile, pilule nom + icône écran, « … » bas-droit, barre de contrôle (partage vert avec chevron, pop-out + plein écran à droite) |
+| `desktop-stream-own-tile-menu.jpg` | « … » de ma tuile stream : Stop Streaming / Change Stream / Pop Out Stream / More Options › |
+| `desktop-stream-own-focused.jpg` | Clic simple = focus : en-tête « General • avatar X's Screen », pilule « 720p 30FPS LIVE » à droite, bande 16:9 avec chevron + icône participants, loupe bas-droit |
+| `desktop-stream-own-fullscreen.jpg` | Plein écran (bouton bas-droit) : même disposition, tout le reste masqué, bouton « quitter » bas-droit |
+| `desktop-stream-focus-camera-tile.jpg` | Clic sur une tuile de la bande = elle prend le focus |
+| `desktop-stream-focus-strip-collapsed.jpg` | Chevron replié : tuile focus bord à bord, en-tête en dégradé, vignette de l'autre tuile en bas à droite, chevron ∧ en bas |
+| `desktop-stream-popped-out-main.jpg` | Après « Pop Out » : fenêtre séparée (hors capture), la fenêtre principale revient sur #general |
 
 ### 1.1 Captures manquantes (à fournir ou à faire ensemble)
 
@@ -61,13 +71,13 @@ un stream réel, ou votre téléphone). Tant qu'elles manquent, les points conce
 
 Desktop (il faut un ami en vocal, ou vous + moi sur votre serveur « Idriss + Ichraq ») :
 1. Vue d'appel avec **2+ participants** (grille, anneau vert quand quelqu'un parle, icônes micro/casque sur les tuiles).
-2. **Partage d'écran — fenêtre de sélection** (onglets Applications / Écrans, qualité, FPS, son).
-3. Streamer : **aperçu de son propre stream** + popover « changer de fenêtre / qualité ».
-4. Liste des salons : **badge LIVE** rouge à côté du nom, et **survol du badge** (miniature + bouton regarder).
-5. Vue d'appel : tuile de stream non regardé (bouton **Watch Stream**), puis stream regardé (grand + bande, compteur de spectateurs, volume du stream, plein écran, pop-out).
+2. **Partage d'écran — fenêtre de sélection du client desktop** (onglets Applications / Écrans, qualité, FPS, son) : à fournir par vous (Discord web n'a pas cette fenêtre, voir §4).
+3. ~~Streamer : aperçu de son propre stream + menu~~ → fait le 2026-11-03 (`desktop-stream-own-*`).
+4. Liste des salons : ~~badge LIVE + survol~~ → fait (`desktop-stream-live-badge-hover`) ; reste la carte d'**un autre** streamer (bouton « Watch Stream »).
+5. Vue d'appel : tuile de stream non regardé (bouton **Watch Stream**), puis stream regardé (compteur de spectateurs, volume du stream, menu « … » d'un stream regardé).
 6. **Deux streams simultanés**.
 7. **Soundboard** ouvert depuis le vocal (grille emoji + nom, recherche, favoris, volume) et indication sur l'avatar de celui qui joue.
-8. **Mode focus** (double-clic tuile) + plein écran + fenêtre pop-out.
+8. ~~Mode focus + plein écran + pop-out~~ → fait (`desktop-stream-own-focused`, `-fullscreen`, `-popped-out-main`) ; reste la fonction de l'icône « participants » sur la bande.
 9. Message avec **réactions** (survol d'une réaction = tooltip des réacteurs), **réponse** avec aperçu, message **épinglé**, séparateur « New Messages » + barre « jump to present ».
 10. **Glisser-déposer** d'un fichier (overlay « Upload to #channel ») et chips de pièces jointes.
 11. **Confirmation de suppression** d'un message.
@@ -196,17 +206,22 @@ Colonnes : Élément Discord attendu | État actuel dans l'app | Écart précis 
 
 ### D. Partage d'écran / Live (PRIORITÉ HAUTE)
 
+Lot livré le 2026-11-03 (commit du lot, voir §6). « réf » = capture Discord ; « app » = capture
+de l'app (`docs/discord-ref/app-*.jpg`, build web local, même viewport 1568×711).
+
 | Élément Discord attendu | État actuel dans l'app | Écart précis | Prio | Statut |
 |---|---|---|---|---|
-| Bouton partage dans le panneau vocal **et** la barre d'appel | présents (`voice_bar.dart:214`, `control_bar.dart:109`) | OK fonctionnellement ; forme/position : voir A/C | P0 | ⚠️ |
-| Fenêtre de sélection : onglets **Applications / Screens** avec miniatures + icône d'app, puis étape qualité : Résolution 720/1080/**Source**, FPS 15/30/60, « Share audio » ☐, bouton **Go Live** | `screen_share_picker.dart:154-229` desktop : « Entire Screen / Window », qualité 480-2160, FPS, pas de son, bouton Share ; **web/mobile : sélecteur natif du navigateur, sans qualité** | Renommer/ordonner onglets, 2 étapes, « Source », case son, Go Live ; web : ajouter l'étape qualité **avant** `getDisplayMedia` ; 🚫 miniatures web (le navigateur impose son sélecteur) → étape qualité + sélecteur natif | P0 | ⚠️ |
-| Streamer : **aperçu de son propre stream** dans la grille, popover sur la tuile : changer de fenêtre, qualité, arrêter, sans couper | aperçu OK desktop/web ; **changer source/qualité impossible sans arrêter** | Ajouter « Change Windows » (republier la piste) et « Stream Settings » (remplacer encodage à chaud) ; mobile : carte « You're sharing » (conforme) | P0 | ❌ |
-| Badge **LIVE** rouge après le nom dans la liste du salon vocal ; survol = **miniature** d'aperçu + « Watch Stream » | lettre « S » (`voice_participants.dart:314`) | Badge, popover de survol ; miniature = 🚫 côté serveur (pas d'aperçu généré) → **alternative** : popover avec avatar + nom du stream + bouton « Regarder » (miniature possible seulement si déjà abonné) | P0 | ❌ |
-| Tuile stream non regardé : avatar + LIVE + bouton « Watch Stream » ; vidéo reçue **après** clic | `_LiveCard` + `setWatchingStream` (abonne puis désabonne) | Passer à `autoSubscribe:false` / abonnement sélectif réel (`adaptiveStream`, `dynacast`) ; clic d'ouverture conforme | P0 | ⚠️ |
-| En regardant : stream en grand, autres en bande 16:9, **compteur + liste des spectateurs** (survol de l'œil), **volume du stream** (slider sur la tuile), plein écran (bouton + double-clic + Échap), pop-out, « Stop Watching » | spotlight + pilules « Volume » / « Stop watching » ; pas de spectateurs ; double-clic = spotlight | Spectateurs = ajouter champ `self_stream_watching`/événement gateway côté **serveur** (`voice/state.rs`) + UI ; double-clic plein écran ; pop-out (voir C) | P0 | ⚠️ |
-| Plusieurs streams : tuiles LIVE séparées, bascule par clic, un seul en focus | tuiles séparées, bascule double-tap | Bascule simple-clic ; à confirmer visuellement (capture 6) | P0 | ⚠️ |
-| Une seule implémentation « regarder » | une seule (`_LiveCard`) ; mais **deux plein écran** (route + en place) et un PiP | Supprimer l'ancienne route plein écran, migrer appels DM sur la version en place | P0 | ⚠️ |
-| Son du partage (desktop) | setting « Share audio » appelle `createScreenShareTracksWithAudio` malgré le texte « video only » | Clarifier/valider le son système Windows ; sinon 🚫 → documenter | P0 | ⚠️ |
+| Bouton partage dans le panneau vocal **et** la barre d'appel ; en direct : bouton vert, **menu** Stop Streaming (rouge) / Change Stream (réf `stream-share-button-menu`, `stream-controlbar-chevron-menu`) | `voice_bar.dart` (bouton vert plein + menu), `control_bar.dart` (bouton vert + chevron attaché ouvrant le même menu) ; app `app-stream-share-button-menu` | Aucun sur le contenu ; « Report Problem » omis (🚫) ; forme des pilules de la barre = lot C | P0 | ✅ |
+| Carte **« Go Live »** au-dessus de « Voice Connected » (icône jaune, titre, bouton d'arrêt) ; panneau utilisateur « Sharing their screen » (réf `stream-own-started`) | `_GoLiveCard` + `user_panel.dart` ; app `app-stream-own-started` | Aucun | P0 | ✅ |
+| Fenêtre de sélection : **web** = sélecteur natif puis démarrage immédiat, sans étape (constaté sur Discord web) ; **desktop** = Applications / Screens puis qualité + Go Live | web : `toggleScreenShareWithPicker` démarre dès le sélecteur natif ; desktop : `screen_share_picker.dart` à 2 étapes (onglets Applications / Screens, étape « Stream quality » résolution + fps, bouton Go Live, « Change » pour revenir) | Web : aucun. Desktop : **à confirmer** avec la capture du client Discord desktop (libellés, options de résolution, case son) | P0 | ⚠️ |
+| Streamer : aperçu de son propre stream dans la **grille** (pas de focus automatique), pilules « 720P 30FPS » + LIVE en haut à droite, pilule nom + icône écran, « … » au survol → Stop Streaming / Change Stream / Pop Out Stream (réf `stream-own-hover-controlbar`, `stream-own-tile-menu`) | `video_grid.dart` : grille ajustée et centrée, stream avant la tuile de son auteur, badges, « … » au survol, menu identique ; `changeScreenShareSource` / `updateScreenShareQuality` republient sans couper ; app `app-stream-own-started`, `app-stream-own-tile-menu` | « More Options › » omis (sous-menu non capturé) ; mobile : carte « You're sharing » conservée | P0 | ✅ |
+| Badge **LIVE** rouge en bout de ligne dans la liste du salon ; survol = carte « Streaming Now » (LIVE, aperçu, bouton **Watch Stream** / **You're Streaming!**) (réf `stream-live-badge-hover`) | `voice_participants.dart` : `LiveBadge` + `_StreamCard` (OverlayPortal au survol ; touch = tap sur le badge) ; app `app-stream-live-badge-hover` | Aperçu = avatar sur fond noir (🚫 miniature, voir §4) ; carte d'un **autre** streamer à confirmer (capture 4) | P0 | ✅ |
+| Tuile stream non regardé : LIVE + bouton « Watch Stream » ; vidéo reçue **après** clic | `_LiveCard` ; `autoSubscribe: false` + abonnement explicite micro/caméra, stream seulement au clic ; `dynacast` | Visuel à confirmer avec un second participant (capture 5) | P0 | ⚠️ |
+| En regardant : focus automatique du stream regardé, bande 16:9 centrée, chevron qui replie (focus bord à bord + vignette), **compteur de spectateurs**, menu « … » Stop Watching / Stream Volume / Pop Out Stream, plein écran (bouton + double-clic + Échap) | serveur `stream_watching` + SDK + client (`streamViewerCount`, pilule œil + nombre) ; `_SpotlightLayout` ; clic = focus, double-clic = plein écran ; app `app-stream-own-focused`, `app-stream-focus-strip-collapsed`, `app-stream-own-fullscreen` | Compteur et menu d'un stream regardé à confirmer (capture 5) ; icône « participants » de la bande Discord non reproduite (fonction inconnue) ; en mode replié Discord superpose l'en-tête en dégradé sur la vidéo, l'app garde sa barre d'en-tête | P0 | ⚠️ |
+| Plusieurs streams : tuiles LIVE séparées, bascule par clic, un seul en focus | tuiles séparées, bascule au clic simple | À confirmer (capture 6) | P0 | ⚠️ |
+| Une seule implémentation « regarder » et **un seul plein écran** | `_LiveCard` ; ancienne route plein écran supprimée (`showFullScreenVoice`), appels DM rendus dans la conversation (`MessagePane.topPanel`), PiP et appel entrant migrés | Aucun | P0 | ✅ |
+| Pop-out (réf `stream-popped-out-main`) | web : Picture-in-Picture natif (bouton de la barre + menus) ; desktop/mobile : 🚫 (voir §4) | Fenêtre séparée impossible hors web | P0 | 🚫 |
+| Son du partage (desktop) | `captureScreenAudio` est « browser only » dans flutter_webrtc ; réglage conservé pour le web, texte explicite | — | P0 | 🚫 |
 
 ### E. Soundboard
 
@@ -261,8 +276,11 @@ Colonnes : Élément Discord attendu | État actuel dans l'app | Écart précis 
 
 | Point | Raison | Alternative la plus proche |
 |---|---|---|
-| Miniature d'aperçu du stream au survol du badge LIVE | Le serveur Accord ne génère pas d'aperçu ; LiveKit n'envoie la vidéo qu'aux abonnés | Popover de survol avec avatar, « Nom's stream », bouton « Regarder » ; miniature réelle uniquement si on est déjà abonné à ce stream |
-| Sélecteur de partage avec miniatures sur **web** | Le navigateur impose `getDisplayMedia` et son propre sélecteur | Étape « qualité / son » Discord avant le sélecteur natif ; desktop Windows garde les miniatures |
+| Miniature d'aperçu du stream dans la carte « Streaming Now » | Le serveur Accord ne génère pas d'aperçu ; LiveKit n'envoie la vidéo qu'aux abonnés ; et un second rendu d'une piste déjà affichée plante le moteur sur Windows | Carte identique (titre, LIVE, bouton Watch Stream / You're Streaming!) avec l'avatar du streamer sur fond noir à la place de la miniature |
+| Sélecteur de partage avec miniatures sur **web** | Le navigateur impose `getDisplayMedia` et son propre sélecteur. Constaté le 2026-11-03 : Discord web n'affiche **aucune** étape (ni avant ni après le sélecteur natif), le stream démarre dès la validation ; la qualité (720p 30fps) vient des réglages | Même comportement : sélecteur natif puis démarrage, qualité depuis Paramètres › Voix & Vidéo ; le client desktop garde la fenêtre à deux étapes (Applications / Screens → qualité → Go Live) |
+| « Pop Out Stream » / « Pop Out » (fenêtre séparée) sur desktop | Une seconde fenêtre Flutter a son propre moteur et ne peut pas afficher une texture WebRTC du moteur principal | Web : Picture-in-Picture natif du navigateur sur la vidéo du stream (menu « … » et bouton de la barre). Desktop/mobile : pas de bouton ; l'aperçu flottant intégré (PiP) suit déjà l'appel quand on change de salon |
+| Son du partage (desktop) | `flutter_webrtc` ne capture le son d'écran que dans un navigateur (`captureScreenAudio` : « browser only ») | Réglage « Share audio » conservé pour le web ; le texte du réglage dit que le client desktop partage la vidéo seule |
+| « Report Problem » dans le menu du stream, « More Options › » de la tuile | Télémétrie Discord propriétaire ; sous-menu non capturé | Omis |
 | GIF (Tenor/Klipy), Nitro, Shop, Quests, Gift, Boost, Bookmarks, Reminders, Speak Message, Apps, App Directory, Family Centre, Billing | Services propriétaires sans backend Accord | Omis (pas de bouton factice) ; onglet GIF = favoris + GIF uploadés |
 | « Activities » | Discord Activities propriétaires | Bouton **Arcade** au même emplacement (panneau vocal + barre d'appel) |
 | Découpage audio du soundboard à l'upload | Pas d'encodeur côté client web | Limite de durée côté serveur + message d'erreur |
@@ -286,3 +304,4 @@ Colonnes : Élément Discord attendu | État actuel dans l'app | Écart précis 
 | Date | Lot | Commit | Captures avant/après | Écarts restants | À confirmer |
 |---|---|---|---|---|---|
 | 2026-11-03 | Étape 0 — audit | (ce fichier) | — | tout | voir §1.1 |
+| 2026-11-03 | Lot D — partage d'écran / Live | (voir git log) | `desktop-stream-*` (11) / `app-stream-*` (8) | sélecteur desktop (capture Discord desktop à fournir), stream distant (second compte requis : spectateurs, Watch Stream, 2 streams) | §1.1 points 2, 4 (autre streamer), 5, 6 |

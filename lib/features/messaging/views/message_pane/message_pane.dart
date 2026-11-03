@@ -128,6 +128,7 @@ class MessagePane extends ConsumerStatefulWidget {
     this.headerLeading,
     this.headerTitle,
     this.headerActions = const [],
+    this.topPanel,
     this.canManageMessagesOverride,
     this.onUserTap,
     this.onUserContextMenu,
@@ -169,6 +170,11 @@ class MessagePane extends ConsumerStatefulWidget {
   final Widget? headerLeading;
   final Widget? headerTitle;
   final List<Widget> headerActions;
+
+  /// Shown between the header and the messages, taking the larger share of
+  /// the height: a DM call's video tiles and controls sit above the
+  /// conversation they belong to.
+  final Widget? topPanel;
 
   /// Explicit message-management capability for contexts without a space role
   /// model. Accord grants DM participants channel permissions directly, so DM
@@ -849,7 +855,10 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
                     ],
                   ),
           ),
-          Expanded(
+          if (widget.topPanel != null)
+            Flexible(flex: 11, child: widget.topPanel!),
+          Flexible(
+            flex: 9,
             child: messages == null
                 ? _historyEmptyState(channelId)
                 : messages.isEmpty

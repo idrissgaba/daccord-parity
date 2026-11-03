@@ -1,13 +1,10 @@
 import 'package:bonfire/shared/utils/client_access.dart';
-import 'package:bonfire/features/channels/controllers/dm_channels.dart';
-import 'package:bonfire/features/user/controllers/accord_users.dart';
 import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
 import 'package:bonfire/features/voice/views/voice_view.dart'
-    show screenShareCapturesApp, showFullScreenVoice, voiceFullScreenOpen;
+    show screenShareCapturesApp;
 import 'package:bonfire/theme/theme.dart';
-import 'package:collection/collection.dart' show IterableExtension;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
@@ -18,9 +15,8 @@ import 'package:livekit_client/livekit_client.dart' show VideoTrack;
 /// has navigated away from that channel. Tapping it jumps back to the call
 /// (reference: `video_pip.gd`).
 ///
-/// DM/group-DM calls (`spaceId == null`) reopen by pushing the full-screen
-/// call view rather than through [onOpen], since a DM channel can't be opened
-/// as a space channel.
+/// DM/group-DM calls (`spaceId == null`) reopen through [onOpenDm] rather than
+/// [onOpen], since a DM channel can't be opened as a space channel.
 ///
 /// Designed to be dropped directly into a [Stack] (it returns a [Positioned]).
 class VoicePipOverlay extends ConsumerStatefulWidget {
@@ -28,6 +24,7 @@ class VoicePipOverlay extends ConsumerStatefulWidget {
     super.key,
     required this.shownChannelId,
     required this.onOpen,
+    this.onOpenDm,
     this.previewBuilder,
   });
 
@@ -36,8 +33,12 @@ class VoicePipOverlay extends ConsumerStatefulWidget {
   final String? shownChannelId;
 
   /// Jumps to the voice channel ([channelId], [spaceId]) when the PiP is
-  /// tapped. Only used for space voice channels; a DM call reopens itself.
+  /// tapped. Only used for space voice channels.
   final void Function(String channelId, String spaceId) onOpen;
+
+  /// Brings a DM call's conversation ([channelId]) back on screen when the
+  /// PiP is tapped.
+  final void Function(String channelId)? onOpenDm;
 
   /// Overrides the video preview, returning null for "no video to show".
   /// Exists purely so widget tests can exercise the PiP: a LiveKit
@@ -57,22 +58,6 @@ class _VoicePipOverlayState extends ConsumerState<VoicePipOverlay> {
   static const double _w = 200;
   static const double _h = 124;
   static const double _margin = 12;
-
-  @override
-  void initState() {
-    super.initState();
-    voiceFullScreenOpen.addListener(_onFullScreenChanged);
-  }
-
-  @override
-  void dispose() {
-    voiceFullScreenOpen.removeListener(_onFullScreenChanged);
-    super.dispose();
-  }
-
-  void _onFullScreenChanged() {
-    if (mounted) setState(() {});
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,28 +144,7 @@ class _VoicePipOverlayState extends ConsumerState<VoicePipOverlay> {
       widget.onOpen(channelId, spaceId);
       return;
     }
-    showFullScreenVoice(
-      context,
-      channelId: channelId,
-      spaceId: null,
-      channelName: _dmTitle(channelId),
-    );
-  }
-
-  /// The DM/group-DM channel's display name: its custom name if it has one,
-  /// otherwise the other participants' names.
-  String _dmTitle(String channelId) {
-    final serverKey = ref.read(voiceControllerProvider).serverKey ?? '';
-    final channel = ref
-        .read(dmChannelsControllerProvider(serverKey))
-        ?.firstWhereOrNull((c) => c.id == channelId);
-    if (channel == null) return 'Call';
-    return dmChannelTitle(
-      channel,
-      ref.readUserId(),
-      fallback: 'Call',
-      users: ref.read(accordUsersControllerProvider(serverKey)),
-    );
+    widget.onOpenDm?.call(channelId);
   }
 
   /// The PiP's content: the first available video track, or null when there's
@@ -188,9 +152,6 @@ class _VoicePipOverlayState extends ConsumerState<VoicePipOverlay> {
   Widget? _preview() {
     final override = widget.previewBuilder;
     if (override != null) return override();
-    // A full-screen call view is rendering the video; a second renderer on
-    // the same track crashes flutter_webrtc on Windows.
-    if (voiceFullScreenOpen.value > 0) return null;
     final track = _firstVideoTrack();
     if (track == null) return null;
     return lk.VideoTrackRenderer(track, fit: lk.VideoViewFit.contain);

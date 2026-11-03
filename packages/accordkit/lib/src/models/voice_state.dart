@@ -17,6 +17,10 @@ class AccordVoiceState {
   /// When this stage audience member raised their hand, or null.
   String? requestToSpeakTimestamp;
 
+  /// The user whose screen share this member is watching, or null. Servers
+  /// without viewer tracking never send it.
+  String? streamWatching;
+
   AccordVoiceState({
     this.userId = '',
     this.spaceId,
@@ -30,6 +34,7 @@ class AccordVoiceState {
     this.selfVideo = false,
     this.suppress = false,
     this.requestToSpeakTimestamp,
+    this.streamWatching,
   });
 
   factory AccordVoiceState.fromJson(Map<String, dynamic> d) {
@@ -46,6 +51,7 @@ class AccordVoiceState {
       selfVideo: asBool(d['self_video']),
       suppress: asBool(d['suppress']),
       requestToSpeakTimestamp: asStringOrNull(d['request_to_speak_timestamp']),
+      streamWatching: asStringOrNull(d['stream_watching']),
     );
   }
 
@@ -66,6 +72,7 @@ class AccordVoiceState {
     if (requestToSpeakTimestamp != null) {
       d['request_to_speak_timestamp'] = requestToSpeakTimestamp;
     }
+    if (streamWatching != null) d['stream_watching'] = streamWatching;
     return d;
   }
 }

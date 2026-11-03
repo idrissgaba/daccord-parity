@@ -142,7 +142,7 @@ void main() {
     expect(find.text('Direct messages'), findsOneWidget);
   });
 
-  testWidgets('the ring banner is reachable over the full-screen call route', (
+  testWidgets('the ring banner is reachable over a call in progress', (
     tester,
   ) async {
     final call = _FakeCallController(const CallState(incoming: _incoming));
@@ -150,28 +150,15 @@ void main() {
       _app(
         call: call,
         voice: const VoiceConnection(channelId: 'dm-active'),
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => Center(
-              child: ElevatedButton(
-                onPressed: () => showFullScreenVoice(
-                  context,
-                  channelId: 'dm-active',
-                  spaceId: null,
-                  channelName: 'Bob',
-                ),
-                child: const Text('open'),
-              ),
-            ),
+        home: const Scaffold(
+          body: VoiceChannelView(
+            channelId: 'dm-active',
+            spaceId: null,
+            channelName: 'Bob',
           ),
         ),
       ),
     );
-    await tester.pump();
-
-    await tester.tap(find.text('open'));
-    // Not pumpAndSettle: the pushed call view holds a progress indicator that
-    // never settles. Two pumps finish the route transition.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     // Already in a call: the classic call-waiting case.
