@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 
 import 'package:accordkit/accordkit.dart';
@@ -201,7 +202,7 @@ Future<_Harness> _pump(
 
 /// Taps the composer's attach button.
 Future<void> _tapAttach(WidgetTester tester) async {
-  await tester.tap(find.byIcon(Icons.add_circle_outline));
+  await tester.tap(find.byIcon(AppIcons.addCircleOutline));
   await _tick(tester);
 }
 
@@ -330,7 +331,7 @@ void main() {
 
     final button = tester.widget<IconButton>(
       find.ancestor(
-        of: find.byIcon(Icons.add_circle_outline),
+        of: find.byIcon(AppIcons.addCircleOutline),
         matching: find.byType(IconButton),
       ),
     );
@@ -348,7 +349,7 @@ void main() {
     await _tapAttach(tester);
     expect(_visibleText('song.mp3'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byIcon(AppIcons.send));
     await _tick(tester);
 
     expect(_visibleText('Payload too large'), findsOneWidget);
@@ -387,7 +388,7 @@ void main() {
       await _tapAttach(tester);
       expect(_visibleText('song.mp3'), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.send));
+      await tester.tap(find.byIcon(AppIcons.send));
       await _tick(tester);
 
       expect(
@@ -403,7 +404,7 @@ void main() {
 
       IconButton sendButton() => tester.widget<IconButton>(
         find.ancestor(
-          of: find.byIcon(Icons.send),
+          of: find.byIcon(AppIcons.send),
           matching: find.byType(IconButton),
         ),
       );
@@ -420,7 +421,7 @@ void main() {
       // Dropping the file frees text sends: this channel has no slowmode, so
       // only uploads were ever held back. With nothing typed the slot offers a
       // voice message, which is an upload too and stays held back.
-      await tester.tap(find.byIcon(Icons.close).last);
+      await tester.tap(find.byIcon(AppIcons.close).last);
       await _tick(tester);
       expect(_visibleText('song.mp3'), findsNothing);
       final record = tester.widget<IconButton>(
@@ -448,7 +449,7 @@ void main() {
     );
     final button = tester.widget<IconButton>(
       find.ancestor(
-        of: find.byIcon(Icons.add_circle_outline),
+        of: find.byIcon(AppIcons.addCircleOutline),
         matching: find.byType(IconButton),
       ),
     );
@@ -466,7 +467,7 @@ void main() {
     await _pump(tester, settings: const {'max_attachment_size': 1024});
     final button = tester.widget<IconButton>(
       find.ancestor(
-        of: find.byIcon(Icons.add_circle_outline),
+        of: find.byIcon(AppIcons.addCircleOutline),
         matching: find.byType(IconButton),
       ),
     );

@@ -35,38 +35,38 @@ List<AccordMenuEntry> _serverActionEntries(
     AccordMenuEntry(
       label: muted ? 'Unmute server' : 'Mute server',
       icon: muted
-          ? Icons.notifications_active_outlined
-          : Icons.notifications_off_outlined,
+          ? AppIcons.notificationsActiveOutlined
+          : AppIcons.notificationsOffOutlined,
       subtitle: muted ? null : 'Silence notifications from this server',
       onSelected: () => settingsCtl.toggleSpaceMuted(serverKey, space.id),
     ),
     if (canInvite)
       AccordMenuEntry(
         label: 'Copy server link',
-        icon: Icons.link_outlined,
+        icon: AppIcons.linkOutlined,
         onSelected: () => _copyServerLink(context, ref, space, serverKey),
       ),
     if (canInvite)
       AccordMenuEntry(
         label: 'Invite people',
-        icon: Icons.person_add_outlined,
+        icon: AppIcons.personAddOutlined,
         onSelected: () => showAccordInvites(context, spaceId: space.id),
       ),
     if (canManage)
       AccordMenuEntry(
         label: 'Space settings',
-        icon: Icons.settings_outlined,
+        icon: AppIcons.settingsOutlined,
         onSelected: () => showAccordSpaceSettings(context, spaceId: space.id),
       ),
     AccordMenuEntry(
       label: 'Hide from list',
-      icon: Icons.visibility_off_outlined,
+      icon: AppIcons.visibilityOffOutlined,
       subtitle: 'Remove from your rail without leaving',
       onSelected: () => settingsCtl.setSpaceHidden(serverKey, space.id, true),
     ),
     AccordMenuEntry(
       label: 'Leave server',
-      icon: Icons.logout,
+      icon: AppIcons.logout,
       destructive: !isOwner,
       enabled: !isOwner,
       subtitle: isOwner ? 'Transfer ownership before leaving.' : null,
@@ -76,7 +76,7 @@ List<AccordMenuEntry> _serverActionEntries(
     ),
     AccordMenuEntry(
       label: 'Leave & delete data',
-      icon: Icons.delete_forever_outlined,
+      icon: AppIcons.deleteForeverOutlined,
       destructive: !isOwner,
       enabled: !isOwner,
       subtitle: isOwner ? null : 'Permanently delete your messages & data here',
@@ -86,7 +86,7 @@ List<AccordMenuEntry> _serverActionEntries(
     ),
     AccordMenuEntry(
       label: 'Remove server',
-      icon: Icons.link_off,
+      icon: AppIcons.linkOff,
       destructive: true,
       subtitle: 'Disconnect & remove from this app — works even when offline',
       onSelected: () => _removeServer(context, ref, serverKey),

@@ -9,6 +9,7 @@ class _ChannelDragList extends ConsumerStatefulWidget {
     required this.onSelect,
     required this.collapsed,
     required this.onToggleCollapsed,
+    required this.canInvite,
   });
 
   final String spaceId;
@@ -17,6 +18,7 @@ class _ChannelDragList extends ConsumerStatefulWidget {
   final ValueChanged<String> onSelect;
   final Set<String> collapsed;
   final ValueChanged<String> onToggleCollapsed;
+  final bool canInvite;
 
   @override
   ConsumerState<_ChannelDragList> createState() => _ChannelDragListState();
@@ -61,10 +63,21 @@ class _ChannelDragListState extends ConsumerState<_ChannelDragList> {
       flattenChannelsForReorder(channels, uncategorizedFirst: true);
 
   /// The items actually shown: every category, plus the children of categories
-  /// that aren't collapsed (uncategorized channels are always shown).
+  /// that aren't collapsed (uncategorized channels are always shown). A
+  /// collapsed category keeps its selected and unread channels in view, as in
+  /// other chat apps.
   List<ChannelReorderEntry> get _visible => _items
-      .where((e) => e.isCategory || !widget.collapsed.contains(e.parentId))
+      .where(
+        (e) =>
+            e.isCategory ||
+            !widget.collapsed.contains(e.parentId) ||
+            e.channel.id == widget.selectedChannelId ||
+            _unread.contains(e.channel.id),
+      )
       .toList();
+
+  /// Channel ids currently unread (and not silenced), refreshed each build.
+  Set<String> _unread = const {};
 
   void _recomputeParents(ChannelReorderEntry moved) {
     if (moved.isCategory) return;
@@ -170,15 +183,17 @@ class _ChannelDragListState extends ConsumerState<_ChannelDragList> {
       spaceId: widget.spaceId,
       selected: ch.id == widget.selectedChannelId,
       canManageChannels: true,
+      canInvite: widget.canInvite,
       onTap: () => widget.onSelect(ch.id),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    _unread = _visibleUnreadChannelIds(ref, _items.map((e) => e.channel));
     final visible = _visible;
     return ReorderableListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       buildDefaultDragHandles: false,
       itemCount: visible.length,
       onReorderItem: _onReorder,

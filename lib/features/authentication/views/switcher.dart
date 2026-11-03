@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/models/accord_session.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
@@ -101,7 +102,7 @@ class _AccountSwitcherScreenState extends ConsumerState<AccountSwitcherScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  icon: const Icon(Icons.add, color: Colors.white),
+                  icon: const Icon(AppIcons.add, color: Colors.white),
                   label: Text(
                     'Add account',
                     style: theme.textTheme.titleSmall!.copyWith(
@@ -171,7 +172,7 @@ class _AccountTile extends StatelessWidget {
           ),
           trailing: IconButton(
             tooltip: 'Remove',
-            icon: Icon(Icons.close, color: colors.dirtyWhite, size: 20),
+            icon: Icon(AppIcons.close, color: colors.dirtyWhite, size: 20),
             onPressed: onRemove,
           ),
         ),

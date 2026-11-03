@@ -12,7 +12,7 @@ class _ReactButton extends StatelessWidget {
     return IconButton(
       tooltip: 'Add reaction',
       onPressed: onPressed,
-      icon: Icon(Icons.add_reaction_outlined, size: 18, color: colors.gray),
+      icon: Icon(AppIcons.addReactionOutlined, size: 18, color: colors.gray),
     );
   }
 }
@@ -86,7 +86,7 @@ class _ReactionPill extends StatelessWidget {
             children: [
               if (superReaction) ...[
                 Icon(
-                  Icons.auto_awesome,
+                  AppIcons.autoAwesome,
                   size: 12,
                   color: superReactionColor(colors),
                   semanticLabel: 'Super reaction',

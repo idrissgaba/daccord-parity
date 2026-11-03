@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
@@ -127,19 +128,19 @@ class _PinnedMessagesDialogState extends ConsumerState<_PinnedMessagesDialog> {
             Navigator.of(context).pop();
             onJump(message);
           },
-          icon: const Icon(Icons.north_east, size: 18),
+          icon: const Icon(AppIcons.northEast, size: 18),
         ),
       if (message.authorId != currentUserId)
         IconButton(
           tooltip: 'Report',
           onPressed: () => _report(message, authorName),
-          icon: const Icon(Icons.flag_outlined, size: 18),
+          icon: const Icon(AppIcons.flagOutlined, size: 18),
         ),
       if (widget.canManage)
         IconButton(
           tooltip: 'Unpin',
           onPressed: () => _unpin(message),
-          icon: const Icon(Icons.push_pin_outlined, size: 18),
+          icon: const Icon(AppIcons.pushPinOutlined, size: 18),
         ),
     ];
     if (actions.isEmpty) return null;
@@ -184,7 +185,7 @@ class _PinnedMessagesDialogState extends ConsumerState<_PinnedMessagesDialog> {
               padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
               child: Row(
                 children: [
-                  Icon(Icons.push_pin, size: 18, color: colors.dirtyWhite),
+                  Icon(AppIcons.pushPin, size: 18, color: colors.dirtyWhite),
                   const SizedBox(width: 8),
                   Text(
                     'Pinned messages',
@@ -193,7 +194,7 @@ class _PinnedMessagesDialogState extends ConsumerState<_PinnedMessagesDialog> {
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),

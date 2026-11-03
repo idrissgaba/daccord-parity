@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/utils/ban_dialog.dart';
 import 'package:bonfire/shared/utils/confirm_dialog.dart';
@@ -135,7 +136,7 @@ class ModerationReportRow extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.flag_outlined, size: 16, color: colors.red),
+            Icon(AppIcons.flagOutlined, size: 16, color: colors.red),
             const SizedBox(width: 6),
             Text(categoryLabel, style: theme.textTheme.titleSmall),
             const SizedBox(width: 6),
@@ -158,19 +159,19 @@ class ModerationReportRow extends StatelessWidget {
             if (canDeleteMessage)
               TextButton.icon(
                 onPressed: _on(ModerationReportAction.deleteMessage),
-                icon: const Icon(Icons.delete_outline, size: 16),
+                icon: const Icon(AppIcons.deleteOutline, size: 16),
                 label: const Text('Delete msg'),
               ),
             if (report.reportedUserId != null) ...[
               TextButton.icon(
                 onPressed: _on(ModerationReportAction.kick),
-                icon: const Icon(Icons.exit_to_app, size: 16),
+                icon: const Icon(AppIcons.exitToApp, size: 16),
                 label: const Text('Kick'),
               ),
               TextButton.icon(
                 onPressed: _on(ModerationReportAction.ban),
                 style: TextButton.styleFrom(foregroundColor: colors.red),
-                icon: const Icon(Icons.gavel, size: 16),
+                icon: const Icon(AppIcons.gavel, size: 16),
                 label: const Text('Ban'),
               ),
             ],

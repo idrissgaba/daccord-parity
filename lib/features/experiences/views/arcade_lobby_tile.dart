@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/experiences/views/arcade_game_artwork.dart';
 import 'package:bonfire/features/experiences/views/arcade_identity.dart';
@@ -123,7 +124,7 @@ class ArcadeLobbyTile extends ConsumerWidget {
                       Row(
                         children: [
                           Icon(
-                            Icons.people_outline,
+                            AppIcons.peopleOutline,
                             size: 14,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -143,7 +144,7 @@ class ArcadeLobbyTile extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Icon(
-                  Icons.chevron_right,
+                  AppIcons.chevronRight,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ],

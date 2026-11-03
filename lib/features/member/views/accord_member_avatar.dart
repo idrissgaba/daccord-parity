@@ -18,6 +18,7 @@ class AccordMemberAvatar extends StatelessWidget {
     this.radius = 16,
     this.backgroundColor,
     this.initialStyle,
+    this.statusRingColor,
   });
 
   final String? avatarUrl;
@@ -39,13 +40,18 @@ class AccordMemberAvatar extends StatelessWidget {
   /// defaults to a flat grey.
   final Color? backgroundColor;
 
+  /// The surface the avatar sits on, cut around the status dot so the dot
+  /// reads as punched out of it. Defaults to the column surface.
+  final Color? statusRingColor;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
     final status = this.status;
     final dotColor = status == null ? null : accordPresenceColor(status);
-    final dotSize = radius * 0.6;
+    // A 10 px dot with a 2 px ring on a 32 px avatar, as in the reference.
+    final dotSize = radius <= 16 ? radius * 0.625 + 4 : radius * 0.6;
     final url = avatarUrl;
     final bg = backgroundColor ?? colors.darkGray;
     return SizedBox(
@@ -77,7 +83,10 @@ class AccordMemberAvatar extends StatelessWidget {
                   color: dotColor,
                   shape: BoxShape.circle,
                   // Blends into the surrounding surface.
-                  border: Border.all(color: colors.foreground, width: 2),
+                  border: Border.all(
+                    color: statusRingColor ?? colors.foreground,
+                    width: 2,
+                  ),
                 ),
               ),
             ),

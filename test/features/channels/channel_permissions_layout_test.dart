@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 
 import 'package:accordkit/accordkit.dart';
@@ -222,7 +223,7 @@ void main() {
     _expectLabelRoom(tester, 'View Channel');
     expect(find.text('Save').hitTestable(), findsOneWidget);
     // Desktop buttons keep their compact 30x28 size.
-    expect(tester.getSize(_triButton('View Channel', Icons.check)).width, 30);
+    expect(tester.getSize(_triButton('View Channel', AppIcons.check)).width, 30);
   });
 
   testWidgets('phone stacks a chip strip above a full-width editor', (
@@ -244,7 +245,7 @@ void main() {
     expect(find.text('Save').hitTestable(), findsOneWidget);
     expect(find.text('Reset').hitTestable(), findsOneWidget);
     // Finger-sized tri-state controls.
-    final allow = tester.getSize(_triButton('View Channel', Icons.check));
+    final allow = tester.getSize(_triButton('View Channel', AppIcons.check));
     expect(allow.width, greaterThanOrEqualTo(40));
     expect(allow.height, greaterThanOrEqualTo(40));
     // The dialog uses the phone's width (default 40px insets would leave
@@ -272,7 +273,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    await tester.tap(_triButton('View Channel', Icons.check));
+    await tester.tap(_triButton('View Channel', AppIcons.check));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
@@ -326,7 +327,7 @@ void main() {
     );
     expect(long.didExceedMaxLines, isFalse);
     expect(
-      tester.getSize(_triButton('View Channel', Icons.check)).width,
+      tester.getSize(_triButton('View Channel', AppIcons.check)).width,
       greaterThanOrEqualTo(40),
     );
   });

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/messaging/utils/youtube_video.dart';
 import 'package:bonfire/features/messaging/views/message_media_gate.dart';
 import 'package:bonfire/features/messaging/views/youtube_player.dart';
@@ -106,19 +107,19 @@ class _YouTubePreviewState extends State<YouTubePreview>
                     color: Colors.black12,
                     child: widget.poster == null
                         ? const Center(
-                            child: Icon(Icons.smart_display, size: 48),
+                            child: Icon(AppIcons.smartDisplay, size: 48),
                           )
                         : MessageMediaGate(
                             source: widget.poster,
                             trustedBaseUrl: widget.cdnUrl,
                             blockedPlaceholder: const Center(
-                              child: Icon(Icons.smart_display, size: 48),
+                              child: Icon(AppIcons.smartDisplay, size: 48),
                             ),
                             builder: (_, url) => CachedNetworkImage(
                               imageUrl: url,
                               fit: BoxFit.contain,
                               errorWidget: (_, _, _) => const Center(
-                                child: Icon(Icons.smart_display, size: 48),
+                                child: Icon(AppIcons.smartDisplay, size: 48),
                               ),
                             ),
                           ),
@@ -151,7 +152,7 @@ class _YouTubePreviewState extends State<YouTubePreview>
                           _error = null;
                           _playing = true;
                         }),
-                  icon: Icon(_playing ? Icons.stop : Icons.play_arrow),
+                  icon: Icon(_playing ? AppIcons.stop : AppIcons.playArrow),
                   label: Text(
                     _playing ? 'Stop playback' : 'Play · load from YouTube',
                   ),
@@ -159,7 +160,7 @@ class _YouTubePreviewState extends State<YouTubePreview>
               TextButton.icon(
                 onPressed: () =>
                     openExternalUrl(context, widget.video.canonicalUrl),
-                icon: const Icon(Icons.open_in_new),
+                icon: const Icon(AppIcons.openInNew),
                 label: const Text('Open in YouTube'),
               ),
             ],

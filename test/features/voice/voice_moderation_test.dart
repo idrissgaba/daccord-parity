@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 
 import 'package:accordkit/accordkit.dart';
@@ -249,10 +250,10 @@ void main() {
 
     test('occupancy shows the cap when there is one', () {
       expect(voiceOccupancyLabel(0, null), isNull);
-      expect(voiceOccupancyLabel(3, null), '3');
+      expect(voiceOccupancyLabel(3, null), isNull);
       expect(voiceOccupancyLabel(0, 5), '0/5');
       expect(voiceOccupancyLabel(2, '10'), '2/10');
-      expect(voiceOccupancyLabel(2, 0), '2');
+      expect(voiceOccupancyLabel(2, 0), isNull);
       expect(voiceUserLimit(4.0), 4);
       expect(voiceUserLimit('x'), isNull);
     });
@@ -624,7 +625,7 @@ void main() {
       );
       await tester.pump();
       expect(find.text('AUDIENCE — 1'), findsOneWidget);
-      expect(find.byIcon(Icons.back_hand), findsOneWidget);
+      expect(find.byIcon(AppIcons.backHand), findsOneWidget);
 
       await tester.tap(find.text('Invite to Speak'));
       await tester.pumpAndSettle();

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:bonfire/features/updates/services/web_update.dart';
@@ -46,7 +47,7 @@ class _WebUpdatePromptState extends State<WebUpdatePrompt> {
   Widget build(BuildContext context) {
     if (!kIsWeb || !_available || _dismissed) return const SizedBox.shrink();
     return AppBanner(
-      icon: Icons.refresh,
+      icon: AppIcons.refresh,
       message: 'A new version is available — reload to update.',
       onTap: applyWebUpdate,
       onDismiss: () => setState(() => _dismissed = true),

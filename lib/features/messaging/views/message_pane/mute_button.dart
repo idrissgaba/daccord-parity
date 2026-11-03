@@ -36,15 +36,17 @@ class _MuteButton extends ConsumerWidget {
       tooltip: 'Notification settings — $levelLabel',
       icon: Icon(
         muted
-            ? Icons.notifications_off
+            ? AppIcons.notificationsOff
             : (level == AccordSettings.channelNotifNothing
-                  ? Icons.notifications_paused
+                  ? AppIcons.notificationsPaused
                   : (level == AccordSettings.channelNotifAll
-                        ? Icons.notifications_active
-                        : Icons.notifications_none)),
-        size: 18,
-        color: colors.dirtyWhite,
+                        ? AppIcons.notificationsActive
+                        : AppIcons.notificationsNone)),
+        size: 20,
+        color: colors.interactive,
       ),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
       onSelected: (action) {
         if (activeKey == null) return;
         switch (action) {

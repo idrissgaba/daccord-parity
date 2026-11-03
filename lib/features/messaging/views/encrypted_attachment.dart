@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:typed_data';
 import 'dart:async';
 import 'package:bonfire/shared/utils/decrypted_media.dart';
@@ -170,12 +171,12 @@ class _EncryptedAttachmentState extends State<EncryptedAttachment> {
                   (preview == AttachmentPreview.video && _source == null))
                 TextButton.icon(
                   onPressed: _busy ? null : () => _load(),
-                  icon: const Icon(Icons.image_outlined),
+                  icon: const Icon(AppIcons.imageOutlined),
                   label: const Text('Decrypt preview'),
                 ),
               TextButton.icon(
                 onPressed: _busy ? null : () => _load(save: true),
-                icon: const Icon(Icons.lock_outline),
+                icon: const Icon(AppIcons.lockOutline),
                 label: Text('Save ${widget.attachment.filename}'),
               ),
             ],

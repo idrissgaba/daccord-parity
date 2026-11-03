@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -62,45 +63,62 @@ class SpaceEventsEntry extends ConsumerWidget {
         : events.length == 1
         ? '1 Event'
         : '${events.length} Events';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-      child: Material(
-        color: live != null
-            ? colors.red.withValues(alpha: 0.15)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          key: const Key('space-events-entry'),
-          // The dialog it opens would hand focus back here and leave the row
-          // lit up as if still selected.
-          canRequestFocus: false,
-          borderRadius: BorderRadius.circular(8),
-          onTap: () => showSpaceEvents(context, spaceId: spaceId),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: [
-                Icon(
-                  live != null ? Icons.podcasts : Icons.event,
-                  size: 18,
-                  color: live != null ? colors.red : colors.dirtyWhite,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium!.copyWith(
-                      color: live != null ? colors.red : colors.dirtyWhite,
-                      fontWeight: live != null ? FontWeight.w600 : null,
-                    ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 13, 8, 1),
+          child: Material(
+            color: live != null
+                ? colors.red.withValues(alpha: 0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              key: const Key('space-events-entry'),
+              // The dialog it opens would hand focus back here and leave the
+              // row lit up as if still selected.
+              canRequestFocus: false,
+              borderRadius: BorderRadius.circular(8),
+              hoverColor: colors.hover,
+              onTap: () => showSpaceEvents(context, spaceId: spaceId),
+              child: SizedBox(
+                height: 32,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        live != null ? AppIcons.podcasts : AppIcons.event,
+                        size: 20,
+                        color: live != null ? colors.red : colors.gray,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          label,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge!.copyWith(
+                            fontSize: 16,
+                            fontWeight: live != null
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                            color: live != null ? colors.red : colors.gray,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
-      ),
+        // The hairline that separates the space rows from the channels.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Divider(height: 1, thickness: 1, color: colors.hairline),
+        ),
+      ],
     );
   }
 }
@@ -137,7 +155,7 @@ class SpaceEventsDialog extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.event, size: 18, color: colors.dirtyWhite),
+                  Icon(AppIcons.event, size: 18, color: colors.dirtyWhite),
                   const SizedBox(width: 8),
                   Text('Events', style: theme.textTheme.titleMedium),
                   const Spacer(),
@@ -146,13 +164,13 @@ class SpaceEventsDialog extends ConsumerWidget {
                       key: const Key('event-create'),
                       onPressed: () =>
                           showEventEditor(context, spaceId: spaceId),
-                      icon: const Icon(Icons.add, size: 18),
+                      icon: const Icon(AppIcons.add, size: 18),
                       label: const Text('Create event'),
                     ),
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -339,7 +357,9 @@ class _EventCardState extends ConsumerState<EventCard> {
                 Row(
                   children: [
                     Icon(
-                      event.isVoice ? Icons.volume_up : Icons.place_outlined,
+                      event.isVoice
+                          ? AppIcons.volumeUp
+                          : AppIcons.placeOutlined,
                       size: 16,
                       color: colors.gray,
                     ),
@@ -353,7 +373,7 @@ class _EventCardState extends ConsumerState<EventCard> {
                         ),
                       ),
                     ),
-                    Icon(Icons.people_outline, size: 16, color: colors.gray),
+                    Icon(AppIcons.peopleOutline, size: 16, color: colors.gray),
                     const SizedBox(width: 4),
                     Text(
                       '${event.userCount} interested',
@@ -378,7 +398,7 @@ class _EventCardState extends ConsumerState<EventCard> {
                         onPressed: () => ref
                             .read(voiceControllerProvider.notifier)
                             .join(event.channelId!, event.spaceId),
-                        icon: const Icon(Icons.call, size: 16),
+                        icon: const Icon(AppIcons.call, size: 16),
                         label: const Text('Join'),
                       ),
                     OutlinedButton.icon(
@@ -394,7 +414,9 @@ class _EventCardState extends ConsumerState<EventCard> {
                               'Could not update your interest',
                             ),
                       icon: Icon(
-                        interested ? Icons.check : Icons.notifications_none,
+                        interested
+                            ? AppIcons.check
+                            : AppIcons.notificationsNone,
                         size: 16,
                       ),
                       label: Text(interested ? 'Interested' : 'Interested?'),
@@ -402,7 +424,7 @@ class _EventCardState extends ConsumerState<EventCard> {
                     IconButton(
                       tooltip: 'Add to calendar',
                       onPressed: () => _addToCalendar(where),
-                      icon: const Icon(Icons.event_available, size: 18),
+                      icon: const Icon(AppIcons.eventAvailable, size: 18),
                     ),
                     if (widget.canManage)
                       PopupMenuButton<String>(

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/member/controllers/profile_extras.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
@@ -194,7 +195,7 @@ class StreamerModeBar extends ConsumerWidget {
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
             children: [
-              Icon(Icons.videocam, size: 16, color: Colors.white),
+              Icon(AppIcons.videocam, size: 16, color: Colors.white),
               SizedBox(width: 8),
               Expanded(
                 child: Text(

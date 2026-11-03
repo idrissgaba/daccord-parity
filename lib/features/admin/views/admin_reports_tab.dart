@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/admin/views/admin_list_scaffold.dart';
 import 'package:bonfire/shared/components/moderation_report_row.dart';
@@ -143,7 +144,7 @@ class _AdminReportsTabState extends ConsumerState<AdminReportsTab> {
             IconButton(
               tooltip: 'Refresh',
               onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh, size: 18),
+              icon: const Icon(AppIcons.refresh, size: 18),
             ),
           ],
         ),

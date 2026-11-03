@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/services/stream_popout.dart';
 import 'package:bonfire/features/voice/views/screen_share_picker.dart';
@@ -25,20 +26,20 @@ Future<void> showStreamMenu(
     entries: [
       AccordMenuEntry(
         label: 'Stop Streaming',
-        icon: Icons.stop_screen_share_outlined,
+        icon: AppIcons.stopScreenShareOutlined,
         destructive: true,
         onSelected: voice.toggleScreenShare,
       ),
       AccordMenuEntry(
         label: 'Change Stream',
-        icon: Icons.screen_share_outlined,
+        icon: AppIcons.screenShareOutlined,
         onSelected: () => changeStreamWithPicker(context, ref),
       ),
       if (popOutTrack != null && canPopOutStream) ...[
         const AccordMenuEntry.divider(),
         AccordMenuEntry(
           label: 'Pop Out Stream',
-          icon: Icons.open_in_new,
+          icon: AppIcons.openInNew,
           onSelected: () => popOutStream(popOutTrack),
         ),
       ],

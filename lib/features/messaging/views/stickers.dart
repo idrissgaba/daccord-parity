@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/messaging/controllers/space_stickers.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
@@ -285,7 +286,7 @@ class _StickerManagementDialogState
               Row(
                 children: [
                   Icon(
-                    Icons.sticky_note_2_outlined,
+                    AppIcons.stickyNote2Outlined,
                     size: 18,
                     color: colors.dirtyWhite,
                   ),
@@ -295,7 +296,7 @@ class _StickerManagementDialogState
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -307,7 +308,7 @@ class _StickerManagementDialogState
               FilledButton.icon(
                 key: const Key('sticker-upload'),
                 onPressed: _busy ? null : _upload,
-                icon: const Icon(Icons.upload, size: 18),
+                icon: const Icon(AppIcons.upload, size: 18),
                 label: const Text('Upload sticker'),
               ),
               if (_error != null) ...[
@@ -333,13 +334,13 @@ class _StickerManagementDialogState
                           return ListTile(
                             key: ValueKey('manage-sticker-${sticker.id}'),
                             leading: url == null
-                                ? const Icon(Icons.image_outlined)
+                                ? const Icon(AppIcons.imageOutlined)
                                 : CachedNetworkImage(
                                     imageUrl: url,
                                     width: 40,
                                     height: 40,
                                     errorWidget: (_, _, _) =>
-                                        const Icon(Icons.broken_image),
+                                        const Icon(AppIcons.brokenImage),
                                   ),
                             title: Text(sticker.name),
                             trailing: Row(
@@ -350,7 +351,7 @@ class _StickerManagementDialogState
                                   onPressed: _busy
                                       ? null
                                       : () => _rename(sticker),
-                                  icon: const Icon(Icons.edit, size: 18),
+                                  icon: const Icon(AppIcons.edit, size: 18),
                                 ),
                                 IconButton(
                                   tooltip: 'Delete',
@@ -358,7 +359,7 @@ class _StickerManagementDialogState
                                       ? null
                                       : () => _delete(sticker),
                                   icon: Icon(
-                                    Icons.delete_outline,
+                                    AppIcons.deleteOutline,
                                     size: 18,
                                     color: colors.red,
                                   ),

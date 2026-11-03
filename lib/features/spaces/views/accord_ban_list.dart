@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
@@ -171,19 +172,19 @@ class _BanListState extends ConsumerState<_BanList>
             children: [
               Row(
                 children: [
-                  Icon(Icons.gavel, size: 18, color: colors.dirtyWhite),
+                  Icon(AppIcons.gavel, size: 18, color: colors.dirtyWhite),
                   const SizedBox(width: 8),
                   Text('Banned members', style: theme.textTheme.titleMedium),
                   const Spacer(),
                   IconButton(
                     tooltip: 'Refresh',
                     onPressed: loading ? null : load,
-                    icon: const Icon(Icons.refresh, size: 18),
+                    icon: const Icon(AppIcons.refresh, size: 18),
                   ),
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -192,7 +193,7 @@ class _BanListState extends ConsumerState<_BanList>
                 TextField(
                   decoration: const InputDecoration(
                     isDense: true,
-                    prefixIcon: Icon(Icons.search, size: 18),
+                    prefixIcon: Icon(AppIcons.search, size: 18),
                     hintText: 'Search banned members',
                     border: OutlineInputBorder(),
                   ),
@@ -215,7 +216,7 @@ class _BanListState extends ConsumerState<_BanList>
                     ),
                     FilledButton.icon(
                       onPressed: loading ? null : _bulkUnban,
-                      icon: const Icon(Icons.lock_open, size: 16),
+                      icon: const Icon(AppIcons.lockOpen, size: 16),
                       label: const Text('Unban selected'),
                     ),
                   ],
@@ -299,7 +300,7 @@ class _BanListState extends ConsumerState<_BanList>
                                 ),
                                 trailing: TextButton.icon(
                                   onPressed: loading ? null : () => _unban(ban),
-                                  icon: const Icon(Icons.lock_open, size: 16),
+                                  icon: const Icon(AppIcons.lockOpen, size: 16),
                                   label: const Text('Unban'),
                                 ),
                               );

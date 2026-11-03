@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'dart:typed_data';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
@@ -269,7 +270,7 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
               Row(
                 children: [
                   Icon(
-                    Icons.person_outline,
+                    AppIcons.personOutline,
                     size: 18,
                     color: colors.dirtyWhite,
                   ),
@@ -286,7 +287,7 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -335,7 +336,7 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
                                 child: IconButton(
                                   tooltip: 'Change avatar',
                                   onPressed: _busy ? null : _pickAvatar,
-                                  icon: const Icon(Icons.camera_alt, size: 18),
+                                  icon: const Icon(AppIcons.cameraAlt, size: 18),
                                   style: IconButton.styleFrom(
                                     backgroundColor: colors.darkGray,
                                   ),
@@ -499,7 +500,7 @@ class _ThemeColorRow extends StatelessWidget {
                   radius: 13,
                   backgroundColor: colors.darkGray,
                   child: Icon(
-                    value == null ? Icons.check : Icons.block,
+                    value == null ? AppIcons.check : AppIcons.block,
                     size: 14,
                     color: colors.gray,
                   ),
@@ -513,7 +514,7 @@ class _ThemeColorRow extends StatelessWidget {
                     radius: 13,
                     backgroundColor: profileColor(color),
                     child: value == color
-                        ? const Icon(Icons.check, size: 14, color: Colors.white)
+                        ? const Icon(AppIcons.check, size: 14, color: Colors.white)
                         : null,
                   ),
                 ),

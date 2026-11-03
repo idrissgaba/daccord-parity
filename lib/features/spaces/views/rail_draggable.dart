@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -21,21 +22,17 @@ bool get railDragsImmediately => switch (defaultTargetPlatform) {
 /// It also owns the item's context-menu triggers and its [tooltip], because
 /// the three gestures share one arena and have to be reconciled here:
 ///
-/// * Desktop: right-click opens the menu anchored at the pointer; the tooltip
-///   shows on hover as usual.
+/// * Desktop: right-click opens the menu anchored at the pointer; the name
+///   shows in a [RailTooltip] beside the tile on hover.
 /// * Touch: a long-press lifts the tile (haptic). Releasing it *in place* —
 ///   without dragging and without a drop being accepted — opens the menu
 ///   ([onMenu] with a null position, i.e. the touch-friendly bottom sheet);
 ///   moving the finger instead reorders as before. Touch has no right-click,
 ///   and long-press is the platform's universal "show actions" gesture.
 ///
-/// On touch the tooltip's own long-press trigger is disabled
-/// ([TooltipTriggerMode.manual]; hover still works with a mouse). Left at the
-/// default, [Tooltip] adds a `LongPressGestureRecognizer` with the same
-/// timeout as [LongPressDraggable]'s delayed drag recogniser, and being the
-/// inner listener its timer fires first and *always* wins the arena — so a
-/// long press showed the space's name and the drag (and with it the menu)
-/// never started. The name is shown as the sheet's title instead.
+/// The tooltip is hover-only (never long-press), so it cannot win the gesture
+/// arena against the delayed drag recogniser; the name is shown as the sheet's
+/// title on touch instead.
 class RailDraggable<T extends Object> extends StatefulWidget {
   const RailDraggable({
     super.key,
@@ -96,9 +93,8 @@ class _RailDraggableState<T extends Object> extends State<RailDraggable<T>> {
   Widget build(BuildContext context) {
     final onMenu = widget.onMenu;
     final desktop = railDragsImmediately;
-    final child = Tooltip(
+    final child = RailTooltip(
       message: widget.tooltip,
-      triggerMode: desktop ? null : TooltipTriggerMode.manual,
       child: GestureDetector(
         onSecondaryTapUp: onMenu == null
             ? null
@@ -131,4 +127,106 @@ class _RailDraggableState<T extends Object> extends State<RailDraggable<T>> {
       ),
     );
   }
+}
+
+/// The rail's name tooltip: a dark rounded bubble with a small arrow, shown
+/// to the right of the tile while the pointer rests on it. Hover only — it
+/// never takes part in the tap / long-press / drag arena.
+class RailTooltip extends StatefulWidget {
+  const RailTooltip({super.key, required this.message, required this.child});
+
+  final String message;
+  final Widget child;
+
+  @override
+  State<RailTooltip> createState() => _RailTooltipState();
+}
+
+class _RailTooltipState extends State<RailTooltip> {
+  final _portal = OverlayPortalController();
+  final _link = LayerLink();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return OverlayPortal(
+      controller: _portal,
+      overlayChildBuilder: (context) => CompositedTransformFollower(
+        link: _link,
+        targetAnchor: Alignment.centerRight,
+        followerAnchor: Alignment.centerLeft,
+        offset: const Offset(8, 0),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: IgnorePointer(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomPaint(
+                  size: const Size(8, 16),
+                  painter: _TooltipArrowPainter(_bubble),
+                ),
+                Material(
+                  color: _bubble,
+                  borderRadius: BorderRadius.circular(8),
+                  elevation: 8,
+                  shadowColor: Colors.black87,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Text(
+                      widget.message,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: colors.dirtyWhite,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      child: CompositedTransformTarget(
+        link: _link,
+        child: MouseRegion(
+          onEnter: (_) {
+            if (!_portal.isShowing) _portal.show();
+          },
+          onExit: (_) {
+            if (_portal.isShowing) _portal.hide();
+          },
+          child: Semantics(tooltip: widget.message, child: widget.child),
+        ),
+      ),
+    );
+  }
+}
+
+/// The bubble: near-black, so it stands out on the base surface too.
+const Color _bubble = Color(0xFF111214);
+
+/// The left-pointing arrow of a [RailTooltip].
+class _TooltipArrowPainter extends CustomPainter {
+  const _TooltipArrowPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(0, size.height / 2)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TooltipArrowPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

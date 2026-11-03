@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/utils/responsive_dialog.dart';
 import 'package:bonfire/features/messaging/views/box/accord_message_content.dart';
@@ -38,7 +39,7 @@ Future<bool> confirmNsfwGate(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.warning_amber_rounded, size: 44, color: colors.red),
+                Icon(AppIcons.warningAmberRounded, size: 44, color: colors.red),
                 const SizedBox(height: 12),
                 Text(
                   'Age-restricted channel',

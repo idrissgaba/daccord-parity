@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
@@ -137,7 +138,7 @@ class WelcomeScreenDialog extends ConsumerWidget {
                       color: colors.gray,
                     ),
                   ),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(AppIcons.chevronRight),
                   onTap: () => Navigator.of(context).pop(item.channelId),
                 ),
             ],
@@ -368,7 +369,7 @@ class _WelcomeScreenEditorState extends ConsumerState<WelcomeScreenEditor> {
                               tooltip: 'Remove',
                               onPressed: () =>
                                   setState(() => _rows.remove(row)),
-                              icon: const Icon(Icons.close, size: 18),
+                              icon: const Icon(AppIcons.close, size: 18),
                             ),
                           ],
                         ),
@@ -379,7 +380,7 @@ class _WelcomeScreenEditorState extends ConsumerState<WelcomeScreenEditor> {
                         child: TextButton.icon(
                           key: const Key('welcome-add-channel'),
                           onPressed: () => setState(() => _rows.add(_Row())),
-                          icon: const Icon(Icons.add, size: 18),
+                          icon: const Icon(AppIcons.add, size: 18),
                           label: const Text('Recommend a channel'),
                         ),
                       ),

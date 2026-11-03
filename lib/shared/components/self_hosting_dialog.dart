@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/app_info.dart' show kGithubRepo;
 import 'package:bonfire/shared/utils/external_url.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -28,7 +29,7 @@ Future<void> showSelfHostingDialog(
       final theme = Theme.of(dialogContext);
       final colors = BonfireThemeExtension.of(dialogContext);
       return AlertDialog(
-        icon: Icon(Icons.home_work_outlined, color: colors.primary),
+        icon: Icon(AppIcons.homeWorkOutlined, color: colors.primary),
         title: const Text('Run your own server'),
         content: SizedBox(
           width: 420,
@@ -47,7 +48,7 @@ Future<void> showSelfHostingDialog(
                 ),
                 const SizedBox(height: 16),
                 const _HostingOption(
-                  icon: Icons.desktop_windows_outlined,
+                  icon: AppIcons.desktopWindowsOutlined,
                   title: 'The Accord desktop app',
                   body:
                       'A tray app for Windows, macOS and Linux that bundles '
@@ -56,7 +57,7 @@ Future<void> showSelfHostingDialog(
                 ),
                 const SizedBox(height: 12),
                 const _HostingOption(
-                  icon: Icons.dns_outlined,
+                  icon: AppIcons.dnsOutlined,
                   title: 'A server deployment',
                   body:
                       'Run accordserver with Docker on a Linux machine or VPS '

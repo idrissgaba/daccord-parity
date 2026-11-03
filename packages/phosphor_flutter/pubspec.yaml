@@ -1,0 +1,23 @@
+name: phosphor_flutter
+description: Phosphor icons (Fill and Bold weights) as plain IconData constants. Local fork, see FORK.md.
+version: 2.1.0+daccord.1
+publish_to: none
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  fonts:
+    - family: PhosphorBold
+      fonts:
+        - asset: lib/fonts/Phosphor-Bold.ttf
+          weight: 400
+    - family: PhosphorFill
+      fonts:
+        - asset: lib/fonts/Phosphor-Fill.ttf
+          weight: 400

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
@@ -157,7 +158,7 @@ class _QuickSwitcherDialogState extends ConsumerState<_QuickSwitcherDialog> {
                 autofocus: true,
                 decoration: const InputDecoration(
                   hintText: 'Where would you like to go?',
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: Icon(AppIcons.search),
                 ),
                 onChanged: (value) => setState(() {
                   _query = value;
@@ -189,10 +190,10 @@ class _QuickSwitcherDialogState extends ConsumerState<_QuickSwitcherDialog> {
                           selectedTileColor: colors.foreground,
                           leading: Icon(
                             switch (entry.channel.type) {
-                              'voice' => Icons.volume_up,
-                              'stage' => Icons.podcasts,
-                              'forum' => Icons.forum_outlined,
-                              _ => Icons.tag,
+                              'voice' => AppIcons.volumeUp,
+                              'stage' => AppIcons.podcasts,
+                              'forum' => AppIcons.forumOutlined,
+                              _ => AppIcons.tag,
                             },
                             size: 18,
                             color: colors.gray,

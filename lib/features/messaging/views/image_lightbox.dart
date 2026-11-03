@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:typed_data';
 import 'package:bonfire/features/messaging/controllers/withdrawn_attachments.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
@@ -81,7 +82,7 @@ class _ImageLightboxState extends ConsumerState<_ImageLightbox> {
                         fit: BoxFit.contain,
                         placeholder: (_, _) => const LoadingView(),
                         errorWidget: (_, _, _) => const Icon(
-                          Icons.broken_image_outlined,
+                          AppIcons.brokenImageOutlined,
                           color: Colors.white54,
                           size: 48,
                         ),
@@ -98,12 +99,12 @@ class _ImageLightboxState extends ConsumerState<_ImageLightbox> {
                   IconButton(
                     tooltip: 'Open in browser',
                     onPressed: () async => openExternalUrl(context, url),
-                    icon: const Icon(Icons.open_in_new, color: Colors.white),
+                    icon: const Icon(AppIcons.openInNew, color: Colors.white),
                   ),
                 IconButton(
                   tooltip: 'Close',
                   onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.close, color: Colors.white),
+                  icon: const Icon(AppIcons.close, color: Colors.white),
                 ),
               ],
             ),

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
@@ -125,7 +126,7 @@ class VoiceLobbyBody extends ConsumerWidget {
           : () => ref
                 .read(voiceControllerProvider.notifier)
                 .join(channelId, spaceId!),
-      icon: const Icon(Icons.call),
+      icon: const Icon(AppIcons.call),
       label: const Text('Join Voice'),
     );
 
@@ -151,7 +152,7 @@ class VoiceLobbyBody extends ConsumerWidget {
         Row(
           children: [
             Icon(
-              stage ? Icons.podcasts : Icons.volume_up,
+              stage ? AppIcons.podcasts : AppIcons.volumeUp,
               size: compact ? 18 : 20,
               color: colors.primary,
             ),
@@ -208,22 +209,22 @@ class VoiceLobbyBody extends ConsumerWidget {
           children: [
             if (stage)
               const _PreJoinChip(
-                icon: Icons.groups,
+                icon: AppIcons.groups,
                 label: 'You join the audience',
               )
             else ...[
               _PreJoinChip(
-                icon: selfMute ? Icons.mic_off : Icons.mic,
+                icon: selfMute ? AppIcons.micOff : AppIcons.mic,
                 label: selfMute ? 'Joining muted' : 'Microphone will be live',
               ),
               const _PreJoinChip(
-                icon: Icons.videocam_off,
+                icon: AppIcons.videocamOff,
                 label: 'Camera starts off',
               ),
             ],
             if (!kIsWeb && !stage)
               const _PreJoinChip(
-                icon: Icons.screen_share_outlined,
+                icon: AppIcons.screenShareOutlined,
                 label: 'Screen share available',
               ),
           ],
@@ -249,7 +250,7 @@ class VoiceLobbyBody extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: () => showVoiceSettings(context),
-              icon: const Icon(Icons.settings, size: 18),
+              icon: const Icon(AppIcons.settings, size: 18),
               label: const Text('Voice settings'),
             ),
           ),

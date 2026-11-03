@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 
@@ -39,7 +40,7 @@ class DialogTitleBar extends StatelessWidget {
         IconButton(
           tooltip: 'Close',
           onPressed: onClose ?? () => Navigator.of(context).pop(),
-          icon: Icon(Icons.close, size: 20, color: colors.gray),
+          icon: Icon(AppIcons.close, size: 20, color: colors.gray),
         ),
       ],
     );

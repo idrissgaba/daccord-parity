@@ -178,7 +178,7 @@ class _EmojiPickerPanelState extends ConsumerState<EmojiPickerPanel> {
                     filled: true,
                     fillColor: colors.darkGray,
                     prefixIcon: Icon(
-                      Icons.search,
+                      AppIcons.search,
                       size: 18,
                       color: colors.gray,
                     ),
@@ -447,9 +447,9 @@ class _CategoryRail extends StatelessWidget {
     final colors = BonfireThemeExtension.of(context);
     final tabs = <Widget>[
       if (hasRecent)
-        _tab(colors, _Tab.recent, Icons.history, 'Frequently used'),
+        _tab(colors, _Tab.recent, AppIcons.history, 'Frequently used'),
       if (hasCustom)
-        _tab(colors, _Tab.custom, Icons.workspace_premium_outlined, 'Custom'),
+        _tab(colors, _Tab.custom, AppIcons.workspacePremiumOutlined, 'Custom'),
       for (final c in EmojiCategory.values) _tab(colors, c, c.icon, c.label),
     ];
     if (horizontal) {
@@ -525,7 +525,7 @@ class _PreviewBar extends StatelessWidget {
           if (pick == null) {
             return Row(
               children: [
-                Icon(Icons.emoji_emotions_outlined, color: colors.gray),
+                Icon(AppIcons.emojiEmotionsOutlined, color: colors.gray),
                 const SizedBox(width: 10),
                 Text(
                   'Pick an emoji',
@@ -611,7 +611,7 @@ class _SkinToneButton extends StatelessWidget {
                 Text(_labels[t]),
                 if (t == tone) ...[
                   const Spacer(),
-                  Icon(Icons.check, size: 16, color: colors.primary),
+                  Icon(AppIcons.check, size: 16, color: colors.primary),
                 ],
               ],
             ),

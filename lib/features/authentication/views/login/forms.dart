@@ -80,7 +80,7 @@ class _AuthForm extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back, size: 18),
+              icon: const Icon(AppIcons.arrowBack, size: 18),
               label: const Text('Back'),
             ),
           ),
@@ -143,7 +143,7 @@ class _AuthForm extends StatelessWidget {
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: onDiscover,
-          icon: const Icon(Icons.explore_outlined, size: 18),
+          icon: const Icon(AppIcons.exploreOutlined, size: 18),
           label: const Text('Discover public servers'),
         ),
         const SizedBox(height: 4),
@@ -189,9 +189,9 @@ class _BrowseView extends StatelessWidget {
                   IconButton(
                     tooltip: 'Back',
                     onPressed: onBack,
-                    icon: const Icon(Icons.arrow_back, size: 20),
+                    icon: const Icon(AppIcons.arrowBack, size: 20),
                   ),
-                  Icon(Icons.explore, size: 20, color: colors.dirtyWhite),
+                  Icon(AppIcons.explore, size: 20, color: colors.dirtyWhite),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

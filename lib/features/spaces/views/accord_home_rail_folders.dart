@@ -1,9 +1,17 @@
 part of 'accord_home.dart';
 
+/// Tint of a folder with no colour of its own.
+Color _folderColor(SpaceFolder folder, BonfireThemeExtension colors) =>
+    folder.color == null ? colors.primary : Color(folder.color!);
+
 /// A collapsible folder tile in the rail. Tap toggles collapse; the management
 /// menu opens on long-press (touch) or right-click (desktop); dragging reorders
 /// the folder. It accepts dropped spaces (to add them) and dropped folders (to
 /// reorder before it).
+///
+/// Closed, it is a tinted rounded square holding up to four member icons;
+/// open, the folder glyph sits above its members inside a tinted drawer, as in
+/// other chat apps.
 class _FolderTile extends ConsumerStatefulWidget {
   const _FolderTile({
     required this.folder,
@@ -45,6 +53,10 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
   SpaceFolder get folder => widget.folder;
   List<_RailSpace> get spaces => widget.spaces;
 
+  bool _isSelected(_RailSpace member) =>
+      (widget.connOf[member.key]?.active ?? false) &&
+      member.space.id == widget.selectedSpaceId;
+
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
@@ -57,72 +69,102 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
           entry.key: entry.value.cdnUrl,
       },
     );
+    // Closed, the folder carries its members' unread pill and mention count;
+    // open, each member shows its own.
+    var unread = false;
+    var mentions = 0;
+    var selected = false;
+    for (final member in spaces) {
+      final badges = _watchSpaceBadges(
+        ref,
+        widget.connOf[member.key]?.serverKey ?? '',
+        member.space.id,
+      );
+      unread = unread || badges.unread;
+      mentions += badges.mentions;
+      selected = selected || _isSelected(member);
+    }
 
-    return Column(
-      children: [
-        Center(
-          child: DragTarget<_RailDrag>(
-            onWillAcceptWithDetails: (d) => switch (d.data) {
-              _SpaceDrag(:final spaceId) => !folder.spaceIds.contains(spaceId),
-              _FolderDrag(:final folderId) => folderId != folder.id,
-            },
-            onAcceptWithDetails: (d) {
-              switch (d.data) {
-                case _SpaceDrag(:final spaceId):
-                  widget.onDropSpace(spaceId);
-                case _FolderDrag(:final folderId):
-                  widget.onReorderFolderBefore(folderId);
-              }
-            },
-            builder: (context, candidate, _) {
-              final highlight = candidate.isNotEmpty;
-              return RailDraggable<_RailDrag>(
-                data: _FolderDrag(folder.id),
-                tooltip: folder.name.isEmpty ? 'Folder' : folder.name,
-                feedback: Material(
-                  color: Colors.transparent,
-                  child: folderIcon,
-                ),
-                childWhenDragging: Opacity(opacity: 0.3, child: folderIcon),
-                onMenu: (pos) => _folderMenu(context, ref, pos),
-                child: GestureDetector(
-                  onTap: () =>
-                      ctl.setFolderCollapsed(folder.id, !folder.collapsed),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: highlight
-                          ? Border.all(color: colors.primary, width: 2)
-                          : null,
-                    ),
-                    child: folderIcon,
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        if (!folder.collapsed)
-          for (final railSpace in spaces)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: _FolderMemberTile(
-                space: railSpace.space,
-                entityKey: railSpace.key,
-                conn: widget.connOf[railSpace.key],
-                selected:
-                    (widget.connOf[railSpace.key]?.active ?? false) &&
-                    railSpace.space.id == widget.selectedSpaceId,
-                onTap: () => widget.onSelect(
-                  widget.connOf[railSpace.key]?.serverKey ?? '',
-                  railSpace.space.id,
-                ),
-                onDropBefore: (draggedId) =>
-                    widget.onMemberDropBefore(draggedId, railSpace.key),
-                onMenu: (pos) => _memberMenu(context, ref, ctl, railSpace, pos),
-              ),
+    final header = DragTarget<_RailDrag>(
+      onWillAcceptWithDetails: (d) => switch (d.data) {
+        _SpaceDrag(:final spaceId) => !folder.spaceIds.contains(spaceId),
+        _FolderDrag(:final folderId) => folderId != folder.id,
+      },
+      onAcceptWithDetails: (d) {
+        switch (d.data) {
+          case _SpaceDrag(:final spaceId):
+            widget.onDropSpace(spaceId);
+          case _FolderDrag(:final folderId):
+            widget.onReorderFolderBefore(folderId);
+        }
+      },
+      builder: (context, candidate, _) {
+        final highlight = candidate.isNotEmpty;
+        return RailDraggable<_RailDrag>(
+          data: _FolderDrag(folder.id),
+          tooltip: folder.name.isEmpty ? 'Folder' : folder.name,
+          feedback: Material(color: Colors.transparent, child: folderIcon),
+          childWhenDragging: Opacity(opacity: 0.3, child: folderIcon),
+          onMenu: (pos) => _folderMenu(context, ref, pos),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_kRailActiveRadius),
+              border: highlight
+                  ? Border.all(color: colors.primary, width: 2)
+                  : null,
             ),
-      ],
+            child: _RailTile(
+              // Only the closed folder stands in for its members.
+              selected: folder.collapsed && selected,
+              unread: folder.collapsed && unread,
+              mentions: folder.collapsed ? mentions : 0,
+              onTap: () => ctl.setFolderCollapsed(folder.id, !folder.collapsed),
+              alwaysSquare: true,
+              activeColor: _folderColor(folder, colors).withValues(alpha: 0.4),
+              restColor: _folderColor(folder, colors).withValues(alpha: 0.4),
+              builder: (_) => folderIcon,
+            ),
+          ),
+        );
+      },
+    );
+
+    if (folder.collapsed) return Center(child: header);
+
+    // Open: a drawer 4 px wider than the tiles on each side, tinted, holding
+    // the folder glyph and its members.
+    return Center(
+      child: Container(
+        width: _kRailTileSize + 8,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: colors.hover,
+          borderRadius: BorderRadius.circular(_kRailTileSize / 2 + 4),
+        ),
+        child: Column(
+          children: [
+            header,
+            for (final railSpace in spaces)
+              Padding(
+                padding: const EdgeInsets.only(top: _kRailGap),
+                child: _FolderMemberTile(
+                  space: railSpace.space,
+                  entityKey: railSpace.key,
+                  conn: widget.connOf[railSpace.key],
+                  selected: _isSelected(railSpace),
+                  onTap: () => widget.onSelect(
+                    widget.connOf[railSpace.key]?.serverKey ?? '',
+                    railSpace.space.id,
+                  ),
+                  onDropBefore: (draggedId) =>
+                      widget.onMemberDropBefore(draggedId, railSpace.key),
+                  onMenu: (pos) =>
+                      _memberMenu(context, ref, ctl, railSpace, pos),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -146,7 +188,7 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
       ),
       AccordMenuEntry(
         label: 'Remove "${space.name}" from folder',
-        icon: Icons.folder_off_outlined,
+        icon: AppIcons.folderOffOutlined,
         onSelected: () => ctl.moveSpaceToFolder(
           ServerEntityKey.tryDecode(railSpace.key)!,
           null,
@@ -161,6 +203,8 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
     );
   }
 
+  /// The folder's menu, as in other chat apps: mark its servers read, then its
+  /// settings (name and colour), then delete.
   Future<void> _folderMenu(
     BuildContext context,
     WidgetRef ref,
@@ -169,35 +213,37 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
     final ctl = ref.read(settingsControllerProvider.notifier);
     final entries = <AccordMenuEntry>[
       AccordMenuEntry(
-        label: folder.collapsed ? 'Expand' : 'Collapse',
-        icon: folder.collapsed ? Icons.unfold_more : Icons.unfold_less,
-        onSelected: () => ctl.setFolderCollapsed(folder.id, !folder.collapsed),
-      ),
-      AccordMenuEntry(
-        label: 'Rename',
-        icon: Icons.edit_outlined,
-        onSelected: () async {
-          final name = await showTextPromptDialog(
-            context,
-            title: 'Folder name',
-            initial: folder.name,
-          );
-          if (name != null) ctl.renameFolder(folder.id, name);
-        },
-      ),
-      AccordMenuEntry(
-        label: 'Recolor',
-        icon: Icons.palette_outlined,
-        onSelected: () async {
-          final color = await _pickColor(context);
-          if (color != null) {
-            ctl.setFolderColor(folder.id, color == 0 ? null : color);
+        label: 'Mark Server Folder As Read',
+        icon: AppIcons.markChatReadOutlined,
+        onSelected: () {
+          for (final member in spaces) {
+            final serverKey = widget.connOf[member.key]?.serverKey ?? '';
+            final channels =
+                ref.read(
+                  accordChannelsControllerProvider(serverKey, member.space.id),
+                ) ??
+                const <AccordChannel>[];
+            for (final channel in channels) {
+              if (channel.type == 'category') continue;
+              markChannelRead(
+                ref,
+                channel.id,
+                fallbackMessageId: channel.lastMessageId,
+              );
+            }
           }
         },
       ),
+      const AccordMenuEntry.divider(),
+      AccordMenuEntry(
+        label: 'Folder Settings',
+        icon: AppIcons.settingsOutlined,
+        onSelected: () => _showFolderSettings(context, ref),
+      ),
+      const AccordMenuEntry.divider(),
       AccordMenuEntry(
         label: 'Delete folder',
-        icon: Icons.folder_delete_outlined,
+        icon: AppIcons.folderDeleteOutlined,
         destructive: true,
         onSelected: () => ctl.deleteFolder(folder.id),
       ),
@@ -210,7 +256,8 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
     );
   }
 
-  Future<int?> _pickColor(BuildContext context) {
+  /// Name and colour in one dialog.
+  Future<void> _showFolderSettings(BuildContext context, WidgetRef ref) async {
     const palette = <int>[
       0, // default
       0xFF5865F2,
@@ -221,31 +268,67 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
       0xFF88C0D0,
       0xFFFF7A45,
     ];
-    return showDialog<int>(
+    final ctl = ref.read(settingsControllerProvider.notifier);
+    final nameController = TextEditingController(text: folder.name);
+    var color = folder.color ?? 0;
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Folder color'),
-        content: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            for (final argb in palette)
-              ColorSwatchChip(
-                color: argb == 0 ? Colors.grey : Color(argb),
-                selected: false,
-                onTap: () => Navigator.of(ctx).pop(argb),
-                icon: argb == 0 ? Icons.clear : null,
-                iconSize: 16,
-                iconColor: Colors.white,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Folder Settings'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Folder name'),
               ),
+              const SizedBox(height: 16),
+              const Text('Folder color'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final argb in palette)
+                    ColorSwatchChip(
+                      color: argb == 0 ? Colors.grey : Color(argb),
+                      selected: argb == color,
+                      onTap: () => setState(() => color = argb),
+                      icon: argb == 0 ? AppIcons.clear : null,
+                      iconSize: 16,
+                      iconColor: Colors.white,
+                    ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Done'),
+            ),
           ],
         ),
       ),
     );
+    if (saved == true) {
+      ctl.renameFolder(folder.id, nameController.text.trim());
+      ctl.setFolderColor(folder.id, color == 0 ? null : color);
+    }
+    nameController.dispose();
   }
 }
 
-/// A folder header's visual, shared by the rail and its drag feedback.
+/// A folder header's visual, shared by the rail and its drag feedback: the
+/// tinted square with up to four member icons while closed, the folder glyph
+/// once open (or when no member is cached yet).
 /// Resolve membership in persisted order before taking four, so missing cache
 /// entries never consume a preview slot and cross-server IDs stay qualified.
 class SpaceFolderIcon extends StatelessWidget {
@@ -260,28 +343,27 @@ class SpaceFolderIcon extends StatelessWidget {
   final Map<String, AccordSpace> spaces;
   final Map<String, String?> cdnUrls;
 
+  /// Side of one member miniature; four fit a tile with 3 px margins and a
+  /// 2 px gutter.
+  static const double miniatureSize = 16;
+
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    final folderColor = folder.color == null
-        ? colors.darkGray
-        : Color(folder.color!);
+    final folderColor = _folderColor(folder, colors);
     final members = folder.spaceIds.where(spaces.containsKey).take(4).toList();
     return Container(
-      width: 48,
-      height: 48,
+      width: _kRailTileSize,
+      height: _kRailTileSize,
       decoration: BoxDecoration(
-        color: folderColor.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
+        color: folderColor.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(_kRailActiveRadius),
       ),
       alignment: Alignment.center,
       child: !folder.collapsed || members.isEmpty
-          ? Icon(
-              folder.collapsed ? Icons.folder : Icons.folder_open,
-              color: colors.dirtyWhite,
-            )
+          ? Icon(AppIcons.folder, size: 20, color: folderColor)
           : Padding(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(3),
               child: Column(
                 children: [
                   for (var row = 0; row < 2; row++) ...[
@@ -293,18 +375,20 @@ class SpaceFolderIcon extends StatelessWidget {
                           if (column > 0) const SizedBox(width: 2),
                           if (row * 2 + column < members.length)
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(5),
+                              borderRadius: BorderRadius.circular(
+                                miniatureSize / 2,
+                              ),
                               child: ColoredBox(
-                                color: colors.darkGray,
+                                color: colors.foreground,
                                 child: _SpaceIconImage(
                                   space: spaces[members[row * 2 + column]]!,
                                   cdnUrl: cdnUrls[members[row * 2 + column]],
-                                  size: 18,
+                                  size: miniatureSize,
                                 ),
                               ),
                             )
                           else
-                            const SizedBox.square(dimension: 18),
+                            const SizedBox.square(dimension: miniatureSize),
                         ],
                       ],
                     ),

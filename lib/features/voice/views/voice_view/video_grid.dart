@@ -500,7 +500,7 @@ class _StripChevron extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Icon(
-                hidden ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                hidden ? AppIcons.keyboardArrowUp : AppIcons.keyboardArrowDown,
                 size: 20,
                 color: Colors.white,
               ),
@@ -672,7 +672,7 @@ class _VideoTileState extends State<_VideoTile> {
                       if (tile.viewers > 0) ...[
                         _StreamBadge(
                           key: Key('stream-viewers-${tile.userId}'),
-                          icon: Icons.visibility,
+                          icon: AppIcons.visibility,
                           label: '${tile.viewers}',
                         ),
                         const SizedBox(width: 4),
@@ -692,9 +692,9 @@ class _VideoTileState extends State<_VideoTile> {
                 child: _NamePill(
                   name: tile.name,
                   icon: tile.isScreen
-                      ? Icons.desktop_windows_outlined
+                      ? AppIcons.desktopWindowsOutlined
                       : tile.muted
-                      ? Icons.mic_off
+                      ? AppIcons.micOff
                       : null,
                 ),
               ),
@@ -847,7 +847,7 @@ class _TileMenuButton extends StatelessWidget {
         child: const SizedBox(
           width: 32,
           height: 32,
-          child: Icon(Icons.more_horiz, size: 18, color: Colors.white),
+          child: Icon(AppIcons.moreHoriz, size: 18, color: Colors.white),
         ),
       ),
     );
@@ -881,7 +881,7 @@ class _LiveCard extends StatelessWidget {
             _TileButton(
               key: Key('watch-stream-${tile.userId}'),
               label: 'Watch Stream',
-              icon: Icons.desktop_windows_outlined,
+              icon: AppIcons.desktopWindowsOutlined,
               onPressed: onWatch,
               primary: true,
             ),
@@ -903,7 +903,7 @@ class _SharingCard extends StatelessWidget {
     return const Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.screen_share, size: 32),
+        Icon(AppIcons.screenShare, size: 32),
         SizedBox(height: 8),
         Text(
           "You're sharing your screen",

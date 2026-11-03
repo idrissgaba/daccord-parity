@@ -156,12 +156,12 @@ class _EventEditorDialogState extends ConsumerState<EventEditorDialog> {
                 segments: const [
                   ButtonSegment(
                     value: true,
-                    icon: Icon(Icons.volume_up),
+                    icon: Icon(AppIcons.volumeUp),
                     label: Text('Voice channel'),
                   ),
                   ButtonSegment(
                     value: false,
-                    icon: Icon(Icons.place_outlined),
+                    icon: Icon(AppIcons.placeOutlined),
                     label: Text('Somewhere else'),
                   ),
                 ],
@@ -210,7 +210,7 @@ class _EventEditorDialogState extends ConsumerState<EventEditorDialog> {
               ListTile(
                 key: const Key('event-start'),
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.schedule),
+                leading: const Icon(AppIcons.schedule),
                 title: const Text('Starts'),
                 subtitle: Text(_when(_start)),
                 onTap: () async {
@@ -221,7 +221,7 @@ class _EventEditorDialogState extends ConsumerState<EventEditorDialog> {
               ListTile(
                 key: const Key('event-end'),
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.schedule_outlined),
+                leading: const Icon(AppIcons.scheduleOutlined),
                 title: Text(_voice ? 'Ends (optional)' : 'Ends'),
                 subtitle: Text(_when(_end)),
                 trailing: _end == null
@@ -229,7 +229,7 @@ class _EventEditorDialogState extends ConsumerState<EventEditorDialog> {
                     : IconButton(
                         tooltip: 'No end time',
                         onPressed: () => setState(() => _end = null),
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: const Icon(AppIcons.clear, size: 18),
                       ),
                 onTap: () async {
                   final picked = await _pickDateTime(
@@ -240,7 +240,7 @@ class _EventEditorDialogState extends ConsumerState<EventEditorDialog> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.image_outlined),
+                leading: const Icon(AppIcons.imageOutlined),
                 title: Text(
                   _image == null ? 'Add a cover image' : 'Cover image chosen',
                 ),

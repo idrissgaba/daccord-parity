@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:typed_data';
 import 'package:bonfire/features/experiences/views/arcade.dart';
 
@@ -477,7 +478,7 @@ class _SpaceSettingsState extends ConsumerState<_SpaceSettings> {
         backgroundColor: colors.foreground,
         title: Text(space?.name ?? 'Space settings'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.arrowBack),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -538,7 +539,7 @@ class _SpaceSettingsState extends ConsumerState<_SpaceSettings> {
           _MembershipSection(onEditNickname: _editOwnNickname),
           if (canManageSpace && ref.watchActiveServerKey() != null)
             ListTile(
-              leading: const Icon(Icons.sports_esports_outlined),
+              leading: const Icon(AppIcons.sportsEsportsOutlined),
               title: const Text('Arcade'),
               subtitle: const Text(
                 'Enable reviewed games and configure this space’s Arcade',
@@ -553,7 +554,7 @@ class _SpaceSettingsState extends ConsumerState<_SpaceSettings> {
           if (accordHasPermission(perms, AccordPermission.manageSpace) ||
               accordHasPermission(perms, AccordPermission.moderateMembers))
             ListTile(
-              leading: const Icon(Icons.shield_outlined),
+              leading: const Icon(AppIcons.shieldOutlined),
               title: const Text('AutoMod'),
               subtitle: const Text('Attachment rules and moderation review'),
               onTap: () => showAutomodPanel(context, widget.spaceId),
@@ -561,7 +562,7 @@ class _SpaceSettingsState extends ConsumerState<_SpaceSettings> {
           if (canManageSpace)
             ListTile(
               key: const Key('space-settings-welcome'),
-              leading: const Icon(Icons.waving_hand_outlined),
+              leading: const Icon(AppIcons.wavingHandOutlined),
               title: const Text('Welcome screen'),
               subtitle: const Text('Greet new members and point them around'),
               onTap: () =>

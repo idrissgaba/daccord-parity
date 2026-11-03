@@ -9,10 +9,13 @@ import 'package:bonfire/features/member/views/accord_member_popout.dart';
 import 'package:bonfire/features/member/views/remote_origin_badge.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
+import 'package:bonfire/features/spaces/models/home_layout.dart';
 import 'package:bonfire/features/user/views/accord_direct_messages.dart';
+import 'package:bonfire/features/voice/controllers/voice_states.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/server_unreachable.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
@@ -20,9 +23,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The right-hand member roster for the Accord home view. Groups the space's
-/// cached members under their highest hoisted role (ungrouped members fall into
-/// a trailing "Members" section), tinting each name by its highest colored
-/// role. Driven by the [AccordMembersController] cache.
+/// cached members under their highest hoisted role, then "Online", then
+/// "Offline" (drawn at 30 %), tinting each name by its highest colored role,
+/// with the owner's crown and a status line (custom status or "In voice")
+/// under the name, as in other chat apps. Driven by the
+/// [AccordMembersController] cache.
 class AccordMemberList extends ConsumerWidget {
   const AccordMemberList({super.key, required this.spaceId});
 
@@ -36,10 +41,11 @@ class AccordMemberList extends ConsumerWidget {
     final body = id == null ? const SizedBox.shrink() : _Roster(spaceId: id);
 
     return Container(
-      width: 240,
+      key: const Key('member-list'),
+      width: kMemberListWidth,
       decoration: BoxDecoration(
-        color: colors.foreground,
-        border: Border(left: BorderSide(color: colors.background, width: 1)),
+        color: colors.background,
+        border: Border(left: BorderSide(color: colors.hairline, width: 1)),
       ),
       child: body,
     );
@@ -53,11 +59,9 @@ class _Roster extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final serverKey = ref.watchActiveServerKey() ?? '';
     final members = ref.watch(
-      accordMembersControllerProvider(
-        ref.watchActiveServerKey() ?? '',
-        spaceId,
-      ),
+      accordMembersControllerProvider(serverKey, spaceId),
     );
     // One selector for everything read off the cached space, so a rebuild
     // only walks spacesControllerProvider's list once instead of twice.
@@ -68,38 +72,37 @@ class _Roster extends ConsumerWidget {
           roles: space?.roles ?? const <AccordRole>[],
           memberCount: space?.memberCount,
           presenceCount: space?.presenceCount,
+          ownerId: space?.ownerId ?? '',
         );
       }),
     );
     final roles = spaceInfo.roles;
     final cdnUrl = ref.watchCdnUrl();
     final presences = ref.watch(activePresencesProvider);
+    // Who is in a voice channel of this space, for the "In voice" line.
+    final inVoice = ref.watch(
+      voiceStatesControllerProvider(serverKey).select(
+        (cache) => {
+          for (final bucket in cache.values)
+            for (final state in bucket.values)
+              if (state.spaceId == spaceId) state.userId,
+        },
+      ),
+    );
 
     if (members == null) {
       // The roster fetch itself failed (timeout / non-2xx / network) — surface
       // a retry instead of spinning forever. onRetry clears the failed flag
       // itself, then invalidates the controller to re-run `_load`.
-      if (ref.watch(
-        membersLoadFailedProvider(ref.readActiveServerKey() ?? '', spaceId),
-      )) {
+      if (ref.watch(membersLoadFailedProvider(serverKey, spaceId))) {
         return ServerUnreachable(
           title: "Couldn't load members",
           message: 'Something went wrong fetching the member list.',
           onRetry: () {
             ref
-                .read(
-                  membersLoadFailedProvider(
-                    ref.readActiveServerKey() ?? '',
-                    spaceId,
-                  ).notifier,
-                )
+                .read(membersLoadFailedProvider(serverKey, spaceId).notifier)
                 .set(false);
-            ref.invalidate(
-              accordMembersControllerProvider(
-                ref.readActiveServerKey() ?? '',
-                spaceId,
-              ),
-            );
+            ref.invalidate(accordMembersControllerProvider(serverKey, spaceId));
           },
         );
       }
@@ -140,38 +143,43 @@ class _Roster extends ConsumerWidget {
             cdnUrl: cdnUrl,
             spaceId: spaceId,
             status: accordPresenceStatus(presences, member.userId),
+            customStatus: accordCustomStatus(presences, member.userId),
+            isOwner: member.userId == spaceInfo.ownerId,
+            inVoice: inVoice.contains(member.userId),
           ),
       ],
     ];
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.only(bottom: 12),
       itemCount: rows.length,
       itemBuilder: (context, index) => rows[index](),
     );
   }
 }
 
-/// One roster group: a hoisted role's members, or the trailing default bucket.
+/// One roster group: a hoisted role's members, the online bucket, or the
+/// offline bucket.
 class _RosterSection {
   _RosterSection({required this.label, required this.position}) : members = [];
 
   final String label;
 
-  /// Role position for ordering; the default bucket uses [_defaultPosition] so
-  /// it always sorts last.
+  /// Role position for ordering; the online bucket uses [_onlinePosition] so
+  /// it sorts after every role, the offline one [_offlinePosition] so it is
+  /// last.
   final int position;
   final List<AccordMember> members;
   int? count;
 }
 
-const int _defaultPosition = -1;
+const int _onlinePosition = -1;
 const int _offlinePosition = -2;
 
-/// Buckets online [members] under their highest hoisted role (falling back to a
-/// "Members" group); all offline members collapse into a single trailing
+/// Buckets online [members] under their highest hoisted role (falling back to
+/// an "Online" group); all offline members collapse into a single trailing
 /// "Offline" section. Sections sort by role position descending, then
-/// "Members", then "Offline" last; members within a section sort by name.
+/// "Online", then "Offline" last; members within a section sort by name.
 List<_RosterSection> _buildSections(
   List<AccordMember> members,
   List<AccordRole> roles,
@@ -180,9 +188,9 @@ List<_RosterSection> _buildSections(
   Object? presenceCount,
 }) {
   final byKey = <String, _RosterSection>{};
-  final defaultSection = _RosterSection(
-    label: 'Members',
-    position: _defaultPosition,
+  final onlineSection = _RosterSection(
+    label: 'Online',
+    position: _onlinePosition,
   );
   final offlineSection = _RosterSection(
     label: 'Offline',
@@ -198,7 +206,7 @@ List<_RosterSection> _buildSections(
     }
     final role = memberHoistRole(member, roles);
     if (role == null) {
-      defaultSection.members.add(member);
+      onlineSection.members.add(member);
       continue;
     }
     final section = byKey.putIfAbsent(
@@ -216,7 +224,7 @@ List<_RosterSection> _buildSections(
 
   final sections = byKey.values.toList()
     ..sort((a, b) => b.position.compareTo(a.position));
-  if (defaultSection.members.isNotEmpty) sections.add(defaultSection);
+  if (onlineSection.members.isNotEmpty) sections.add(onlineSection);
   if ((offlineSection.count ?? 0) > 0) sections.add(offlineSection);
 
   final sortNames = {
@@ -237,6 +245,8 @@ int rosterOfflineCount({
   required int loadedOfflineCount,
 }) => loadedOfflineCount;
 
+/// "Role — N": 14 px medium grey, in a 42 px box that puts 24 px of air above
+/// the first row of the group.
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.label, required this.count});
 
@@ -246,13 +256,17 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.fromLTRB(16, 0, 8, 4),
+      alignment: Alignment.bottomLeft,
       child: Text(
-        '${label.toUpperCase()} — $count',
-        style: Theme.of(context).textTheme.labelSmall!.copyWith(
+        '$label — $count',
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
           color: colors.gray,
-          fontWeight: FontWeight.bold,
         ),
       ),
     );
@@ -266,6 +280,9 @@ class _MemberRow extends ConsumerWidget {
     required this.cdnUrl,
     required this.spaceId,
     required this.status,
+    required this.customStatus,
+    required this.isOwner,
+    required this.inVoice,
   });
 
   final AccordMember member;
@@ -273,6 +290,9 @@ class _MemberRow extends ConsumerWidget {
   final String? cdnUrl;
   final String spaceId;
   final String status;
+  final String? customStatus;
+  final bool isOwner;
+  final bool inVoice;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -282,19 +302,25 @@ class _MemberRow extends ConsumerWidget {
     final avatarUrl = accordMemberAvatarUrl(member, cdnUrl);
     final colorRole = memberColorRole(member, roles);
     final nameColor = colorRole == null
-        ? colors.dirtyWhite
+        ? null
         : accordRoleColor(colorRole.color);
     final initial = accordInitial(name);
-    // Offline members read as muted, matching the reference roster.
+    // Offline members read as faded, as in the reference roster.
     final dimmed = !accordIsVisibleStatus(status);
+    final subtitle = inVoice
+        ? 'In voice'
+        : (customStatus?.isNotEmpty ?? false)
+        ? customStatus
+        : null;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
+          hoverColor: colors.hover,
           onTap: () => showAccordMemberPopout(
             context,
             spaceId: spaceId,
@@ -310,39 +336,95 @@ class _MemberRow extends ConsumerWidget {
           onLongPress: () =>
               _showMemberContextMenu(context, ref, member, spaceId, null),
           child: Opacity(
-            opacity: dimmed ? 0.5 : 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                children: [
-                  AccordMemberAvatar(
-                    avatarUrl: avatarUrl,
-                    initial: initial,
-                    status: status,
-                    radius: 16,
-                    backgroundColor: accordAvatarColor(
-                      member.user,
-                      member.userId,
+            opacity: dimmed ? 0.3 : 1,
+            child: SizedBox(
+              height: 42,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    AccordMemberAvatar(
+                      avatarUrl: avatarUrl,
+                      initial: initial,
+                      status: status,
+                      radius: 16,
+                      backgroundColor: accordAvatarColor(
+                        member.user,
+                        member.userId,
+                      ),
+                      statusRingColor: colors.background,
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      name,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium!.copyWith(
-                        color: nameColor ?? colors.dirtyWhite,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyLarge!.copyWith(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: nameColor ?? colors.gray,
+                                  ),
+                                ),
+                              ),
+                              if (isOwner) ...[
+                                const SizedBox(width: 4),
+                                Tooltip(
+                                  message: 'Server Owner',
+                                  child: Icon(
+                                    AppIcons.crown,
+                                    key: const Key('member-owner-crown'),
+                                    size: 14,
+                                    color: const Color(0xFFEA9800),
+                                  ),
+                                ),
+                              ],
+                              if (member.isRemote) ...[
+                                const SizedBox(width: 6),
+                                RemoteOriginBadge(
+                                  domain: member.homeDomain,
+                                  showDomain: false,
+                                ),
+                              ],
+                            ],
+                          ),
+                          if (subtitle != null)
+                            Row(
+                              children: [
+                                if (inVoice) ...[
+                                  Icon(
+                                    AppIcons.volumeUp,
+                                    size: 12,
+                                    color: colors.green,
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
+                                Flexible(
+                                  child: Text(
+                                    subtitle,
+                                    key: const Key('member-status-line'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall!.copyWith(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: colors.gray,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
                     ),
-                  ),
-                  if (member.isRemote) ...[
-                    const SizedBox(width: 6),
-                    RemoteOriginBadge(
-                      domain: member.homeDomain,
-                      showDomain: false,
-                    ),
                   ],
-                ],
+                ),
               ),
             ),
           ),

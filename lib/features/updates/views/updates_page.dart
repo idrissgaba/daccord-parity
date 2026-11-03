@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/settings_scaffold.dart';
@@ -53,7 +54,7 @@ class UpdatesScreen extends ConsumerWidget {
           // Re-open the post-update "What's new" notes on demand, so dismissing
           // the startup dialog isn't the only chance to read them (#183).
           ListTile(
-            leading: const Icon(Icons.auto_awesome),
+            leading: const Icon(AppIcons.autoAwesome),
             title: const Text("What's new in this version"),
             subtitle: const Text("Release notes for the build you're running"),
             trailing:
@@ -65,7 +66,7 @@ class UpdatesScreen extends ConsumerWidget {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.chevron_right),
+                : const Icon(AppIcons.chevronRight),
             onTap: () => openCurrentReleaseNotes(context, ref),
           ),
           // Explain which external distributor owns updates when the shared
@@ -103,7 +104,7 @@ class UpdatesScreen extends ConsumerWidget {
                             height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.refresh),
+                        : const Icon(AppIcons.refresh),
                     label: Text(
                       update.checking ? 'Checking…' : 'Check for updates',
                     ),
@@ -121,7 +122,7 @@ class UpdatesScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.check_circle, size: 16, color: colors.green),
+                    Icon(AppIcons.checkCircle, size: 16, color: colors.green),
                     const SizedBox(width: 6),
                     Text(
                       "You're up to date.",
@@ -177,8 +178,8 @@ class UpdatesScreen extends ConsumerWidget {
                                   )
                                 : Icon(
                                     update.updateReady
-                                        ? Icons.restart_alt
-                                        : Icons.download,
+                                        ? AppIcons.restartAlt
+                                        : AppIcons.download,
                                   ),
                             label: Text(
                               _installLabel(
@@ -196,7 +197,7 @@ class UpdatesScreen extends ConsumerWidget {
                           onPressed: target.isEmpty
                               ? null
                               : () => openTrustedUrl(target),
-                          icon: const Icon(Icons.download),
+                          icon: const Icon(AppIcons.download),
                           label: Text(
                             assetUrl != null ? 'Download' : 'View release',
                           ),

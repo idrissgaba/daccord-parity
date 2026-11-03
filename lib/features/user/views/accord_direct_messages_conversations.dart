@@ -132,7 +132,7 @@ class _DmListTabState extends ConsumerState<_DmListTab> {
     final user = !group && others.isNotEmpty ? others.first : null;
     final closeEntry = AccordMenuEntry(
       label: group ? 'Leave group' : 'Close direct message',
-      icon: group ? Icons.logout : Icons.close,
+      icon: group ? AppIcons.logout : AppIcons.close,
       destructive: true,
       onSelected: () => _closeConversation(channel),
     );
@@ -152,7 +152,7 @@ class _DmListTabState extends ConsumerState<_DmListTab> {
       entries: [closeEntry],
       globalPosition: position,
       title: _channelTitle(channel, widget.selfId),
-      titleIcon: Icons.group_outlined,
+      titleIcon: AppIcons.groupOutlined,
     );
   }
 
@@ -198,7 +198,7 @@ class _DmListTabState extends ConsumerState<_DmListTab> {
                     isDense: true,
                     filled: true,
                     fillColor: colors.background,
-                    prefixIcon: const Icon(Icons.search, size: 20),
+                    prefixIcon: const Icon(AppIcons.search, size: 20),
                     hintText: 'Search conversations',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
@@ -211,12 +211,12 @@ class _DmListTabState extends ConsumerState<_DmListTab> {
               IconButton(
                 tooltip: 'New group',
                 onPressed: _createGroup,
-                icon: Icon(Icons.group_add_outlined, color: colors.dirtyWhite),
+                icon: Icon(AppIcons.groupAddOutlined, color: colors.dirtyWhite),
               ),
               IconButton(
                 tooltip: 'Message remote user',
                 onPressed: _messageRemoteUser,
-                icon: Icon(Icons.alternate_email, color: colors.dirtyWhite),
+                icon: Icon(AppIcons.alternateEmail, color: colors.dirtyWhite),
               ),
             ],
           ),
@@ -411,7 +411,7 @@ class _DmConversationTile extends StatelessWidget {
                           radius: _avatarRadius,
                           backgroundColor: accordIdColor(avatarId),
                           child: Icon(
-                            Icons.group,
+                            AppIcons.group,
                             size: 22,
                             color: accordOnColor(accordIdColor(avatarId)),
                           ),
@@ -554,7 +554,7 @@ class _MissedCallLabel extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          missed.video ? Icons.missed_video_call : Icons.call_missed,
+          missed.video ? AppIcons.missedVideoCall : AppIcons.callMissed,
           size: 14,
           color: colors.red,
         ),

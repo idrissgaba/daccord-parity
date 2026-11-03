@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
@@ -69,8 +70,8 @@ class ColorSwatchChip extends StatelessWidget {
     final glyph =
         icon ??
         (transparent
-            ? Icons.format_color_reset_outlined
-            : (selected ? Icons.check : null));
+            ? AppIcons.formatColorResetOutlined
+            : (selected ? AppIcons.check : null));
     final box = Container(
       width: size,
       height: size,

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:accordkit/accordkit.dart';
@@ -380,7 +381,7 @@ class _SpaceArcadeState extends ConsumerState<SpaceArcade> {
         actions: [
           IconButton(
             onPressed: _busy ? null : _refresh,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             tooltip: 'Refresh',
           ),
         ],
@@ -426,7 +427,7 @@ class _SpaceArcadeState extends ConsumerState<SpaceArcade> {
                     child: Column(
                       children: [
                         Icon(
-                          Icons.sports_esports_outlined,
+                          AppIcons.sportsEsportsOutlined,
                           size: 40,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -504,7 +505,7 @@ class _SpaceArcadeState extends ConsumerState<SpaceArcade> {
                           onPressed: _busy || !enabled || playable.isEmpty
                               ? null
                               : () => _chooseGame(playable),
-                          icon: const Icon(Icons.add),
+                          icon: const Icon(AppIcons.add),
                           label: const Text('Create lobby'),
                         ),
                       ],

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart' show AccordVoiceState;
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
@@ -86,7 +87,7 @@ Widget _host({
 
 /// The in-call control bar's disconnect button — the marker for "we are
 /// connected to the channel being viewed".
-final _controlBar = find.byIcon(Icons.call_end);
+final _controlBar = find.byIcon(AppIcons.callEnd);
 
 void main() {
   testWidgets('opening a voice channel shows the lobby without connecting', (

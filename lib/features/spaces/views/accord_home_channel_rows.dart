@@ -1,7 +1,13 @@
 part of 'accord_home.dart';
 
+/// Height of a channel row's link (its list item adds a 1 px margin above and
+/// below), its corner radius, and its horizontal inset in the column.
+const double _kChannelRowHeight = 32;
+const double _kChannelRowRadius = 8;
+const double _kChannelRowInset = 8;
+
 /// A category row for the static list and the drag list alike: the inline
-/// "add channel"/edit affordances are wired only for managers of a real space.
+/// "add channel" affordance is wired only for managers of a real space.
 _CategoryHeader _categoryHeader(
   BuildContext context,
   AccordChannel category, {
@@ -22,20 +28,17 @@ _CategoryHeader _categoryHeader(
           parentId: category.id,
         )
       : null,
-  onEdit: canManageChannels && spaceId != null
-      ? () =>
-            showEditChannelDialog(context, spaceId: spaceId, channel: category)
-      : null,
 );
 
-/// A channel row for the static list and the drag list alike; see
-/// [_categoryHeader] for the edit affordance rule.
+/// A channel row for the static list and the drag list alike; the settings
+/// affordance follows `manage_channels`, the invite one `create_invites`.
 _ChannelTile _channelTile(
   BuildContext context,
   AccordChannel channel, {
   required String? spaceId,
   required bool selected,
   required bool canManageChannels,
+  required bool canInvite,
   required VoidCallback onTap,
 }) => _ChannelTile(
   channel: channel,
@@ -46,9 +49,15 @@ _ChannelTile _channelTile(
   onEdit: canManageChannels && spaceId != null
       ? () => showEditChannelDialog(context, spaceId: spaceId, channel: channel)
       : null,
+  onInvite: canInvite && spaceId != null
+      ? () => showAccordInvites(context, spaceId: spaceId)
+      : null,
 );
 
-class _CategoryHeader extends ConsumerWidget {
+/// A category: its name in small caps-less 14 px grey with a caret that turns
+/// to point right while collapsed, and a "+" (create channel) on hover for
+/// managers. 16 px of air above, as in other chat apps.
+class _CategoryHeader extends ConsumerStatefulWidget {
   const _CategoryHeader({
     required this.category,
     required this.spaceId,
@@ -56,7 +65,6 @@ class _CategoryHeader extends ConsumerWidget {
     required this.collapsed,
     required this.onToggle,
     this.onAdd,
-    this.onEdit,
   });
 
   final AccordChannel category;
@@ -65,63 +73,98 @@ class _CategoryHeader extends ConsumerWidget {
   final bool collapsed;
   final VoidCallback onToggle;
   final VoidCallback? onAdd;
-  final VoidCallback? onEdit;
 
-  void _showMenu(BuildContext context, WidgetRef ref, [Offset? position]) {
-    final id = spaceId;
+  @override
+  ConsumerState<_CategoryHeader> createState() => _CategoryHeaderState();
+}
+
+class _CategoryHeaderState extends ConsumerState<_CategoryHeader> {
+  bool _hovered = false;
+
+  void _showMenu([Offset? position]) {
+    final id = widget.spaceId;
     if (id == null) return;
     showCategoryContextMenu(
       context,
       ref,
-      category: category,
+      category: widget.category,
       spaceId: id,
-      canManageChannels: canManageChannels,
-      collapsed: collapsed,
-      onToggle: onToggle,
+      canManageChannels: widget.canManageChannels,
+      collapsed: widget.collapsed,
+      onToggle: widget.onToggle,
       globalPosition: position,
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    return InkWell(
-      onTap: onToggle,
-      onLongPress: () => _showMenu(context, ref, null),
-      onSecondaryTapUp: (d) => _showMenu(context, ref, d.globalPosition),
+    final tint = _hovered ? colors.dirtyWhite : colors.gray;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 12, 8, 2),
+        padding: const EdgeInsets.fromLTRB(
+          _kChannelRowInset,
+          16,
+          _kChannelRowInset,
+          0,
+        ),
         child: Row(
           children: [
-            Icon(
-              collapsed ? Icons.chevron_right : Icons.expand_more,
-              size: 14,
-              color: colors.gray,
-            ),
-            const SizedBox(width: 2),
             Expanded(
-              child: Text(
-                (category.name ?? '').toUpperCase(),
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                  color: colors.gray,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onToggle,
+                onLongPress: () => _showMenu(),
+                onSecondaryTapUp: (d) => _showMenu(d.globalPosition),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 0, 3),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.category.name ?? '',
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium!
+                              .copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: tint,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      AnimatedRotation(
+                        turns: widget.collapsed ? -0.25 : 0,
+                        duration: const Duration(milliseconds: 150),
+                        child: Icon(
+                          AppIcons.expandMore,
+                          key: const Key('category-caret'),
+                          size: 12,
+                          color: tint,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            if (onEdit != null)
-              InkWell(
-                onTap: onEdit,
-                child: Icon(Icons.settings, size: 14, color: colors.gray),
+            if (widget.onAdd != null)
+              Opacity(
+                opacity: _hovered ? 1 : 0,
+                child: Tooltip(
+                  message: 'Create Channel',
+                  child: InkWell(
+                    key: const Key('category-add-channel'),
+                    onTap: _hovered ? widget.onAdd : null,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 0, 8, 3),
+                      child: Icon(AppIcons.add, size: 16, color: tint),
+                    ),
+                  ),
+                ),
               ),
-            if (onAdd != null) ...[
-              const SizedBox(width: 6),
-              InkWell(
-                onTap: onAdd,
-                child: Icon(Icons.add, size: 16, color: colors.gray),
-              ),
-            ],
           ],
         ),
       ),
@@ -137,6 +180,7 @@ class _ChannelTile extends ConsumerStatefulWidget {
     required this.canManageChannels,
     required this.onTap,
     this.onEdit,
+    this.onInvite,
   });
 
   final AccordChannel channel;
@@ -145,6 +189,7 @@ class _ChannelTile extends ConsumerStatefulWidget {
   final bool canManageChannels;
   final VoidCallback onTap;
   final VoidCallback? onEdit;
+  final VoidCallback? onInvite;
 
   @override
   ConsumerState<_ChannelTile> createState() => _ChannelTileState();
@@ -164,8 +209,8 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
       ref.read(voiceControllerProvider).channelId == widget.channel.id;
 
   /// Explicitly connects to this voice channel. Selecting the channel never
-  /// does this any more (#202) — only the row's hover button, its double-click,
-  /// its context menu, and the lobby's Join button do.
+  /// does this on touch (#202) — only the row's double-tap, its context menu,
+  /// and the lobby's Join button do; on desktop a single click joins.
   void _joinVoice() {
     final spaceId = widget.spaceId;
     if (!_isVoice || spaceId == null || _connectedHere) return;
@@ -175,15 +220,19 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
   /// Selects the channel; a second click inside the double-click window joins it
   /// instead of re-selecting (the first click already opened the tab).
   ///
-  /// On desktop a single click on a voice channel opens it and joins, as in
-  /// other chat apps; touch keeps select-then-join so a scroll's stray tap
-  /// can't put someone on air (#202).
+  /// On desktop a single click on a voice channel joins it and stays on the
+  /// channel being read; once connected, clicking the row opens the call
+  /// view — as in other chat apps. Touch keeps select-then-join so a
+  /// scroll's stray tap can't put someone on air (#202).
   void _handleTap() {
     final now = DateTime.now();
     if (_isVoice && shouldUseDesktopLayout(context)) {
       _lastTapAt = null;
-      widget.onTap();
-      _joinVoice();
+      if (_connectedHere) {
+        widget.onTap();
+      } else {
+        _joinVoice();
+      }
       return;
     }
     if (_isVoice && isVoiceDoubleTap(_lastTapAt, now)) {
@@ -211,13 +260,13 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
         if (_isVoice && !connected)
           AccordMenuEntry(
             label: 'Join Voice',
-            icon: Icons.call,
+            icon: AppIcons.call,
             onSelected: _joinVoice,
           ),
         if (_isVoice && connected)
           AccordMenuEntry(
             label: 'Disconnect',
-            icon: Icons.call_end,
+            icon: AppIcons.callEnd,
             destructive: true,
             onSelected: () =>
                 ref.read(voiceControllerProvider.notifier).leave(),
@@ -227,26 +276,51 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
     );
   }
 
+  /// Sets or clears the voice channel's status (its topic), from the line
+  /// under its name.
+  Future<void> _editStatus() async {
+    final spaceId = widget.spaceId;
+    final client = ref.accordClient;
+    if (spaceId == null || client == null) return;
+    final status = await showTextPromptDialog(
+      context,
+      title: 'Channel status',
+      hintText: 'What is happening in this channel?',
+      initial: widget.channel.topic ?? '',
+      resetLabel: (widget.channel.topic ?? '').isEmpty ? null : 'Clear',
+    );
+    if (status == null || !mounted) return;
+    await ref
+        .read(
+          accordChannelsControllerProvider(
+            ref.readActiveServerKey() ?? '',
+            spaceId,
+          ).notifier,
+        )
+        .updateChannel(client, widget.channel.id, {'topic': status.trim()});
+  }
+
   IconData get _glyph {
     switch (widget.channel.type) {
       case 'voice':
-        return Icons.volume_up;
+        return AppIcons.volumeUp;
       case 'stage':
-        return Icons.podcasts;
+        return AppIcons.podcasts;
       case 'forum':
-        return Icons.forum;
+        return AppIcons.forum;
       case 'announcement':
-        return Icons.campaign;
+        return AppIcons.campaign;
       case 'arcade':
-        return Icons.sports_esports_outlined;
+        return AppIcons.sportsEsportsOutlined;
       default:
-        return Icons.tag;
+        return AppIcons.tag;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
+    final theme = Theme.of(context);
     final channel = widget.channel;
     final isVoice = isVoiceChannelType(channel.type);
     final enabled =
@@ -258,10 +332,10 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
     final activeKey = ref.watch(
       connectionsControllerProvider.select((s) => s.activeKey),
     );
-    // A channel set to `nothing` is silenced outright: no pip, no badge, no
-    // bold name (its unread state is kept, so restoring the level restores the
-    // indicator). A muted *space* still shows unread inside itself — that mute
-    // only suppresses the rail roll-up.
+    // A channel set to `nothing` is silenced outright: no pill, no badge, no
+    // bright name (its unread state is kept, so restoring the level restores
+    // the indicator). A muted *space* still shows unread inside itself — that
+    // mute only suppresses the rail roll-up.
     final level = activeKey == null
         ? null
         : ref.watch(
@@ -288,7 +362,6 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
           );
     final unread = isUnread && !widget.selected;
 
-    // Voice extras: green tint + count when anyone is present / we're connected.
     final connectedHere =
         isVoice &&
         ref.watch(
@@ -301,100 +374,188 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
             ).select((cache) => voiceUserCount(cache, channel.id)),
           )
         : 0;
-    final iconColor = connectedHere
-        ? colors.green
-        : (enabled ? colors.dirtyWhite : colors.gray);
+
+    // Rest: muted grey. Unread or selected: white. Hover: lighter grey.
+    final bright = widget.selected || unread;
+    final tint = !enabled
+        ? colors.gray.withValues(alpha: 0.6)
+        : bright
+        ? colors.dirtyWhite
+        : _hovered
+        ? colors.dirtyWhite.withValues(alpha: 0.85)
+        : colors.gray;
+
+    // Desktop: the action icons show on hover and on the selected row; touch
+    // has no hover, so they stay on the selected row only.
+    final showActions = _hovered || widget.selected;
+    final status = isVoice ? (channel.topic ?? '').trim() : '';
+    final canSetStatus = isVoice && widget.onEdit != null;
+    final showStatusLine = status.isNotEmpty || (canSetStatus && _hovered);
 
     final tileRow = MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-        child: Material(
-          color: widget.selected ? colors.darkGray : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: enabled ? _handleTap : null,
-            onLongPress: () => _showMenu(null),
-            onSecondaryTapUp: (d) => _showMenu(d.globalPosition),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Row(
-                children: [
-                  Icon(_glyph, size: 18, color: iconColor),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      channel.name ?? channel.id,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        color: enabled
-                            ? (unread ? Colors.white : colors.dirtyWhite)
-                            : colors.gray,
-                        fontWeight: unread
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
+        padding: const EdgeInsets.fromLTRB(
+          _kChannelRowInset,
+          1,
+          _kChannelRowInset,
+          1,
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Material(
+              color: widget.selected
+                  ? colors.selection
+                  : _hovered
+                  ? colors.hover
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(_kChannelRowRadius),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(_kChannelRowRadius),
+                onTap: enabled ? _handleTap : null,
+                onLongPress: () => _showMenu(),
+                onSecondaryTapUp: (d) => _showMenu(d.globalPosition),
+                hoverColor: Colors.transparent,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: _kChannelRowHeight,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _glyph,
+                          size: 20,
+                          color: connectedHere ? colors.green : tint,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                channel.name ?? channel.id,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodyLarge!.copyWith(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: tint,
+                                ),
+                              ),
+                              if (showStatusLine)
+                                GestureDetector(
+                                  key: const Key('voice-channel-status'),
+                                  onTap: canSetStatus ? _editStatus : null,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            status.isEmpty
+                                                ? 'Set a channel status'
+                                                : status,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.bodySmall!
+                                                .copyWith(
+                                                  fontSize: 12,
+                                                  color: colors.gray,
+                                                ),
+                                          ),
+                                        ),
+                                        if (canSetStatus) ...[
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            AppIcons.edit,
+                                            size: 10,
+                                            color: colors.gray,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        if (channel.type == 'arcade' &&
+                            activeKey != null &&
+                            widget.spaceId != null)
+                          ArcadeActivityBadge(
+                            serverKey: activeKey,
+                            spaceId: widget.spaceId!,
+                            channelId: channel.id,
+                          )
+                        else if (isVoice &&
+                            voiceOccupancyLabel(
+                                  voiceCount,
+                                  channel.userLimit,
+                                ) !=
+                                null &&
+                            !showActions)
+                          Text(
+                            voiceOccupancyLabel(voiceCount, channel.userLimit)!,
+                            key: const Key('voice-channel-occupancy'),
+                            style: theme.textTheme.bodySmall!.copyWith(
+                              fontSize: 12,
+                              color: colors.gray,
+                            ),
+                          )
+                        else if (mentions > 0)
+                          _MentionBadge(count: mentions),
+                        if (showActions) ...[
+                          if (isVoice)
+                            _RowAction(
+                              key: const Key('channel-row-open-chat'),
+                              tooltip: 'Open Chat',
+                              icon: AppIcons.chatBubble,
+                              onTap: widget.onTap,
+                            ),
+                          if (widget.onInvite != null)
+                            _RowAction(
+                              key: const Key('channel-row-invite'),
+                              tooltip: isVoice
+                                  ? 'Invite to Voice'
+                                  : 'Create Invite',
+                              icon: AppIcons.personAdd,
+                              onTap: widget.onInvite!,
+                            ),
+                          if (widget.onEdit != null)
+                            _RowAction(
+                              key: const Key('channel-row-settings'),
+                              tooltip: 'Edit Channel',
+                              icon: AppIcons.settings,
+                              onTap: widget.onEdit!,
+                            ),
+                        ],
+                      ],
                     ),
                   ),
-                  if (channel.type == 'arcade' &&
-                      activeKey != null &&
-                      widget.spaceId != null)
-                    ArcadeActivityBadge(
-                      serverKey: activeKey,
-                      spaceId: widget.spaceId!,
-                      channelId: channel.id,
-                    )
-                  else if (isVoice &&
-                      voiceOccupancyLabel(voiceCount, channel.userLimit) !=
-                          null)
-                    Text(
-                      voiceOccupancyLabel(voiceCount, channel.userLimit)!,
-                      key: const Key('voice-channel-occupancy'),
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelSmall!.copyWith(color: colors.gray),
-                    )
-                  else if (mentions > 0)
-                    _MentionBadge(count: mentions)
-                  else if (unread)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  // Selecting a voice channel only opens its lobby, so the row
-                  // carries an explicit join (#202). Hover-only to keep the
-                  // list quiet; touch users get the same action from the
-                  // long-press menu, or by double-tapping the row.
-                  if (isVoice &&
-                      !connectedHere &&
-                      _hovered &&
-                      widget.spaceId != null) ...[
-                    const SizedBox(width: 4),
-                    Tooltip(
-                      message: 'Join Voice',
-                      child: InkWell(
-                        onTap: _joinVoice,
-                        child: Icon(Icons.call, size: 14, color: colors.green),
-                      ),
-                    ),
-                  ],
-                  if (widget.onEdit != null && _hovered) ...[
-                    const SizedBox(width: 4),
-                    InkWell(
-                      onTap: widget.onEdit,
-                      child: Icon(Icons.settings, size: 14, color: colors.gray),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
-          ),
+            // The unread pill on the column's edge.
+            if (unread)
+              Positioned(
+                left: -_kChannelRowInset,
+                top: (_kChannelRowHeight - 8) / 2,
+                child: Container(
+                  key: const Key('channel-unread-pill'),
+                  width: 4,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: colors.dirtyWhite,
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -411,6 +572,8 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
             spaceId: widget.spaceId,
             onOpenChannel: widget.onTap,
           ),
+          if (connectedHere && widget.onInvite != null)
+            _InviteToVoiceRow(onTap: widget.onInvite!),
         ],
       ),
     );
@@ -424,7 +587,7 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
           moveVoiceParticipant(context, ref, details.data, channel.id),
       builder: (context, candidates, _) => DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(_kChannelRowRadius),
           border: candidates.isEmpty
               ? null
               : Border.all(color: colors.green, width: 1.5),
@@ -435,30 +598,147 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
   }
 }
 
+/// The "Invite to Voice" row under the participants of the channel we are
+/// connected to: a grey round invite glyph, the label and a chevron.
+class _InviteToVoiceRow extends StatelessWidget {
+  const _InviteToVoiceRow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        _kChannelRowInset,
+        1,
+        _kChannelRowInset,
+        1,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(_kChannelRowRadius),
+        child: InkWell(
+          key: const Key('voice-invite-row'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(_kChannelRowRadius),
+          hoverColor: colors.hover,
+          child: SizedBox(
+            height: 32,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(32, 0, 8, 0),
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: colors.hover,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      AppIcons.personAdd,
+                      size: 14,
+                      color: colors.gray,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Invite to Voice',
+                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: colors.gray,
+                      ),
+                    ),
+                  ),
+                  Icon(AppIcons.chevronRight, size: 14, color: colors.gray),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A 16 px action icon at the end of a channel row (invite, settings, chat).
+class _RowAction extends StatelessWidget {
+  const _RowAction({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Tooltip(
+        message: tooltip,
+        child: _Hover(
+          builder: (hovered) => GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Icon(
+              icon,
+              size: 16,
+              color: hovered ? colors.dirtyWhite : colors.interactive,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Red pill rendering the mention count for a channel (or rolled up across a
-/// space's channels in the rail). Caps at "99+".
+/// space's channels in the rail). Caps at "99+". [ring] punches the badge out
+/// of the surface it overlaps (the rail tile).
 class _MentionBadge extends StatelessWidget {
-  const _MentionBadge({required this.count});
+  const _MentionBadge({required this.count, this.ring});
 
   final int count;
+  final Color? ring;
 
   @override
   Widget build(BuildContext context) {
     final text = count > 99 ? '99+' : count.toString();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    final badge = Container(
+      constraints: const BoxConstraints(minWidth: 16),
+      height: 16,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xFFED4245),
-        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFFF23F43),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         text,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
+          fontSize: 12,
+          height: 1,
+          fontWeight: FontWeight.w700,
         ),
       ),
+    );
+    if (ring == null) return badge;
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: ring,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: badge,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:typed_data';
 
 import 'package:bonfire/shared/components/ticker_aware_circle_avatar.dart';
@@ -33,7 +34,7 @@ class SpaceSettingsIconPreview extends StatelessWidget {
       backgroundColor: colors.darkGray,
       foregroundImage: image,
       child: image == null
-          ? Icon(Icons.image_outlined, color: colors.gray)
+          ? Icon(AppIcons.imageOutlined, color: colors.gray)
           : null,
     );
   }
@@ -69,14 +70,14 @@ class SpaceSettingsBannerPreview extends StatelessWidget {
                   filterQuality: FilterQuality.medium,
                   errorWidget: (_, _, _) => Center(
                     child: Icon(
-                      Icons.broken_image_outlined,
+                      AppIcons.brokenImageOutlined,
                       color: colors.gray,
                     ),
                   ),
                 )
               : Center(
                   child: Icon(
-                    Icons.image_outlined,
+                    AppIcons.imageOutlined,
                     color: colors.gray,
                     size: 32,
                   ),

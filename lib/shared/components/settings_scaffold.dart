@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:bonfire/shared/components/escape_to_close.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +28,7 @@ class SettingsScaffold extends StatelessWidget {
         backgroundColor: colors.foreground,
         title: Text(title),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.arrowBack),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         actions: actions,

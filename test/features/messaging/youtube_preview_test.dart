@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/messaging/utils/youtube_video.dart';
 import 'package:bonfire/features/messaging/views/box/accord_embed_box.dart';
@@ -103,7 +104,7 @@ void main() {
       expect(find.byType(_FakePlayer), findsNothing);
       expect(find.textContaining('owner does not allow'), findsOneWidget);
       expect(find.text('Open in YouTube'), findsOneWidget);
-      expect(find.byIcon(Icons.smart_display), findsOneWidget);
+      expect(find.byIcon(AppIcons.smartDisplay), findsOneWidget);
     },
   );
 

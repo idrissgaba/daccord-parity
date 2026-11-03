@@ -15,10 +15,10 @@ class _MembershipSection extends StatelessWidget {
       children: [
         SectionHeader('Membership'),
         ListTile(
-          leading: Icon(Icons.badge_outlined, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.badgeOutlined, color: colors.dirtyWhite),
           title: const Text('Change your nickname'),
           subtitle: const Text('How you appear in this space'),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: onEditNickname,
         ),
       ],
@@ -59,65 +59,65 @@ class _ManagementSection extends StatelessWidget {
         SectionHeader('Management'),
         if (canManageRoles)
           ListTile(
-            leading: Icon(Icons.shield_outlined, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.shieldOutlined, color: colors.dirtyWhite),
             title: const Text('Roles'),
             subtitle: const Text('Create, edit, and order roles'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showAccordRoleManagement(context, spaceId: spaceId),
           ),
         if (canViewAuditLog)
           ListTile(
-            leading: Icon(Icons.history, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.history, color: colors.dirtyWhite),
             title: const Text('Audit log'),
             subtitle: const Text('Recent moderation and admin actions'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showAccordAuditLog(context, spaceId: spaceId),
           ),
         if (canModerate) ...[
           ListTile(
-            leading: Icon(Icons.gavel, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.gavel, color: colors.dirtyWhite),
             title: const Text('Banned members'),
             subtitle: const Text('Review and unban members'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showAccordBanList(context, spaceId: spaceId),
           ),
           ListTile(
-            leading: Icon(Icons.flag_outlined, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.flagOutlined, color: colors.dirtyWhite),
             title: const Text('Reports'),
             subtitle: const Text('Review and resolve member reports'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showReportsPanel(context, spaceId: spaceId),
           ),
         ],
         if (canManageEmojis)
           ListTile(
             leading: Icon(
-              Icons.emoji_emotions_outlined,
+              AppIcons.emojiEmotionsOutlined,
               color: colors.dirtyWhite,
             ),
             title: const Text('Custom emoji'),
             subtitle: const Text('Upload, rename, and delete emoji'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showAccordEmojiManagement(context, spaceId: spaceId),
           ),
         if (canManageEmojis)
           ListTile(
             key: const Key('space-settings-stickers'),
             leading: Icon(
-              Icons.sticky_note_2_outlined,
+              AppIcons.stickyNote2Outlined,
               color: colors.dirtyWhite,
             ),
             title: const Text('Stickers'),
             subtitle: const Text('Upload, rename, and delete stickers'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showStickerManagement(context, spaceId: spaceId),
           ),
         if (canUseSoundboard)
           ListTile(
-            leading: Icon(Icons.graphic_eq, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.graphicEq, color: colors.dirtyWhite),
             title: const Text('Soundboard'),
             subtitle: const Text('Play and manage soundboard clips'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showAccordSoundboard(
               context,
               spaceId: spaceId,
@@ -127,10 +127,10 @@ class _ManagementSection extends StatelessWidget {
         if (canManageWebhooks)
           ListTile(
             key: const Key('space-settings-webhooks'),
-            leading: Icon(Icons.webhook, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.webhook, color: colors.dirtyWhite),
             title: const Text('Webhooks'),
             subtitle: const Text('Let services post into a channel'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showAccordWebhooks(context, spaceId: spaceId),
           ),
       ],
@@ -159,14 +159,14 @@ class _DangerZoneSection extends StatelessWidget {
       children: [
         SectionHeader('Danger zone'),
         ListTile(
-          leading: Icon(Icons.swap_horiz, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.swapHoriz, color: colors.dirtyWhite),
           title: const Text('Transfer ownership'),
           subtitle: const Text('Hand this space to another member'),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => showTransferOwnership(context, spaceId: spaceId),
         ),
         ListTile(
-          leading: Icon(Icons.delete_forever, color: colors.red),
+          leading: Icon(AppIcons.deleteForever, color: colors.red),
           title: Text('Delete space', style: TextStyle(color: colors.red)),
           subtitle: const Text('Permanently remove this space'),
           onTap: busy ? null : onDeleteSpace,

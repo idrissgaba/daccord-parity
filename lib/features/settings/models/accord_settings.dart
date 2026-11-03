@@ -131,7 +131,7 @@ class AccordSettings {
     this.lastSpaceId = '',
     this.lastChannelId = '',
     this.compactMode = false,
-    this.showChannelTabs = false,
+    this.memberListVisible = true,
     this.showEmbeds = true,
     this.closeToTray = true,
     this.convertEmoticons = true,
@@ -154,10 +154,15 @@ class AccordSettings {
   static const double minUiScale = 0.8;
   static const double maxUiScale = 1.4;
 
-  /// Default / clamp range for the resizable channel-list column (desktop).
-  static const double defaultChannelListWidth = 220;
-  static const double minChannelListWidth = 180;
-  static const double maxChannelListWidth = 420;
+  /// Default / clamp range for the resizable channel-list column (desktop),
+  /// measured on the reference client (its drag handle is part of the width).
+  static const double defaultChannelListWidth = 303;
+  static const double minChannelListWidth = 192;
+  static const double maxChannelListWidth = 360;
+
+  /// The default before the column was measured against the reference client;
+  /// a persisted value equal to it is read as "never dragged".
+  static const double _legacyDefaultChannelListWidth = 220;
 
   final AppThemePreset themePreset;
 
@@ -356,9 +361,10 @@ class AccordSettings {
   /// cozy density. Mirrors the reference's layout-density setting.
   final bool compactMode;
 
-  /// Whether open channels show as a tab strip above the messages. Off by
-  /// default, like other chat apps; the tabs still exist underneath.
-  final bool showChannelTabs;
+  /// Whether the member roster is shown beside the messages on wide layouts.
+  /// Toggled by the header's members button and Ctrl+U; remembered across
+  /// restarts, as in other chat apps.
+  final bool memberListVisible;
 
   /// Local display preference, independent of message suppression flags.
   final bool showEmbeds;
@@ -477,7 +483,7 @@ class AccordSettings {
     String? lastSpaceId,
     String? lastChannelId,
     bool? compactMode,
-    bool? showChannelTabs,
+    bool? memberListVisible,
     bool? showEmbeds,
     bool? closeToTray,
     bool? convertEmoticons,
@@ -554,7 +560,7 @@ class AccordSettings {
       lastSpaceId: lastSpaceId ?? this.lastSpaceId,
       lastChannelId: lastChannelId ?? this.lastChannelId,
       compactMode: compactMode ?? this.compactMode,
-      showChannelTabs: showChannelTabs ?? this.showChannelTabs,
+      memberListVisible: memberListVisible ?? this.memberListVisible,
       showEmbeds: showEmbeds ?? this.showEmbeds,
       closeToTray: closeToTray ?? this.closeToTray,
       convertEmoticons: convertEmoticons ?? this.convertEmoticons,
@@ -774,7 +780,7 @@ class AccordSettings {
     'lastSpaceId': lastSpaceId,
     'lastChannelId': lastChannelId,
     'compactMode': compactMode,
-    'showChannelTabs': showChannelTabs,
+    'memberListVisible': memberListVisible,
     'showEmbeds': showEmbeds,
     'closeToTray': closeToTray,
     'convertEmoticons': convertEmoticons,
@@ -901,7 +907,7 @@ class AccordSettings {
       lastSpaceId: (json['lastSpaceId'] as String?) ?? '',
       lastChannelId: (json['lastChannelId'] as String?) ?? '',
       compactMode: json['compactMode'] as bool? ?? false,
-      showChannelTabs: json['showChannelTabs'] as bool? ?? false,
+      memberListVisible: json['memberListVisible'] as bool? ?? true,
       showEmbeds: json['showEmbeds'] as bool? ?? true,
       closeToTray: json['closeToTray'] as bool? ?? true,
       convertEmoticons: json['convertEmoticons'] as bool? ?? true,
@@ -945,14 +951,22 @@ class AccordSettings {
         for (final s in (json['hiddenSpaces'] as List? ?? const []))
           s.toString(),
       ],
-      channelListWidth:
-          (json['channelListWidth'] as num?)?.toDouble().clamp(
-            minChannelListWidth,
-            maxChannelListWidth,
-          ) ??
-          defaultChannelListWidth,
+      channelListWidth: _channelListWidthFromJson(json['channelListWidth']),
     );
   }
+}
+
+/// Reads a persisted channel-list width, treating the pre-measurement default
+/// as unset so untouched installs pick up the reference width.
+double _channelListWidthFromJson(Object? value) {
+  final width = (value as num?)?.toDouble();
+  if (width == null || width == AccordSettings._legacyDefaultChannelListWidth) {
+    return AccordSettings.defaultChannelListWidth;
+  }
+  return width.clamp(
+    AccordSettings.minChannelListWidth,
+    AccordSettings.maxChannelListWidth,
+  );
 }
 
 /// The saved screen-share quality. `screenShareQuality` indexes the ladder

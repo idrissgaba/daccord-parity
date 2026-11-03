@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:bonfire/features/member/controllers/accord_members.dart';
@@ -110,7 +111,7 @@ class _VoiceConnectionInfoDialogState
       } else {
         rows.add(
           ListTile(
-            leading: Icon(Icons.mic_off, color: colors.gray),
+            leading: Icon(AppIcons.micOff, color: colors.gray),
             title: const Text('Your microphone'),
             subtitle: const Text('Muted or not published'),
           ),
@@ -119,7 +120,7 @@ class _VoiceConnectionInfoDialogState
       if (snapshot.incoming.isEmpty) {
         rows.add(
           ListTile(
-            leading: Icon(Icons.hearing_disabled, color: colors.gray),
+            leading: Icon(AppIcons.hearingDisabled, color: colors.gray),
             title: const Text('Nobody else is sending audio'),
           ),
         );
@@ -312,7 +313,7 @@ class _QualityChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.network_check, size: 14, color: color),
+          Icon(AppIcons.networkCheck, size: 14, color: color),
           const SizedBox(width: 4),
           Text(
             label,

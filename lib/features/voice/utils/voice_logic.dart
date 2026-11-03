@@ -305,6 +305,8 @@ int? voiceUserLimit(Object? raw) => switch (raw) {
 /// people in it, `3/10` for a capped one (shown even when empty), or null.
 String? voiceOccupancyLabel(int count, Object? userLimit) {
   final limit = voiceUserLimit(userLimit);
+  // Only a capped channel shows a count ("2/5"), as in other chat apps; the
+  // participants listed under the row already say who is there.
   if (limit != null && limit > 0) return '$count/$limit';
-  return count > 0 ? '$count' : null;
+  return null;
 }

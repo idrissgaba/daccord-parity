@@ -110,7 +110,11 @@ class _TimeoutBanner extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.timer_outlined, size: 16, color: Color(0xFFFAA81A)),
+          const Icon(
+            AppIcons.timerOutlined,
+            size: 16,
+            color: Color(0xFFFAA81A),
+          ),
           const SizedBox(width: 6),
           Flexible(child: Text(label, style: theme.textTheme.bodySmall)),
         ],
@@ -302,28 +306,28 @@ class _ModerationActions extends StatelessWidget {
                 PopupMenuItem(value: seconds, child: Text(label)),
             ],
             child: _ActionRow(
-              icon: Icons.timer_outlined,
+              icon: AppIcons.timerOutlined,
               label: 'Time out…',
               color: const Color(0xFFFAA81A),
             ),
           ),
         if (canTimeout && timedOut)
           _ActionTile(
-            icon: Icons.timer_off_outlined,
+            icon: AppIcons.timerOffOutlined,
             label: 'Remove timeout',
             color: colors.dirtyWhite,
             onTap: busy ? null : onRemoveTimeout,
           ),
         if (canKick)
           _ActionTile(
-            icon: Icons.exit_to_app,
+            icon: AppIcons.exitToApp,
             label: 'Kick member',
             color: const Color(0xFFFAA81A),
             onTap: busy ? null : onKick,
           ),
         if (canBan)
           _ActionTile(
-            icon: Icons.gavel,
+            icon: AppIcons.gavel,
             label: 'Ban member',
             color: colors.red,
             onTap: busy ? null : onBan,

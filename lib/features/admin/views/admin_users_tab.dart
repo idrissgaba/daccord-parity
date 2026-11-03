@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/admin/views/admin_list_scaffold.dart';
 import 'package:bonfire/shared/components/load_more_footer.dart';
@@ -172,7 +173,7 @@ class _AdminUsersTabState extends ConsumerState<AdminUsersTab>
                 controller: _search,
                 decoration: const InputDecoration(
                   isDense: true,
-                  prefixIcon: Icon(Icons.search, size: 18),
+                  prefixIcon: Icon(AppIcons.search, size: 18),
                   hintText: 'Search by username',
                   border: OutlineInputBorder(),
                 ),
@@ -259,7 +260,7 @@ class _UserRow extends StatelessWidget {
       subtitle: Text(user.id, style: theme.textTheme.bodySmall),
       trailing: PopupMenuButton<String>(
         enabled: !busy,
-        icon: const Icon(Icons.more_vert, size: 18),
+        icon: const Icon(AppIcons.moreVert, size: 18),
         onSelected: (value) {
           switch (value) {
             case 'admin':

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
@@ -212,7 +213,7 @@ class _VoiceModerationPanelState extends ConsumerState<VoiceModerationPanel> {
             dense: true,
             enabled: !_busy,
             leading: Icon(
-              voiceState.suppress ? Icons.mic_external_on : Icons.group,
+              voiceState.suppress ? AppIcons.micExternalOn : AppIcons.group,
               size: 18,
             ),
             title: Text(
@@ -256,8 +257,8 @@ class _VoiceModerationPanelState extends ConsumerState<VoiceModerationPanel> {
                     children: [
                       Icon(
                         channel.type == 'stage'
-                            ? Icons.podcasts
-                            : Icons.volume_up,
+                            ? AppIcons.podcasts
+                            : AppIcons.volumeUp,
                         size: 16,
                         color: colors.gray,
                       ),
@@ -275,7 +276,7 @@ class _VoiceModerationPanelState extends ConsumerState<VoiceModerationPanel> {
             child: const ListTile(
               dense: true,
               title: Text('Move To'),
-              trailing: Icon(Icons.chevron_right, size: 18),
+              trailing: Icon(AppIcons.chevronRight, size: 18),
             ),
           ),
         if (rights.move)

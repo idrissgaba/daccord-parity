@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/utils/server_timestamp.dart';
 import 'package:bonfire/features/messaging/utils/youtube_video.dart';
@@ -392,7 +393,7 @@ class _VideoPoster extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
-                    Icons.play_arrow,
+                    AppIcons.playArrow,
                     color: Colors.white,
                     size: 32,
                   ),

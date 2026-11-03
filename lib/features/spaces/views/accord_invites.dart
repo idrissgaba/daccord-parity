@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
@@ -178,13 +179,13 @@ class _InvitesDialogState extends ConsumerState<_InvitesDialog>
               padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
               child: Row(
                 children: [
-                  Icon(Icons.person_add, size: 18, color: colors.dirtyWhite),
+                  Icon(AppIcons.personAdd, size: 18, color: colors.dirtyWhite),
                   const SizedBox(width: 8),
                   Text('Invite people', style: theme.textTheme.titleMedium),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -258,7 +259,7 @@ class _InvitesDialogState extends ConsumerState<_InvitesDialog>
                   const SizedBox(width: 8),
                   FilledButton.icon(
                     onPressed: _creating ? null : _create,
-                    icon: const Icon(Icons.add, size: 18),
+                    icon: const Icon(AppIcons.add, size: 18),
                     label: const Text('Create'),
                   ),
                 ],
@@ -287,7 +288,7 @@ class _InvitesDialogState extends ConsumerState<_InvitesDialog>
                         decoration: InputDecoration(
                           isDense: true,
                           prefixIcon: Icon(
-                            Icons.search,
+                            AppIcons.search,
                             size: 18,
                             color: colors.gray,
                           ),
@@ -301,7 +302,7 @@ class _InvitesDialogState extends ConsumerState<_InvitesDialog>
                       TextButton.icon(
                         onPressed: _revokeSelected,
                         icon: Icon(
-                          Icons.delete_sweep_outlined,
+                          AppIcons.deleteSweepOutlined,
                           size: 18,
                           color: theme.colorScheme.error,
                         ),
@@ -390,13 +391,13 @@ class _InvitesDialogState extends ConsumerState<_InvitesDialog>
                                   IconButton(
                                     tooltip: 'Copy link',
                                     onPressed: () => _copy(invite),
-                                    icon: const Icon(Icons.copy, size: 18),
+                                    icon: const Icon(AppIcons.copy, size: 18),
                                   ),
                                   IconButton(
                                     tooltip: 'Revoke',
                                     onPressed: () => _revoke(invite),
                                     icon: Icon(
-                                      Icons.delete_outline,
+                                      AppIcons.deleteOutline,
                                       size: 18,
                                       color: theme.colorScheme.error,
                                     ),

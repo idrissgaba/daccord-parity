@@ -102,15 +102,21 @@ class _SpaceRail extends ConsumerWidget {
     final units = _buildUnits(globalOrder, byId, spaceFolders);
 
     final railItems = <Widget>[
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: _DirectMessagesButton(
-          onTap: () => showAccordDirectMessages(context),
-        ),
+      _DirectMessagesButton(
+        selected: selectedSpaceId == null,
+        onTap: () => showAccordDirectMessages(context),
       ),
+      // 8 px, the 1 px separator (32 wide), 8 px.
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-        child: Divider(color: colors.darkGray, height: 2, thickness: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        child: Container(
+          key: const Key('rail-separator'),
+          height: 1,
+          decoration: BoxDecoration(
+            color: colors.hairline,
+            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
       ),
     ];
     // A drop zone for the track at [anchorId] (null = end of the list), so a
@@ -133,8 +139,10 @@ class _SpaceRail extends ConsumerWidget {
       ),
     );
 
-    for (final unit in units) {
-      railItems.add(gapFor(_unitAnchor(unit)));
+    for (final (index, unit) in units.indexed) {
+      // The first unit sits right under the separator; the gaps between
+      // units are drop zones that double as the 8 px spacing.
+      if (index > 0) railItems.add(gapFor(_unitAnchor(unit)));
       if (unit.isFolder) {
         railItems.add(
           _FolderTile(
@@ -194,48 +202,35 @@ class _SpaceRail extends ConsumerWidget {
         );
       }
     }
-    // Trailing gap so items can be dropped at the very end of the list.
+    // Trailing gap so items can be dropped at the very end of the list; it
+    // is also the spacing before the utility tiles.
     railItems.add(gapFor(null));
-
-    railItems.add(
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: _AddServerButton(onTap: onAddServer),
-      ),
-    );
+    railItems.addAll([
+      _AddServerButton(onTap: onAddServer),
+      const SizedBox(height: _kRailGap),
+      _ExploreButton(onTap: () => showAccordDiscovery(context)),
+      const SizedBox(height: _kRailGap),
+      const _DownloadAppsButton(),
+    ]);
 
     if (hidden.isNotEmpty) {
-      railItems.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: _HiddenServersButton(
-            count: hidden.length,
-            onTap: () => _showHiddenServers(context, ref, hidden, connOf),
-          ),
+      railItems.addAll([
+        const SizedBox(height: _kRailGap),
+        _HiddenServersButton(
+          count: hidden.length,
+          onTap: () => _showHiddenServers(context, ref, hidden, connOf),
         ),
-      );
+      ]);
     }
 
-    return Container(
-      width: 72,
-      color: colors.darkGray,
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: railItems,
-            ),
-          ),
-          // Status, account switching, settings and log out live in the user
-          // panel at the foot of the channel column.
-          IconButton(
-            tooltip: 'Explore public spaces',
-            onPressed: () => showAccordDiscovery(context),
-            icon: Icon(Icons.explore, size: 22, color: colors.green),
-          ),
-          const SizedBox(height: 8),
-        ],
+    // Status, account switching, settings and log out live in the user panel
+    // across the foot of the sidebar.
+    return SizedBox(
+      width: kSpaceRailWidth,
+      child: ListView(
+        key: const Key('space-rail'),
+        padding: const EdgeInsets.only(bottom: 8),
+        children: railItems,
       ),
     );
   }
@@ -383,20 +378,20 @@ class _SpaceRail extends ConsumerWidget {
       ..._serverActionEntries(context, ref, space, serverKey),
       AccordMenuEntry(
         label: 'New folder with this space',
-        icon: Icons.create_new_folder_outlined,
+        icon: AppIcons.createNewFolderOutlined,
         onSelected: () => ctl.createFolder(spaces: [entityKey]),
       ),
       for (final f in settings.spaceFolders)
         if (!f.spaceIds.contains(entityKey.encoded))
           AccordMenuEntry(
             label: 'Move to "${f.name.isEmpty ? 'Folder' : f.name}"',
-            icon: Icons.folder_outlined,
+            icon: AppIcons.folderOutlined,
             onSelected: () => ctl.moveSpaceToFolder(entityKey, f.id),
           ),
       if (inFolder)
         AccordMenuEntry(
           label: 'Remove from folder',
-          icon: Icons.folder_off_outlined,
+          icon: AppIcons.folderOffOutlined,
           onSelected: () => ctl.moveSpaceToFolder(entityKey, null),
         ),
     ];
@@ -448,7 +443,7 @@ class _SpaceRail extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 trailing: TextButton.icon(
-                  icon: const Icon(Icons.visibility_outlined, size: 18),
+                  icon: const Icon(AppIcons.visibilityOutlined, size: 18),
                   label: const Text('Unhide'),
                   onPressed: () {
                     final key = ServerEntityKey.tryDecode(railSpace.key)!;

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:bonfire/features/authentication/utils/wait_for_sign_in.dart';
@@ -136,19 +137,19 @@ class OnboardingHelpSection extends ConsumerWidget {
       children: [
         const SectionHeader('Help & tour'),
         ListTile(
-          leading: Icon(Icons.explore_outlined, color: colors.primary),
+          leading: Icon(AppIcons.exploreOutlined, color: colors.primary),
           title: const Text('Replay the app tour'),
           subtitle: const Text(
             'Walk through spaces, channels, messaging and voice again.',
           ),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => replayOnboardingTour(context, ref),
         ),
         ListTile(
-          leading: Icon(Icons.help_outline, color: colors.primary),
+          leading: Icon(AppIcons.helpOutline, color: colors.primary),
           title: const Text('Help & support'),
           subtitle: const Text('Documentation, issue tracker and the project.'),
-          trailing: const Icon(Icons.open_in_new, size: 16),
+          trailing: const Icon(AppIcons.openInNew, size: 16),
           onTap: () => showOnboardingHelpDialog(context),
         ),
       ],

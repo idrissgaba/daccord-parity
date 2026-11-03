@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 
@@ -47,7 +48,7 @@ class AppBanner extends StatelessWidget {
                   onTap: onDismiss,
                   child: const Padding(
                     padding: EdgeInsets.all(4),
-                    child: Icon(Icons.close, size: 16, color: Colors.white),
+                    child: Icon(AppIcons.close, size: 16, color: Colors.white),
                   ),
                 ),
               ],

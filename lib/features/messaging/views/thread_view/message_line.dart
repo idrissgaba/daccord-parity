@@ -125,7 +125,7 @@ class _MessageLineState extends ConsumerState<_MessageLine> {
       if (!widget.isOwn)
         AccordMenuEntry(
           label: 'Report',
-          icon: Icons.flag_outlined,
+          icon: AppIcons.flagOutlined,
           onSelected: () => showReportDialog(
             context,
             spaceId: widget.spaceId,
@@ -280,7 +280,7 @@ class _MessageLineState extends ConsumerState<_MessageLine> {
                   child: IconButton(
                     tooltip: 'Actions',
                     onPressed: _busy ? null : () => _showMenu(message),
-                    icon: Icon(Icons.more_horiz, size: 18, color: colors.gray),
+                    icon: Icon(AppIcons.moreHoriz, size: 18, color: colors.gray),
                   ),
                 ),
             ],

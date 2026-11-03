@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:bonfire/features/messaging/utils/attachment_types.dart';
@@ -216,10 +217,10 @@ class _VoiceMessageRecorderState extends State<VoiceMessageRecorder> {
           key: const Key('voice-message-discard'),
           tooltip: 'Discard',
           onPressed: _finished ? null : _discard,
-          icon: Icon(Icons.delete_outline, size: 20, color: colors.red),
+          icon: Icon(AppIcons.deleteOutline, size: 20, color: colors.red),
         ),
         Icon(
-          Icons.fiber_manual_record,
+          AppIcons.fiberManualRecord,
           size: 12,
           color: recording ? colors.red : colors.gray,
         ),
@@ -244,7 +245,7 @@ class _VoiceMessageRecorderState extends State<VoiceMessageRecorder> {
           key: const Key('voice-message-send'),
           tooltip: 'Send voice message',
           onPressed: recording ? _send : null,
-          icon: Icon(Icons.send, size: 20, color: colors.dirtyWhite),
+          icon: Icon(AppIcons.send, size: 20, color: colors.dirtyWhite),
         ),
       ],
     );

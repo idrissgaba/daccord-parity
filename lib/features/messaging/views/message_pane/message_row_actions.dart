@@ -164,12 +164,12 @@ class _HoverActions extends StatelessWidget {
           IconButton(
             tooltip: 'Reply',
             onPressed: onReply,
-            icon: Icon(Icons.reply, size: 18, color: colors.gray),
+            icon: Icon(AppIcons.reply, size: 18, color: colors.gray),
           ),
           IconButton(
             tooltip: 'Thread',
             onPressed: onThread,
-            icon: Icon(Icons.forum_outlined, size: 18, color: colors.gray),
+            icon: Icon(AppIcons.forumOutlined, size: 18, color: colors.gray),
           ),
           // canEdit implies canDelete, so this matches the original
           // isOwn || canManageMessages || canReport gate.
@@ -227,7 +227,7 @@ class _MessageActions extends StatelessWidget {
     final colors = BonfireThemeExtension.of(context);
     return PopupMenuButton<String>(
       tooltip: 'Message actions',
-      icon: Icon(Icons.more_horiz, size: 18, color: colors.gray),
+      icon: Icon(AppIcons.moreHoriz, size: 18, color: colors.gray),
       // `onOpened` fires before the menu's barrier steals the hover, which is
       // what keeps this button mounted long enough for `onSelected` to run.
       onOpened: () => onMenuStateChanged(true),

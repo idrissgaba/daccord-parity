@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/authentication/models/app_terms.dart';
 import 'package:bonfire/shared/app_info.dart';
 import 'package:bonfire/shared/utils/external_url.dart';
@@ -46,7 +47,7 @@ class TermsGateView extends StatelessWidget {
           alignment: Alignment.center,
           child: TextButton.icon(
             onPressed: () => openTrustedUrl(kDaccordPrivacyPolicyUrl),
-            icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+            icon: const Icon(AppIcons.privacyTipOutlined, size: 18),
             label: const Text('Privacy Policy'),
           ),
         ),
@@ -186,7 +187,7 @@ Future<void> showAppTermsDialog(BuildContext context) {
                 children: [
                   TextButton.icon(
                     onPressed: () => openTrustedUrl(kDaccordPrivacyPolicyUrl),
-                    icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                    icon: const Icon(AppIcons.privacyTipOutlined, size: 18),
                     label: const Text('Privacy Policy'),
                   ),
                   FilledButton(

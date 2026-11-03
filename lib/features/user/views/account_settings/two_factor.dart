@@ -174,7 +174,7 @@ class _BackupCodesView extends StatelessWidget {
           child: TextButton.icon(
             onPressed: () =>
                 Clipboard.setData(ClipboardData(text: codes.join('\n'))),
-            icon: const Icon(Icons.copy, size: 16),
+            icon: const Icon(AppIcons.copy, size: 16),
             label: const Text('Copy codes'),
           ),
         ),
@@ -206,7 +206,7 @@ class _TwoFactorEnabledView extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.verified_user, size: 18, color: colors.green),
+            Icon(AppIcons.verifiedUser, size: 18, color: colors.green),
             const SizedBox(width: 8),
             Text('2FA is enabled', style: theme.textTheme.bodyMedium),
           ],
@@ -342,7 +342,7 @@ class _TwoFactorSetupView extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Copy secret',
-                  icon: const Icon(Icons.copy, size: 16),
+                  icon: const Icon(AppIcons.copy, size: 16),
                   onPressed: () => Clipboard.setData(
                     ClipboardData(
                       text: secret ?? extractTotpSecret(otpauth) ?? '',

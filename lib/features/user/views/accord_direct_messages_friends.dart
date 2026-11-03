@@ -115,7 +115,7 @@ class _FriendsTabState extends ConsumerState<_FriendsTab> {
             alignment: Alignment.centerLeft,
             child: FilledButton.icon(
               onPressed: _busy ? null : _addFriend,
-              icon: const Icon(Icons.person_add, size: 18),
+              icon: const Icon(AppIcons.personAdd, size: 18),
               label: const Text('Add friend'),
             ),
           ),
@@ -138,14 +138,14 @@ class _FriendsTabState extends ConsumerState<_FriendsTab> {
                         onPressed: _busy || r.user == null
                             ? null
                             : () => _accept(r.user!.id),
-                        icon: Icon(Icons.check, color: colors.green, size: 20),
+                        icon: Icon(AppIcons.check, color: colors.green, size: 20),
                       ),
                       IconButton(
                         tooltip: 'Decline',
                         onPressed: _busy || r.user == null
                             ? null
                             : () => _remove(r.user!.id),
-                        icon: Icon(Icons.close, color: colors.red, size: 20),
+                        icon: Icon(AppIcons.close, color: colors.red, size: 20),
                       ),
                     ],
                   ),
@@ -176,7 +176,7 @@ class _FriendsTabState extends ConsumerState<_FriendsTab> {
                         onPressed: _busy || r.user == null
                             ? null
                             : () => _block(r.user!.id),
-                        icon: Icon(Icons.block, color: colors.gray, size: 20),
+                        icon: Icon(AppIcons.block, color: colors.gray, size: 20),
                       ),
                       IconButton(
                         tooltip: 'Remove friend',
@@ -184,7 +184,7 @@ class _FriendsTabState extends ConsumerState<_FriendsTab> {
                             ? null
                             : () => _remove(r.user!.id),
                         icon: Icon(
-                          Icons.person_remove,
+                          AppIcons.personRemove,
                           color: colors.gray,
                           size: 20,
                         ),
@@ -365,7 +365,7 @@ class _AddFriendDialogState extends ConsumerState<_AddFriendDialog> {
                       tooltip: 'Send request',
                       onPressed: _busy ? null : () => _request(user),
                       icon: Icon(
-                        Icons.person_add,
+                        AppIcons.personAdd,
                         size: 18,
                         color: colors.primary,
                       ),

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/section_header.dart';
@@ -161,7 +162,7 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
               iconSize: 18,
               visualDensity: VisualDensity.compact,
               onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(AppIcons.refresh),
             ),
           ),
           ..._embeddedChildren(colors),
@@ -174,7 +175,7 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
         IconButton(
           tooltip: 'Refresh',
           onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(AppIcons.refresh),
         ),
       ],
       body: _body(colors),
@@ -252,7 +253,7 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
   List<Widget> _connectionTiles(BonfireThemeExtension colors) => [
     for (final conn in _connections)
       ListTile(
-        leading: Icon(Icons.link, color: colors.dirtyWhite),
+        leading: Icon(AppIcons.link, color: colors.dirtyWhite),
         title: Text(conn.type),
         subtitle: conn.name.isEmpty ? null : Text(conn.name),
         trailing: _disconnecting.contains(conn.id)

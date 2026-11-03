@@ -48,7 +48,16 @@ Future<void> setupDesktopWindow() async {
 
   // Center on first launch (no saved position); otherwise restore the exact
   // spot. waitUntilReadyToShow avoids a flash at the default geometry.
-  final options = WindowOptions(size: size, center: position == null);
+  // Windows: the app draws its own title bar (name of the open channel,
+  // inbox, help, window buttons) over a frameless window, as the reference
+  // client does; the native resize borders and snapping stay.
+  final options = WindowOptions(
+    size: size,
+    center: position == null,
+    titleBarStyle: UniversalPlatform.isWindows
+        ? TitleBarStyle.hidden
+        : TitleBarStyle.normal,
+  );
   await windowManager.waitUntilReadyToShow(options, () async {
     if (position != null) await windowManager.setPosition(position);
     if (maximized) await windowManager.maximize();

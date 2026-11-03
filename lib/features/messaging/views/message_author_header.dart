@@ -4,6 +4,7 @@
 /// (`thread_view.dart`).
 library;
 
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/member/views/remote_origin_badge.dart';
 import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -114,7 +115,7 @@ class MessageAuthorHeader extends StatelessWidget {
     return Row(
       children: [
         if (pinned) ...[
-          Icon(Icons.push_pin, size: 12, color: colors.gray),
+          Icon(AppIcons.pushPin, size: 12, color: colors.gray),
           const SizedBox(width: 4),
         ],
         nameWidget,
@@ -184,20 +185,20 @@ List<AccordMenuEntry> buildMessageActionEntries({
     if (content.isNotEmpty)
       AccordMenuEntry(
         label: 'Copy text',
-        icon: Icons.copy_outlined,
+        icon: AppIcons.copyOutlined,
         onSelected: () => Clipboard.setData(ClipboardData(text: content)),
       ),
     if (canEdit)
       AccordMenuEntry(
         label: 'Edit',
-        icon: Icons.edit_outlined,
+        icon: AppIcons.editOutlined,
         onSelected: onEdit,
       ),
     ...beforeDelete,
     if (canDelete)
       AccordMenuEntry(
         label: 'Delete',
-        icon: Icons.delete_outline,
+        icon: AppIcons.deleteOutline,
         destructive: true,
         onSelected: onDelete,
       ),

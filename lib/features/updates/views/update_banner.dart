@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/updates/controllers/update_controller.dart';
 import 'package:bonfire/features/updates/views/updates_page.dart';
@@ -43,7 +44,7 @@ class UpdateBanner extends ConsumerWidget {
           ? 'Tap to install (admin required).'
           : 'Tap to restart & install.';
       return AppBanner(
-        icon: Icons.system_update,
+        icon: AppIcons.systemUpdate,
         message: 'Update ready — ${release.name}. $tail',
         onTap: update.installing
             ? () {}
@@ -62,7 +63,7 @@ class UpdateBanner extends ConsumerWidget {
     if (!showViewBanner) return const SizedBox.shrink();
 
     return AppBanner(
-      icon: Icons.system_update,
+      icon: AppIcons.systemUpdate,
       message: 'Update available — ${release.name}. Tap to view.',
       onTap: () => showUpdatesSettings(context),
       onDismiss: () => notifier.dismissCurrent(),

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
@@ -60,7 +61,7 @@ class CommandPopup extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.terminal, size: 14, color: colors.gray),
+                    Icon(AppIcons.terminal, size: 14, color: colors.gray),
                     const SizedBox(width: 8),
                     Text('/${command.name}', style: theme.textTheme.titleSmall),
                     for (final option in command.options.where(
@@ -319,7 +320,7 @@ class _CommandFormState extends ConsumerState<CommandForm> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Chip(
-                    avatar: const Icon(Icons.terminal, size: 14),
+                    avatar: const Icon(AppIcons.terminal, size: 14),
                     label: Text('/${command.name}'),
                     visualDensity: VisualDensity.compact,
                   ),
@@ -349,7 +350,7 @@ class _CommandFormState extends ConsumerState<CommandForm> {
                   key: const Key('command-cancel'),
                   tooltip: 'Cancel (Esc)',
                   onPressed: widget.onCancel,
-                  icon: const Icon(Icons.close, size: 18),
+                  icon: const Icon(AppIcons.close, size: 18),
                 ),
                 IconButton(
                   key: const Key('command-run'),
@@ -361,7 +362,7 @@ class _CommandFormState extends ConsumerState<CommandForm> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(Icons.send, size: 20, color: colors.dirtyWhite),
+                      : Icon(AppIcons.send, size: 20, color: colors.dirtyWhite),
                 ),
               ],
             ),
@@ -403,7 +404,7 @@ class InteractionStatusLine extends ConsumerWidget {
       child: Row(
         children: [
           if (latest.failed)
-            Icon(Icons.error_outline, size: 14, color: colors.red)
+            Icon(AppIcons.errorOutline, size: 14, color: colors.red)
           else
             const SizedBox(
               width: 12,
@@ -428,7 +429,7 @@ class InteractionStatusLine extends ConsumerWidget {
               onPressed: () => ref
                   .read(interactionTrackerProvider.notifier)
                   .dismiss(latest.id),
-              icon: const Icon(Icons.close, size: 14),
+              icon: const Icon(AppIcons.close, size: 14),
             ),
         ],
       ),

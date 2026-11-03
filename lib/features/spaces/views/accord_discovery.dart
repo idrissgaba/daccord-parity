@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
@@ -91,7 +92,7 @@ class _DiscoveryPanel extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 12, 8),
-              child: DialogTitleBar('Discover Servers', icon: Icons.explore),
+              child: DialogTitleBar('Discover Servers', icon: AppIcons.explore),
             ),
             Expanded(
               child: AccordDiscoveryBody(
@@ -346,7 +347,7 @@ class _AccordDiscoveryBodyState extends ConsumerState<AccordDiscoveryBody> {
             onChanged: _onChanged,
             decoration: const InputDecoration(
               isDense: true,
-              prefixIcon: Icon(Icons.search, size: 18),
+              prefixIcon: Icon(AppIcons.search, size: 18),
               hintText: 'Search servers...',
               border: OutlineInputBorder(),
             ),

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
@@ -117,7 +118,7 @@ class _VoicePipOverlayState extends ConsumerState<VoicePipOverlay> {
                       onPressed: () => ref
                           .read(callControllerProvider.notifier)
                           .hangUp(channelId, spaceId),
-                      icon: Icon(Icons.call_end, color: colors.red),
+                      icon: Icon(AppIcons.callEnd, color: colors.red),
                     ),
                   ),
                 ),
@@ -125,7 +126,7 @@ class _VoicePipOverlayState extends ConsumerState<VoicePipOverlay> {
                   left: 4,
                   bottom: 4,
                   child: Icon(
-                    Icons.open_in_full,
+                    AppIcons.openInFull,
                     size: 14,
                     color: Colors.white70,
                   ),

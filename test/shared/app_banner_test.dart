@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/components/app_banner.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +14,7 @@ void main() {
     testWidgets('renders message text', (tester) async {
       await tester.pumpWidget(
         _host(AppBanner(
-          icon: Icons.info,
+          icon: AppIcons.info,
           message: 'Hello banner',
           onTap: () {},
           onDismiss: () {},
@@ -25,20 +26,20 @@ void main() {
     testWidgets('renders leading icon', (tester) async {
       await tester.pumpWidget(
         _host(AppBanner(
-          icon: Icons.system_update,
+          icon: AppIcons.systemUpdate,
           message: 'Update',
           onTap: () {},
           onDismiss: () {},
         )),
       );
-      expect(find.byIcon(Icons.system_update), findsOneWidget);
+      expect(find.byIcon(AppIcons.systemUpdate), findsOneWidget);
     });
 
     testWidgets('calls onTap when tapped', (tester) async {
       var tapped = false;
       await tester.pumpWidget(
         _host(AppBanner(
-          icon: Icons.info,
+          icon: AppIcons.info,
           message: 'Tap me',
           onTap: () => tapped = true,
           onDismiss: () {},
@@ -52,20 +53,20 @@ void main() {
       var dismissed = false;
       await tester.pumpWidget(
         _host(AppBanner(
-          icon: Icons.info,
+          icon: AppIcons.info,
           message: 'msg',
           onTap: () {},
           onDismiss: () => dismissed = true,
         )),
       );
-      await tester.tap(find.byIcon(Icons.close));
+      await tester.tap(find.byIcon(AppIcons.close));
       expect(dismissed, isTrue);
     });
 
     testWidgets('renders optional actions', (tester) async {
       await tester.pumpWidget(
         _host(AppBanner(
-          icon: Icons.info,
+          icon: AppIcons.info,
           message: 'msg',
           onTap: () {},
           onDismiss: () {},
@@ -78,7 +79,7 @@ void main() {
     testWidgets('wraps in SafeArea with bottom=false', (tester) async {
       await tester.pumpWidget(
         _host(AppBanner(
-          icon: Icons.info,
+          icon: AppIcons.info,
           message: 'msg',
           onTap: () {},
           onDismiss: () {},

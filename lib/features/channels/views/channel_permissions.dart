@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/views/channel_member_picker_dialog.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';

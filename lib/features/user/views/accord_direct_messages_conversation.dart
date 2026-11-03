@@ -302,7 +302,7 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
           IconButton(
             tooltip: 'Back',
             onPressed: widget.onBack,
-            icon: Icon(Icons.arrow_back, size: 20, color: colors.dirtyWhite),
+            icon: Icon(AppIcons.arrowBack, size: 20, color: colors.dirtyWhite),
           ),
           if (group)
             Padding(
@@ -310,7 +310,7 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
               child: CircleAvatar(
                 radius: 14,
                 backgroundColor: colors.darkGray,
-                child: Icon(Icons.group, size: 16, color: colors.dirtyWhite),
+                child: Icon(AppIcons.group, size: 16, color: colors.dirtyWhite),
               ),
             )
           else if (directUser != null)
@@ -341,12 +341,12 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
         IconButton(
           tooltip: 'Start voice call',
           onPressed: () => _startCall(video: false),
-          icon: Icon(Icons.call, size: 20, color: colors.dirtyWhite),
+          icon: Icon(AppIcons.call, size: 20, color: colors.dirtyWhite),
         ),
         IconButton(
           tooltip: 'Start video call',
           onPressed: () => _startCall(video: true),
-          icon: Icon(Icons.videocam, size: 20, color: colors.dirtyWhite),
+          icon: Icon(AppIcons.videocam, size: 20, color: colors.dirtyWhite),
         ),
         if (group)
           _groupOptions(colors)
@@ -357,7 +357,7 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
           IconButton(
             tooltip: 'Conversation options',
             onPressed: () => _showUserMenu(directUser),
-            icon: Icon(Icons.more_vert, size: 20, color: colors.gray),
+            icon: Icon(AppIcons.moreVert, size: 20, color: colors.gray),
           ),
       ],
       onUserTap: _showUserProfile,
@@ -382,7 +382,7 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
 
   Widget _groupOptions(BonfireThemeExtension colors) => PopupMenuButton<String>(
     tooltip: 'Group options',
-    icon: Icon(Icons.more_vert, size: 20, color: colors.gray),
+    icon: Icon(AppIcons.moreVert, size: 20, color: colors.gray),
     onSelected: (value) {
       switch (value) {
         case 'members':

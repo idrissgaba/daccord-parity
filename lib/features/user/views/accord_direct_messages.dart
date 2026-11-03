@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
@@ -283,14 +284,14 @@ Future<void> showAccordDmUserContextMenu(
   final entries = <AccordMenuEntry>[
     AccordMenuEntry(
       label: 'View profile',
-      icon: Icons.account_circle_outlined,
+      icon: AppIcons.accountCircleOutlined,
       onSelected: () =>
           showAccordUserProfile(context, user, cdnUrl: ref.readCdnUrl()),
     ),
     if (user.id != selfId && user.id != currentDmUserId)
       AccordMenuEntry(
         label: 'Direct message',
-        icon: Icons.chat_bubble_outline,
+        icon: AppIcons.chatBubbleOutline,
         onSelected: () => openAccordDirectMessage(context, ref, user.id),
       ),
     if (user.id != selfId) ...[
@@ -303,18 +304,18 @@ Future<void> showAccordDmUserContextMenu(
           _ => 'Add friend',
         },
         icon: switch (rel?.type) {
-          _Rel.friend => Icons.person_remove_outlined,
-          _Rel.blocked => Icons.lock_open_outlined,
-          _Rel.pendingIn => Icons.person_add_alt_1,
-          _Rel.pendingOut => Icons.person_remove_outlined,
-          _ => Icons.person_add_outlined,
+          _Rel.friend => AppIcons.personRemoveOutlined,
+          _Rel.blocked => AppIcons.lockOpenOutlined,
+          _Rel.pendingIn => AppIcons.personAddAlt1,
+          _Rel.pendingOut => AppIcons.personRemoveOutlined,
+          _ => AppIcons.personAddOutlined,
         },
         destructive: rel?.type == _Rel.friend,
         onSelected: () => _changeDmRelationship(context, ref, user, rel?.type),
       ),
       AccordMenuEntry(
         label: 'Report user',
-        icon: Icons.flag_outlined,
+        icon: AppIcons.flagOutlined,
         destructive: true,
         onSelected: () => showReportDialog(
           context,
@@ -327,7 +328,7 @@ Future<void> showAccordDmUserContextMenu(
       if (rel?.type != _Rel.blocked)
         AccordMenuEntry(
           label: 'Block',
-          icon: Icons.block,
+          icon: AppIcons.block,
           destructive: true,
           onSelected: () => _blockDmUser(context, ref, user),
         ),
@@ -335,13 +336,13 @@ Future<void> showAccordDmUserContextMenu(
     const AccordMenuEntry.divider(),
     AccordMenuEntry(
       label: 'Copy user ID',
-      icon: Icons.copy_outlined,
+      icon: AppIcons.copyOutlined,
       onSelected: () => Clipboard.setData(ClipboardData(text: user.id)),
     ),
     if (user.username.isNotEmpty)
       AccordMenuEntry(
         label: 'Copy username',
-        icon: Icons.alternate_email,
+        icon: AppIcons.alternateEmail,
         onSelected: () => Clipboard.setData(ClipboardData(text: user.username)),
       ),
     ...extraEntries,
@@ -351,7 +352,7 @@ Future<void> showAccordDmUserContextMenu(
     entries: entries,
     globalPosition: globalPosition,
     title: _userName(user),
-    titleIcon: Icons.person_outline,
+    titleIcon: AppIcons.personOutline,
   );
 }
 
@@ -547,7 +548,7 @@ class _DirectMessagesDialogState extends ConsumerState<_DirectMessagesDialog>
                         IconButton(
                           tooltip: 'Close',
                           onPressed: () => Navigator.of(context).pop(),
-                          icon: Icon(Icons.close, size: 20, color: colors.gray),
+                          icon: Icon(AppIcons.close, size: 20, color: colors.gray),
                         ),
                       ],
                     ),
@@ -632,13 +633,13 @@ class _FriendActionButtonState extends ConsumerState<FriendActionButton> {
     if (!_loaded || _type == _Rel.blocked) return const SizedBox.shrink();
     final colors = BonfireThemeExtension.of(context);
     final (label, icon) = switch (_type) {
-      _Rel.friend => ('Remove friend', Icons.person_remove_outlined),
-      _Rel.pendingIn => ('Accept friend request', Icons.person_add_alt_1),
+      _Rel.friend => ('Remove friend', AppIcons.personRemoveOutlined),
+      _Rel.pendingIn => ('Accept friend request', AppIcons.personAddAlt1),
       _Rel.pendingOut => (
         'Cancel friend request',
-        Icons.person_remove_outlined,
+        AppIcons.personRemoveOutlined,
       ),
-      _ => ('Add friend', Icons.person_add_outlined),
+      _ => ('Add friend', AppIcons.personAddOutlined),
     };
     return TextButton.icon(
       key: const Key('profile-friend-action'),

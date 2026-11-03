@@ -308,8 +308,8 @@ class SettingsController extends _$SettingsController {
   void setCompactMode(bool enabled) =>
       _update(state.copyWith(compactMode: enabled));
 
-  void setShowChannelTabs(bool enabled) =>
-      _update(state.copyWith(showChannelTabs: enabled));
+  void setMemberListVisible(bool visible) =>
+      _update(state.copyWith(memberListVisible: visible));
 
   void setStreamerMode(bool enabled) =>
       _update(state.copyWith(streamerMode: enabled));

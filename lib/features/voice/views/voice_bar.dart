@@ -1,8 +1,8 @@
-import 'package:bonfire/shared/utils/client_access.dart';
 import 'dart:async';
 
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
+import 'package:bonfire/features/experiences/views/arcade.dart';
 import 'package:bonfire/features/member/utils/permissions.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
@@ -10,19 +10,21 @@ import 'package:bonfire/features/spaces/views/accord_soundboard.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/services/voice_session.dart';
 import 'package:bonfire/features/voice/utils/audio_output_support.dart';
-import 'package:bonfire/features/voice/views/mic_level_meter.dart';
 import 'package:bonfire/features/voice/views/screen_share_picker.dart';
 import 'package:bonfire/features/voice/views/stream_menu.dart';
 import 'package:bonfire/features/voice/views/voice_connection_info.dart';
+import 'package:bonfire/shared/utils/client_access.dart';
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// The voice-connection panel shown above the user controls while connected to
-/// a channel. Ports the reference client's `voice_bar.gd`: a status row
-/// (channel name + pulsing connection dot, with transient errors) over a row of
-/// mute / deafen / video / screen-share / disconnect buttons.
+/// The voice-connection panel at the foot of the sidebar while connected to a
+/// channel, above the user panel: a status row ("Voice Connected" in green
+/// over "channel / space", with the connection-info and hang-up buttons on
+/// the right) and a row of full-width buttons — camera, screen share, Arcade
+/// and soundboard — as in other voice chat apps. Empty when not in a call.
 class VoiceBar extends ConsumerStatefulWidget {
   const VoiceBar({super.key, this.onTapStatus});
 
@@ -53,6 +55,7 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
+    final theme = Theme.of(context);
     final voice = ref.watch(voiceControllerProvider);
     if (!voice.isConnected) return const SizedBox.shrink();
 
@@ -67,14 +70,12 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
       _scheduleErrorClear();
     }
 
+    final serverKey = ref.readActiveServerKey() ?? '';
     final channelName = voice.spaceId == null
         ? null
         : ref
               .watch(
-                accordChannelsControllerProvider(
-                  ref.readActiveServerKey() ?? '',
-                  voice.spaceId!,
-                ),
+                accordChannelsControllerProvider(serverKey, voice.spaceId!),
               )
               ?.firstWhereOrNull((c) => c.id == voice.channelId)
               ?.name;
@@ -111,182 +112,182 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
       if (channelName != null) channelName,
       if (spaceName != null) spaceName,
     ].join(' / ');
-    // Only read while the mic is live, like the level meter below.
+    // Only read while the mic is live.
     final pushToTalk =
         !voice.selfMute &&
         ref.watch(settingsControllerProvider.select((s) => s.pushToTalk));
 
-    return Material(
-      color: colors.darkGray,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Live: a "Go Live" card above the connection row, with the
-            // button that ends the stream.
-            if (voice.selfStream) ...[
-              _GoLiveCard(
-                onStop: () => ref
-                    .read(voiceControllerProvider.notifier)
-                    .toggleScreenShare(),
-              ),
-              Divider(height: 9, thickness: 1, color: colors.background),
-            ],
-            InkWell(
-              onTap: widget.onTapStatus,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        shape: BoxShape.circle,
-                      ),
+    return Container(
+      key: const Key('voice-bar'),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.hairline)),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Live: a "Go Live" card above the connection row, with the
+          // button that ends the stream.
+          if (voice.selfStream) ...[
+            _GoLiveCard(
+              onStop: () => ref
+                  .read(voiceControllerProvider.notifier)
+                  .toggleScreenShare(),
+            ),
+            Divider(height: 9, thickness: 1, color: colors.hairline),
+          ],
+          InkWell(
+            onTap: widget.onTapStatus,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 2),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: colors.hover,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Tooltip(
-                        message: where.isEmpty
-                            ? statusText
-                            : '$statusText — $where',
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              statusText,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.labelMedium!
-                                  .copyWith(
-                                    color: statusColor,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                    child: Icon(
+                      AppIcons.networkCheck,
+                      key: const Key('voice-bar-status-icon'),
+                      size: 20,
+                      color: statusColor,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Tooltip(
+                      message: where.isEmpty
+                          ? statusText
+                          : '$statusText — $where',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            statusText,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium!.copyWith(
+                              fontSize: 14,
+                              color: statusColor,
+                              fontWeight: FontWeight.w600,
                             ),
-                            if (where.isNotEmpty)
-                              Text(
-                                where,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelSmall!
-                                    .copyWith(color: colors.gray),
+                          ),
+                          if (where.isNotEmpty)
+                            Text(
+                              where,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall!.copyWith(
+                                fontSize: 12,
+                                color: colors.gray,
                               ),
-                          ],
-                        ),
+                            ),
+                        ],
                       ),
                     ),
-                    IconButton(
-                      key: const Key('voice-bar-connection-info'),
-                      tooltip: 'Connection info',
-                      onPressed: () => showVoiceConnectionInfo(context),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
-                      ),
-                      icon: Icon(
-                        Icons.network_check,
-                        size: 16,
-                        color: colors.gray,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  _StatusButton(
+                    key: const Key('voice-bar-connection-info'),
+                    tooltip: 'Connection info',
+                    icon: AppIcons.equalizer,
+                    onPressed: () => showVoiceConnectionInfo(context),
+                  ),
+                  _StatusButton(
+                    key: const Key('voice-bar-disconnect'),
+                    tooltip: 'Disconnect',
+                    icon: AppIcons.callEnd,
+                    onPressed: () =>
+                        ref.read(voiceControllerProvider.notifier).leave(),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 4),
-            if (voice.sessionState == VoiceSessionState.failed)
-              TextButton.icon(
-                onPressed: () => ref
-                    .read(voiceControllerProvider.notifier)
-                    .join(voice.channelId!, voice.spaceId),
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Retry connection'),
+          ),
+          if (voice.sessionState == VoiceSessionState.failed)
+            TextButton.icon(
+              onPressed: () => ref
+                  .read(voiceControllerProvider.notifier)
+                  .join(voice.channelId!, voice.spaceId),
+              icon: const Icon(AppIcons.refresh, size: 16),
+              label: const Text('Retry connection'),
+            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _VoiceButton(
+                key: const Key('voice-bar-camera'),
+                icon: voice.selfVideo
+                    ? AppIcons.videocam
+                    : AppIcons.videocamOff,
+                tooltip: voice.selfVideo ? 'Turn Off Camera' : 'Turn On Camera',
+                active: voice.selfVideo,
+                onPressed: () =>
+                    ref.read(voiceControllerProvider.notifier).toggleVideo(),
               ),
-            Row(
-              children: [
-                if (pushToTalk)
-                  _PushToTalkButton(
-                    onChanged: (pressed) => ref
-                        .read(voiceControllerProvider.notifier)
-                        .setPushToTalkPressed(pressed),
+              if (canShareScreen) ...[
+                const SizedBox(width: 4),
+                Builder(
+                  builder: (context) => _VoiceButton(
+                    key: const Key('voice-bar-screen-share'),
+                    icon: AppIcons.screenShare,
+                    tooltip: voice.selfStream
+                        ? 'Stream options'
+                        : 'Share Your Screen',
+                    active: voice.selfStream,
+                    // Live, the button opens the stream's menu (stop, change
+                    // source) instead of ending it outright.
+                    onPressed: voice.selfStream
+                        ? () => showStreamMenu(
+                            context,
+                            ref,
+                            globalPosition: menuAnchorOf(context),
+                          )
+                        : () => toggleScreenShareWithPicker(context, ref),
                   ),
-                _VoiceButton(
-                  key: const Key('voice-bar-camera'),
-                  icon: voice.selfVideo ? Icons.videocam_off : Icons.videocam,
-                  tooltip: voice.selfVideo ? 'Stop camera' : 'Camera',
-                  active: voice.selfVideo,
-                  activeColor: colors.green,
-                  onPressed: () =>
-                      ref.read(voiceControllerProvider.notifier).toggleVideo(),
-                ),
-                if (canShareScreen)
-                  Builder(
-                    builder: (context) => _VoiceButton(
-                      key: const Key('voice-bar-screen-share'),
-                      icon: voice.selfStream
-                          ? Icons.stop_screen_share
-                          : Icons.screen_share,
-                      tooltip: voice.selfStream
-                          ? 'Stream options'
-                          : 'Share Your Screen',
-                      active: voice.selfStream,
-                      activeColor: colors.green,
-                      // Live, the button opens the stream's menu (stop,
-                      // change source) instead of ending it outright.
-                      onPressed: voice.selfStream
-                          ? () => showStreamMenu(
-                              context,
-                              ref,
-                              globalPosition: menuAnchorOf(context),
-                            )
-                          : () => toggleScreenShareWithPicker(context, ref),
-                    ),
-                  ),
-                if (canUseSoundboard && spaceId != null)
-                  _VoiceButton(
-                    icon: Icons.graphic_eq,
-                    tooltip: 'Soundboard',
-                    active: false,
-                    activeColor: colors.primary,
-                    onPressed: () => showAccordSoundboard(
-                      context,
-                      spaceId: spaceId,
-                      canManage: canManageSoundboard,
-                    ),
-                  ),
-                const Spacer(),
-                _VoiceButton(
-                  key: const Key('voice-bar-disconnect'),
-                  icon: Icons.call_end,
-                  tooltip: 'Disconnect',
-                  active: false,
-                  activeColor: colors.red,
-                  iconColor: colors.red,
-                  onPressed: () =>
-                      ref.read(voiceControllerProvider.notifier).leave(),
                 ),
               ],
-            ),
-            // Live mic-activity meter — shows the user their input is picked up.
-            if (!voice.selfMute) ...[
-              const SizedBox(height: 6),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: MicLevelMeter(
-                  height: 4,
-                  threshold: ref.watch(
-                    settingsControllerProvider.select(
-                      (s) => s.speakingThreshold,
-                    ),
+              // The reference client's "Activities" slot: our Arcade.
+              if (spaceId != null) ...[
+                const SizedBox(width: 4),
+                _VoiceButton(
+                  key: const Key('voice-bar-arcade'),
+                  icon: AppIcons.sportsEsportsOutlined,
+                  tooltip: 'Arcade',
+                  active: false,
+                  onPressed: () => showSpaceArcade(
+                    context,
+                    serverKey: serverKey,
+                    spaceId: spaceId,
                   ),
                 ),
-              ),
+              ],
+              if (canUseSoundboard && spaceId != null) ...[
+                const SizedBox(width: 4),
+                _VoiceButton(
+                  key: const Key('voice-bar-soundboard'),
+                  icon: AppIcons.graphicEq,
+                  tooltip: 'Soundboard',
+                  active: false,
+                  onPressed: () => showAccordSoundboard(
+                    context,
+                    spaceId: spaceId,
+                    canManage: canManageSoundboard,
+                  ),
+                ),
+              ],
             ],
+          ),
+          if (pushToTalk) ...[
+            const SizedBox(height: 4),
+            _PushToTalkButton(
+              onChanged: (pressed) => ref
+                  .read(voiceControllerProvider.notifier)
+                  .setPushToTalkPressed(pressed),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -350,18 +351,31 @@ class _PushToTalkButtonState extends State<_PushToTalkButton> {
         onPointerUp: (_) => _set(false),
         onPointerCancel: (_) => _set(false),
         child: Container(
-          margin: const EdgeInsets.only(right: 2),
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          height: 32,
           decoration: BoxDecoration(
             color: _pressed
                 ? colors.green.withValues(alpha: 0.3)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
+                : colors.hover,
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            Icons.record_voice_over,
-            size: 18,
-            color: _pressed ? colors.green : colors.dirtyWhite,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                AppIcons.recordVoiceOver,
+                size: 20,
+                color: _pressed ? colors.green : colors.dirtyWhite,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Hold to talk',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: _pressed ? colors.green : colors.dirtyWhite,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -392,7 +406,7 @@ class _GoLiveCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
-              Icons.screen_share,
+              AppIcons.screenShare,
               size: 18,
               color: Colors.white,
             ),
@@ -407,18 +421,11 @@ class _GoLiveCard extends StatelessWidget {
               ),
             ),
           ),
-          IconButton(
+          _StatusButton(
             key: const Key('voice-bar-stop-stream'),
             tooltip: 'Stop Streaming',
+            icon: AppIcons.stopScreenShareOutlined,
             onPressed: onStop,
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            icon: Icon(
-              Icons.stop_screen_share_outlined,
-              size: 18,
-              color: colors.gray,
-            ),
           ),
         ],
       ),
@@ -426,43 +433,80 @@ class _GoLiveCard extends StatelessWidget {
   }
 }
 
+/// A 32×32 icon button of the status row (connection info, hang up).
+class _StatusButton extends StatelessWidget {
+  const _StatusButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          hoverColor: colors.hover,
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Icon(icon, size: 20, color: colors.interactive),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One of the full-width buttons: a 32 px rounded field with a 20 px icon;
+/// green while [active] (camera on, streaming).
 class _VoiceButton extends StatelessWidget {
   const _VoiceButton({
     super.key,
     required this.icon,
     required this.tooltip,
     required this.active,
-    required this.activeColor,
     required this.onPressed,
-    this.iconColor,
   });
 
   final IconData icon;
   final String tooltip;
   final bool active;
-  final Color activeColor;
-  final Color? iconColor;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(right: 2),
-      child: Material(
-        color: active ? activeColor : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        child: IconButton(
-          tooltip: tooltip,
-          onPressed: onPressed,
-          icon: Icon(
-            icon,
-            size: 18,
-            color: active ? Colors.white : (iconColor ?? colors.dirtyWhite),
+    return Expanded(
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: active ? colors.green : colors.hover,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(8),
+            hoverColor: colors.hover,
+            child: SizedBox(
+              height: 32,
+              child: Icon(
+                icon,
+                size: 20,
+                color: active ? Colors.white : colors.dirtyWhite,
+              ),
+            ),
           ),
-          padding: EdgeInsets.zero,
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
         ),
       ),
     );

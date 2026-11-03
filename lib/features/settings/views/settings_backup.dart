@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -86,14 +87,14 @@ class SettingsBackupSection extends ConsumerWidget {
     return Column(
       children: [
         ListTile(
-          leading: Icon(Icons.upload_file, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.uploadFile, color: colors.dirtyWhite),
           title: const Text('Export settings'),
           subtitle: const Text('Save your preferences to a JSON file'),
           onTap: () => _export(context, ref),
         ),
         ListTile(
           leading: Icon(
-            Icons.download_for_offline_outlined,
+            AppIcons.downloadForOfflineOutlined,
             color: colors.dirtyWhite,
           ),
           title: const Text('Import settings'),

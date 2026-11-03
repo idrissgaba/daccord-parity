@@ -163,8 +163,8 @@ void main() {
       AccordPresence(userId: 'invisible-user', status: 'invisible'),
     ]);
     await mount(tester, c);
-    expect(find.text('MEMBERS — 1'), findsNothing);
-    expect(find.text('OFFLINE — 1'), findsOneWidget);
+    expect(find.text('Online — 1'), findsNothing);
+    expect(find.text('Offline — 1'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     c.dispose();
     await tester.pump();
@@ -184,11 +184,11 @@ void main() {
         AccordPresence(userId: 'b', status: 'online'),
       ]);
       await mount(tester, c, total: 100, online: 2);
-      expect(find.text('OFFLINE — 1'), findsOneWidget);
+      expect(find.text('Offline — 1'), findsOneWidget);
       ctl.upsert(AccordPresence(userId: 'c', status: 'online'));
       await tester.pump();
-      expect(find.text('MEMBERS — 3'), findsOneWidget);
-      expect(find.textContaining('OFFLINE —'), findsNothing);
+      expect(find.text('Online — 3'), findsOneWidget);
+      expect(find.textContaining('Offline —'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       c.dispose();
       await tester.pump();

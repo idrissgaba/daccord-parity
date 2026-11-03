@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/load_more_footer.dart';
@@ -157,18 +158,18 @@ class _AuditLogDialogState extends ConsumerState<_AuditLogDialog>
               padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
               child: Row(
                 children: [
-                  Icon(Icons.history, size: 18, color: colors.dirtyWhite),
+                  Icon(AppIcons.history, size: 18, color: colors.dirtyWhite),
                   const SizedBox(width: 8),
                   Text('Audit log', style: theme.textTheme.titleMedium),
                   const Spacer(),
                   IconButton(
                     tooltip: 'Refresh',
                     onPressed: loading ? null : load,
-                    icon: const Icon(Icons.refresh, size: 18),
+                    icon: const Icon(AppIcons.refresh, size: 18),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -206,7 +207,7 @@ class _AuditLogDialogState extends ConsumerState<_AuditLogDialog>
                       decoration: const InputDecoration(
                         labelText: 'User',
                         isDense: true,
-                        prefixIcon: Icon(Icons.search, size: 18),
+                        prefixIcon: Icon(AppIcons.search, size: 18),
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (v) => setState(() => _userQuery = v),
@@ -260,7 +261,7 @@ class _AuditLogDialogState extends ConsumerState<_AuditLogDialog>
                         );
                         return ListTile(
                           leading: Icon(
-                            Icons.bolt,
+                            AppIcons.bolt,
                             size: 18,
                             color: colors.gray,
                           ),

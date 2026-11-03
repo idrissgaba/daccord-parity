@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:math';
 
 import 'package:bonfire/features/authentication/utils/tos_gate.dart';
@@ -146,7 +147,7 @@ class AuthCredentialsFields extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, size: 16, color: colors.dirtyWhite),
+                Icon(AppIcons.infoOutline, size: 16, color: colors.dirtyWhite),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -327,7 +328,7 @@ class _AuthPasswordFieldState extends State<AuthPasswordField> {
             if (widget.onGenerate != null)
               IconButton(
                 tooltip: 'Generate password',
-                icon: Icon(Icons.casino, color: colors.dirtyWhite, size: 20),
+                icon: Icon(AppIcons.casino, color: colors.dirtyWhite, size: 20),
                 onPressed: () {
                   widget.onGenerate!();
                   setState(() => _obscure = false);
@@ -336,7 +337,7 @@ class _AuthPasswordFieldState extends State<AuthPasswordField> {
             IconButton(
               tooltip: _obscure ? 'Show' : 'Hide',
               icon: Icon(
-                _obscure ? Icons.visibility : Icons.visibility_off,
+                _obscure ? AppIcons.visibility : AppIcons.visibilityOff,
                 color: colors.dirtyWhite,
                 size: 20,
               ),

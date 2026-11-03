@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/features/events/controllers/presence.dart';
@@ -8,10 +9,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The statuses a user can set for themselves.
 const _statusOptions = <({String value, String label, IconData icon})>[
-  (value: 'online', label: 'Online', icon: Icons.circle),
-  (value: 'idle', label: 'Idle', icon: Icons.nightlight_round),
-  (value: 'dnd', label: 'Do Not Disturb', icon: Icons.remove_circle),
-  (value: 'invisible', label: 'Invisible', icon: Icons.circle_outlined),
+  (value: 'online', label: 'Online', icon: AppIcons.circle),
+  (value: 'idle', label: 'Idle', icon: AppIcons.nightlightRound),
+  (value: 'dnd', label: 'Do Not Disturb', icon: AppIcons.removeCircle),
+  (value: 'invisible', label: 'Invisible', icon: AppIcons.circleOutlined),
 ];
 
 /// A presence dot the user can tap to change their own status. Sends the new
@@ -79,7 +80,7 @@ class SelfStatusButton extends ConsumerWidget {
           value: _customValue,
           child: Row(
             children: [
-              Icon(Icons.edit_note, size: 16, color: colors.gray),
+              Icon(AppIcons.editNote, size: 16, color: colors.gray),
               const SizedBox(width: 10),
               Text(customStatus == null ? 'Set custom status' : 'Edit status'),
             ],
@@ -90,7 +91,7 @@ class SelfStatusButton extends ConsumerWidget {
             value: _clearCustomValue,
             child: Row(
               children: [
-                Icon(Icons.clear, size: 16, color: colors.gray),
+                Icon(AppIcons.clear, size: 16, color: colors.gray),
                 const SizedBox(width: 10),
                 const Text('Clear custom status'),
               ],
@@ -119,7 +120,7 @@ class SelfStatusButton extends ConsumerWidget {
           ),
       ],
       icon: child == null
-          ? Icon(Icons.circle, size: 16, color: dotColor)
+          ? Icon(AppIcons.circle, size: 16, color: dotColor)
           : null,
       child: child,
     );

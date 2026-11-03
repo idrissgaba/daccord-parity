@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 import 'package:bonfire/features/experiences/views/arcade_activity_badge.dart';
 
@@ -29,7 +30,6 @@ import 'package:bonfire/features/messaging/controllers/message_jump.dart';
 import 'package:bonfire/features/messaging/views/message_pane/message_pane.dart';
 import 'package:bonfire/features/member/utils/permissions.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
-import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/server/views/add_server_dialog.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/spaces/controllers/role_preview.dart';
@@ -53,6 +53,7 @@ import 'package:bonfire/features/spaces/views/welcome_screen.dart'
     show WelcomeScreenGate;
 import 'package:bonfire/features/spaces/views/rail_draggable.dart';
 import 'package:bonfire/features/user/views/user_panel.dart';
+import 'package:bonfire/features/user/views/sidebar_panels.dart';
 import 'package:bonfire/features/user/views/accord_direct_messages.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
@@ -66,7 +67,6 @@ import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/color_swatch_chip.dart';
 import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/shared/components/drawer_swipe_area.dart';
-import 'package:bonfire/shared/components/horizontal_wheel_scroll.dart';
 import 'package:bonfire/shared/components/server_unreachable.dart';
 import 'package:bonfire/shared/app_info.dart';
 import 'package:bonfire/shared/models/server_entity_key.dart';
@@ -90,16 +90,18 @@ import 'package:bonfire/theme/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart' show SchedulerPhase;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:universal_platform/universal_platform.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:window_manager/window_manager.dart';
 
 part 'accord_home_rail.dart';
 part 'accord_home_rail_tiles.dart';
 part 'accord_home_rail_folders.dart';
 part 'accord_home_space_actions.dart';
-part 'accord_home_tabs.dart';
+part 'accord_home_title_bar.dart';
 part 'accord_home_channels.dart';
 part 'accord_home_channel_rows.dart';
 part 'accord_home_channel_drag.dart';
@@ -142,9 +144,14 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
   String? _autoOpenInFlight;
   // The space we've already run the rules interstitial check for this session.
   String? _rulesCheckedSpaceId;
-  // Member-list visibility, toggled by the user and by the MCP `navigate` group.
+  // Member-list visibility, toggled by the header button, Ctrl+U and the MCP
+  // `navigate` group; persisted so it survives a restart.
   @override
-  bool _memberListVisible = true;
+  bool get _memberListVisible =>
+      ref.read(settingsControllerProvider).memberListVisible;
+  @override
+  set _memberListVisible(bool value) =>
+      ref.read(settingsControllerProvider.notifier).setMemberListVisible(value);
 
   /// The layout in force when the voice view went full screen, kept while it
   /// stays so: the screen getting wider must not switch layouts, which would
@@ -245,22 +252,6 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
     } else {
       setState(() => _pendingOpenSpaceId = spaceId);
     }
-  }
-
-  /// Activates an already-open [tab] (from the tab strip), flipping the active
-  /// server when the tab lives on a different connection.
-  void _selectTab(OpenTab tab) {
-    final connections = ref.read(connectionsControllerProvider);
-    if (tab.serverKey != connections.activeKey) {
-      ref.read(accordAuthProvider.notifier).setActiveServer(tab.serverKey);
-    }
-    ref.read(openTabsControllerProvider.notifier).activate(tab.key);
-    setState(() => _pendingOpenSpaceId = null);
-    markChannelRead(ref, tab.channelId);
-    ref
-        .read(settingsControllerProvider.notifier)
-        .setLastSelection(tab.serverKey, tab.spaceId, tab.channelId);
-    _syncWebUrl(tab.spaceId, tab.channelId);
   }
 
   /// On the web, mirrors the open channel into the address bar
@@ -610,13 +601,15 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
       ),
     );
 
+    final shownSpace = spaces?.firstWhereOrNull(
+      (s) => s.id == effectiveSpaceId,
+    );
+
     Widget channelListBody({required bool inDrawer}) => OnboardingAnchor(
       anchor: OnboardingAnchorId.channelList,
       child: _ChannelList(
         spaceId: effectiveSpaceId,
-        spaceName: spaces
-            ?.firstWhereOrNull((s) => s.id == effectiveSpaceId)
-            ?.name,
+        spaceName: shownSpace?.name,
         channels: channels,
         selectedChannelId: shownChannelId,
         onSearchSelect: (selection) {
@@ -634,58 +627,84 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
       ),
     );
 
-    Widget channelList({required bool inDrawer}) => Column(
-      children: [
-        Expanded(child: channelListBody(inDrawer: inDrawer)),
-        UserPanel(
+    // The cards at the foot of the sidebar: the voice connection while in a
+    // call, then who you are. They span the rail and the channel list
+    // together, as in the reference client.
+    final panels = Padding(
+      padding: const EdgeInsets.all(8),
+      child: SidebarPanels(
+        voice: VoiceBar(
+          onTapStatus: () {
+            final voice = ref.read(voiceControllerProvider);
+            if (voice.channelId != null && voice.spaceId != null) {
+              _openChannel(voice.channelId!, spaceId: voice.spaceId!);
+            }
+          },
+        ),
+        user: UserPanel(
           onOpenSettings: openSettings,
           onSwitchAccount: switchAccount,
           onLogout: logout,
         ),
-      ],
+      ),
     );
 
-    // [membersButton] is the escape hatch for the medium layout, where the
-    // roster has been pushed into the end drawer to keep the message column
-    // readable; the wide layout keeps it inline and passes false.
-    final showTabs = ref.watch(
-      settingsControllerProvider.select((s) => s.showChannelTabs),
-    );
-    Widget messageArea({required bool membersButton, bool expanded = false}) =>
-        Column(
-          children: [
-            if (expanded || (!showTabs && !membersButton))
-              const SizedBox.shrink()
-            else
-              Row(
-                children: [
-                  Expanded(
-                    child: showTabs
-                        ? _TabStrip(onSelect: _selectTab)
-                        : const SizedBox.shrink(),
-                  ),
-                  if (membersButton)
-                    IconButton(
-                      tooltip: 'Members',
-                      icon: Icon(
-                        Icons.people_alt_outlined,
-                        color: colors.dirtyWhite,
-                      ),
-                      onPressed: () =>
-                          _scaffoldKey.currentState?.openEndDrawer(),
-                    ),
-                ],
-              ),
-            Expanded(
-              child: MessagePane(
-                channel: channels?.firstWhereOrNull(
-                  (c) => c.id == shownChannelId,
+    // Rail + channel list side by side, the panels across both at the bottom.
+    // [channelWidth] includes the drag handle on the list's trailing edge.
+    Widget sidebar({
+      required double channelWidth,
+      required bool inDrawer,
+      VoidCallback? onDragEnd,
+      ValueChanged<double>? onDragDelta,
+    }) => ColoredBox(
+      color: colors.foreground,
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                rail,
+                SizedBox(
+                  width: channelWidth - kChannelListHandleWidth,
+                  child: channelListBody(inDrawer: inDrawer),
                 ),
-                channelId: shownChannelId,
-                spaceId: effectiveSpaceId,
-              ),
+                if (onDragDelta != null && onDragEnd != null)
+                  _ChannelListResizeHandle(
+                    onDragDelta: onDragDelta,
+                    onDragEnd: onDragEnd,
+                  )
+                else
+                  const SizedBox(width: kChannelListHandleWidth),
+              ],
             ),
-          ],
+          ),
+          const StreamerModeBar(),
+          panels,
+        ],
+      ),
+    );
+
+    final hasMembers = effectiveSpaceId != null;
+    final memberListVisible = ref.watch(
+      settingsControllerProvider.select((s) => s.memberListVisible),
+    );
+
+    // [membersInDrawer] is the escape hatch for the medium layout, where the
+    // roster has been pushed into the end drawer to keep the message column
+    // readable; the wide layout keeps it inline and toggles it in place.
+    Widget messageArea({required bool membersInDrawer, Widget? sidePanel}) =>
+        MessagePane(
+          channel: channels?.firstWhereOrNull((c) => c.id == shownChannelId),
+          channelId: shownChannelId,
+          spaceId: effectiveSpaceId,
+          membersShown: hasMembers && !membersInDrawer && memberListVisible,
+          onToggleMembers: !hasMembers
+              ? null
+              : membersInDrawer
+              ? () => _scaffoldKey.currentState?.openEndDrawer()
+              : () => setState(() => _memberListVisible = !_memberListVisible),
+          onSearchSelect: _openSearchSelection,
+          sidePanel: sidePanel,
         );
 
     final pip = VoicePipOverlay(
@@ -696,8 +715,6 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
       onOpenDm: (channelId) => showAccordDmCall(context, ref, channelId),
     );
 
-    final hasMembers = effectiveSpaceId != null;
-
     Widget? memberEndDrawer() => hasMembers
         ? Drawer(
             width: 260,
@@ -705,6 +722,11 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
             child: SafeArea(child: AccordMemberList(spaceId: effectiveSpaceId)),
           )
         : null;
+
+    final desktop = shouldUseDesktopLayout(context);
+    final shownChannel = channels?.firstWhereOrNull(
+      (c) => c.id == shownChannelId,
+    );
 
     final body = ValueListenableBuilder<bool>(
       valueListenable: voiceViewExpanded,
@@ -718,6 +740,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
           final resolved = resolveHomeLayout(
             width: constraints.maxWidth,
             preferredChannelListWidth: _dragChannelWidth ?? savedWidth,
+            desktop: desktop,
           );
           // Full-screen voice: freeze the layout and hide everything around
           // the message pane, keeping every widget in its place.
@@ -735,32 +758,30 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
               children: [
                 Row(
                   children: [
-                    if (expanded) const SizedBox.shrink() else rail,
-                    SizedBox(
-                      width: expanded ? 0 : channelWidth,
-                      child: expanded
-                          ? const SizedBox.shrink()
-                          : channelList(inDrawer: false),
-                    ),
                     if (expanded)
                       const SizedBox.shrink()
                     else
-                      _ChannelListResizeHandle(
-                        onDragDelta: (dx) => setState(() {
-                          _dragChannelWidth = (channelWidth + dx).clamp(
-                            AccordSettings.minChannelListWidth,
-                            AccordSettings.maxChannelListWidth,
-                          );
-                        }),
-                        onDragEnd: () {
-                          final width = _dragChannelWidth;
-                          if (width != null) {
-                            ref
-                                .read(settingsControllerProvider.notifier)
-                                .setChannelListWidth(width);
-                          }
-                          setState(() => _dragChannelWidth = null);
-                        },
+                      SizedBox(
+                        width: kSpaceRailWidth + channelWidth,
+                        child: sidebar(
+                          channelWidth: channelWidth,
+                          inDrawer: false,
+                          onDragDelta: (dx) => setState(() {
+                            _dragChannelWidth = (channelWidth + dx).clamp(
+                              AccordSettings.minChannelListWidth,
+                              AccordSettings.maxChannelListWidth,
+                            );
+                          }),
+                          onDragEnd: () {
+                            final width = _dragChannelWidth;
+                            if (width != null) {
+                              ref
+                                  .read(settingsControllerProvider.notifier)
+                                  .setChannelListWidth(width);
+                            }
+                            setState(() => _dragChannelWidth = null);
+                          },
+                        ),
                       ),
                     // Keyed: going full screen swaps the panes on both sides,
                     // and an unkeyed child between changed siblings is
@@ -768,43 +789,68 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
                     // screen again.
                     Expanded(
                       key: const ValueKey('home-message-area'),
-                      child: messageArea(
-                        membersButton:
-                            hasMembers && !layout.showsMemberListInline,
-                        expanded: expanded,
+                      child: ClipRRect(
+                        // The chat surface sits on the sidebar's base with a
+                        // rounded top-left corner, as in the reference.
+                        borderRadius: expanded
+                            ? BorderRadius.zero
+                            : const BorderRadius.only(
+                                topLeft: Radius.circular(8),
+                              ),
+                        child: ColoredBox(
+                          color: colors.background,
+                          child: ValueListenableBuilder<ThreadPanelRequest?>(
+                            valueListenable: threadPanelHost,
+                            builder: (context, thread, _) {
+                              // Beside the messages, under the header: a
+                              // thread of the channel on screen takes the
+                              // member list's place, as in other chat apps.
+                              Widget? side;
+                              if (expanded) {
+                                side = null;
+                              } else if (thread != null &&
+                                  thread.channelId == shownChannelId) {
+                                side = _ThreadSidePanel(request: thread);
+                              } else if (layout.showsMemberListInline &&
+                                  hasMembers &&
+                                  memberListVisible) {
+                                side = AccordMemberList(
+                                  spaceId: effectiveSpaceId,
+                                );
+                              }
+                              return messageArea(
+                                membersInDrawer: !layout.showsMemberListInline,
+                                sidePanel: side,
+                              );
+                            },
+                          ),
+                        ),
                       ),
                     ),
-                    if (!expanded)
-                      ValueListenableBuilder<ThreadPanelRequest?>(
-                        valueListenable: threadPanelHost,
-                        builder: (context, thread, _) {
-                          // A thread of the channel on screen takes the
-                          // member list's place, as in other chat apps.
-                          if (thread != null &&
-                              thread.channelId == shownChannelId) {
-                            return _ThreadSidePanel(request: thread);
-                          }
-                          if (layout.showsMemberListInline &&
-                              hasMembers &&
-                              _memberListVisible) {
-                            return AccordMemberList(spaceId: effectiveSpaceId);
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
                   ],
                 ),
                 pip,
               ],
             );
-            if (layout.showsMemberListInline) return panes;
+            final framed = Column(
+              children: [
+                if (desktop && !expanded)
+                  HomeTitleBar(
+                    title: shownSpace?.name ?? shownChannel?.name ?? '',
+                    space: shownSpace,
+                    cdnUrl: ref.watchCdnUrl(),
+                  ),
+                Expanded(child: panes),
+              ],
+            );
+            if (layout.showsMemberListInline) return framed;
             // Medium: the roster is an end drawer, so this half of the tree needs
             // its own Scaffold to host it.
             return Scaffold(
               key: _scaffoldKey,
               backgroundColor: colors.background,
               endDrawer: memberEndDrawer(),
-              body: panes,
+              body: framed,
             );
           }
           // Narrow: rail + channel list move into a drawer, members into an
@@ -833,14 +879,13 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
               backgroundColor: colors.background,
               drawerEdgeDragWidth: 48,
               drawer: Drawer(
-                width: 292,
-                backgroundColor: colors.background,
+                width:
+                    kSpaceRailWidth + AccordSettings.minChannelListWidth + 28,
+                backgroundColor: colors.foreground,
                 child: SafeArea(
-                  child: Row(
-                    children: [
-                      rail,
-                      Expanded(child: channelList(inDrawer: true)),
-                    ],
+                  child: sidebar(
+                    channelWidth: AccordSettings.minChannelListWidth + 28,
+                    inDrawer: true,
                   ),
                 ),
               ),
@@ -852,7 +897,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
                   //
                   // [DrawerSwipeArea] extends swipe-to-open past the edge strip
                   // `drawerEdgeDragWidth` covers, without stealing horizontal
-                  // drags from the tab strip or the voice rails (#125).
+                  // drags from the voice rails (#125).
                   DrawerSwipeArea(
                     scaffoldKey: _scaffoldKey,
                     child: SafeArea(
@@ -865,23 +910,19 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
                                 child: IconButton(
                                   tooltip: 'Channels',
                                   icon: Icon(
-                                    Icons.menu,
+                                    AppIcons.menu,
                                     color: colors.dirtyWhite,
                                   ),
                                   onPressed: () =>
                                       _scaffoldKey.currentState?.openDrawer(),
                                 ),
                               ),
-                              Expanded(
-                                child: showTabs
-                                    ? _TabStrip(onSelect: _selectTab)
-                                    : const SizedBox.shrink(),
-                              ),
+                              const Spacer(),
                               if (hasMembers)
                                 IconButton(
                                   tooltip: 'Members',
                                   icon: Icon(
-                                    Icons.people_alt_outlined,
+                                    AppIcons.peopleAltOutlined,
                                     color: colors.dirtyWhite,
                                   ),
                                   onPressed: () => _scaffoldKey.currentState
@@ -891,9 +932,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
                           ),
                           Expanded(
                             child: MessagePane(
-                              channel: channels?.firstWhereOrNull(
-                                (c) => c.id == shownChannelId,
-                              ),
+                              channel: shownChannel,
                               channelId: shownChannelId,
                               spaceId: effectiveSpaceId,
                             ),

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/utils/confirm_dialog.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
@@ -11,13 +12,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// The channel types a user can create from the UI. Categories group other
 /// channels; the rest are leaf channels.
 const _channelTypes = <({String value, String label, IconData icon})>[
-  (value: 'text', label: 'Text', icon: Icons.tag),
-  (value: 'voice', label: 'Voice', icon: Icons.volume_up),
-  (value: 'stage', label: 'Stage', icon: Icons.podcasts),
-  (value: 'forum', label: 'Forum', icon: Icons.forum),
-  (value: 'announcement', label: 'Announcement', icon: Icons.campaign),
-  (value: 'arcade', label: 'Arcade', icon: Icons.sports_esports_outlined),
-  (value: 'category', label: 'Category', icon: Icons.folder),
+  (value: 'text', label: 'Text', icon: AppIcons.tag),
+  (value: 'voice', label: 'Voice', icon: AppIcons.volumeUp),
+  (value: 'stage', label: 'Stage', icon: AppIcons.podcasts),
+  (value: 'forum', label: 'Forum', icon: AppIcons.forum),
+  (value: 'announcement', label: 'Announcement', icon: AppIcons.campaign),
+  (value: 'arcade', label: 'Arcade', icon: AppIcons.sportsEsportsOutlined),
+  (value: 'category', label: 'Category', icon: AppIcons.folder),
 ];
 
 /// Channel types whose stored messages and rendering are identical, so an
@@ -610,7 +611,7 @@ class _PermissionsButtonRow extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: enabled ? onShowPermissions : null,
-            icon: Icon(Icons.lock_outline, size: 18, color: colors.dirtyWhite),
+            icon: Icon(AppIcons.lockOutline, size: 18, color: colors.dirtyWhite),
             label: const Text('Permissions'),
           ),
         ),
@@ -642,7 +643,7 @@ class _EditorActionsRow extends StatelessWidget {
           TextButton.icon(
             onPressed: busy ? null : onDelete,
             icon: Icon(
-              Icons.delete_outline,
+              AppIcons.deleteOutline,
               size: 18,
               color: theme.colorScheme.error,
             ),

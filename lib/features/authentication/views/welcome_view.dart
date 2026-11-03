@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/components/self_hosting_dialog.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
@@ -26,21 +27,21 @@ class WelcomeHighlight {
 /// Every claim here is a shipped feature — see the feature list in `README.md`.
 const List<WelcomeHighlight> kWelcomeHighlights = <WelcomeHighlight>[
   WelcomeHighlight(
-    icon: Icons.forum_outlined,
+    icon: AppIcons.forumOutlined,
     title: 'Messaging',
     body:
         'Channels, threads, replies, reactions, custom emoji, file sharing and '
         'search — plus direct messages.',
   ),
   WelcomeHighlight(
-    icon: Icons.headset_mic_outlined,
+    icon: AppIcons.headsetMicOutlined,
     title: 'Voice & video',
     body:
         'Join a voice channel or call a friend, turn on your camera, and share '
         'your screen.',
   ),
   WelcomeHighlight(
-    icon: Icons.dns_outlined,
+    icon: AppIcons.dnsOutlined,
     title: 'Your server',
     body:
         'Connect to as many Accord servers as you like, or run your own. No '
@@ -152,7 +153,7 @@ class WelcomeView extends StatelessWidget {
         height: 50,
         child: ElevatedButton.icon(
           onPressed: onBrowse,
-          icon: const Icon(Icons.explore_outlined, size: 20),
+          icon: const Icon(AppIcons.exploreOutlined, size: 20),
           label: const Text('Browse Servers'),
           style: ElevatedButton.styleFrom(
             backgroundColor: colors.primary,
@@ -174,7 +175,7 @@ class WelcomeView extends StatelessWidget {
     child: OutlinedButton.icon(
       onPressed: () =>
           showSelfHostingDialog(context, onConnect: onManualConnect),
-      icon: const Icon(Icons.home_work_outlined, size: 20),
+      icon: const Icon(AppIcons.homeWorkOutlined, size: 20),
       label: const Text('Run your own server'),
       style: OutlinedButton.styleFrom(
         foregroundColor: colors.dirtyWhite,

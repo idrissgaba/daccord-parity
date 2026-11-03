@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:universal_platform/universal_platform.dart';
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/models/accord_session.dart';
@@ -71,7 +72,7 @@ class AccordSettingsScreen extends ConsumerWidget {
         backgroundColor: colors.foreground,
         title: const Text('Settings'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(AppIcons.arrowBack),
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/spaces'),
         ),
@@ -169,27 +170,27 @@ enum SettingsGroup {
 
 /// The sidebar categories the settings sections group into, in sidebar order.
 enum SettingsCategory {
-  account('My Account', Icons.person_outline, SettingsGroup.user),
-  privacy('Privacy & Safety', Icons.shield_outlined, SettingsGroup.user),
-  connections('Connections', Icons.link, SettingsGroup.user),
-  appearance('Appearance', Icons.palette_outlined, SettingsGroup.app),
+  account('My Account', AppIcons.personOutline, SettingsGroup.user),
+  privacy('Privacy & Safety', AppIcons.shieldOutlined, SettingsGroup.user),
+  connections('Connections', AppIcons.link, SettingsGroup.user),
+  appearance('Appearance', AppIcons.paletteOutlined, SettingsGroup.app),
   accessibility(
     'Accessibility',
-    Icons.accessibility_new_outlined,
+    AppIcons.accessibilityNewOutlined,
     SettingsGroup.app,
   ),
-  voiceVideo('Voice & Video', Icons.mic_none, SettingsGroup.app),
-  textImages('Text & Images', Icons.image_outlined, SettingsGroup.app),
+  voiceVideo('Voice & Video', AppIcons.micNone, SettingsGroup.app),
+  textImages('Text & Images', AppIcons.imageOutlined, SettingsGroup.app),
   notifications(
     'Notifications',
-    Icons.notifications_none_outlined,
+    AppIcons.notificationsNoneOutlined,
     SettingsGroup.app,
   ),
-  keybinds('Keybinds', Icons.keyboard_outlined, SettingsGroup.app),
-  streamerMode('Streamer Mode', Icons.videocam_outlined, SettingsGroup.app),
-  advanced('Advanced', Icons.code, SettingsGroup.app),
-  system('System', Icons.settings_applications_outlined, SettingsGroup.system),
-  about('About', Icons.info_outline, SettingsGroup.system);
+  keybinds('Keybinds', AppIcons.keyboardOutlined, SettingsGroup.app),
+  streamerMode('Streamer Mode', AppIcons.videocamOutlined, SettingsGroup.app),
+  advanced('Advanced', AppIcons.code, SettingsGroup.app),
+  system('System', AppIcons.settingsApplicationsOutlined, SettingsGroup.system),
+  about('About', AppIcons.infoOutline, SettingsGroup.system);
 
   const SettingsCategory(this.label, this.icon, this.group);
 

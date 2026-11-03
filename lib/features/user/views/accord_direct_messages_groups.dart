@@ -268,7 +268,7 @@ class _GroupMembersDialog extends ConsumerWidget {
                                         const AccordMenuEntry.divider(),
                                         AccordMenuEntry(
                                           label: 'Remove from group',
-                                          icon: Icons.person_remove_outlined,
+                                          icon: AppIcons.personRemoveOutlined,
                                           destructive: true,
                                           onSelected: () => onRemove(user),
                                         ),
@@ -294,7 +294,7 @@ class _GroupMembersDialog extends ConsumerWidget {
                                         tooltip: 'Remove',
                                         onPressed: () => onRemove(user),
                                         icon: Icon(
-                                          Icons.person_remove,
+                                          AppIcons.personRemove,
                                           size: 20,
                                           color: colors.red,
                                         ),

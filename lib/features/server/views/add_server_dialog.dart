@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/authentication/models/accord_session.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/authentication/utils/credential_validation.dart';
@@ -395,7 +396,7 @@ class _AddServerDialogState extends ConsumerState<_AddServerDialog>
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
-              child: DialogTitleBar('Add a Server', icon: Icons.dns_outlined),
+              child: DialogTitleBar('Add a Server', icon: AppIcons.dnsOutlined),
             ),
             TabBar(
               controller: _tabs,

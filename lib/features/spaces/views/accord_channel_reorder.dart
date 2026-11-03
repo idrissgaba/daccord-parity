@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
@@ -178,7 +179,7 @@ class _ChannelReorderState extends ConsumerState<_ChannelReorder> {
               Row(
                 children: [
                   Icon(
-                    _selecting ? Icons.checklist : Icons.reorder,
+                    _selecting ? AppIcons.checklist : AppIcons.reorder,
                     size: 18,
                     color: colors.dirtyWhite,
                   ),
@@ -197,7 +198,7 @@ class _ChannelReorderState extends ConsumerState<_ChannelReorder> {
                             if (!_selecting) _selected.clear();
                           }),
                     icon: Icon(
-                      _selecting ? Icons.check : Icons.delete_outline,
+                      _selecting ? AppIcons.check : AppIcons.deleteOutline,
                       size: 18,
                     ),
                   ),
@@ -206,7 +207,7 @@ class _ChannelReorderState extends ConsumerState<_ChannelReorder> {
                     onPressed: _busy
                         ? null
                         : () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -250,16 +251,16 @@ class _ChannelReorderState extends ConsumerState<_ChannelReorder> {
                             ),
                             secondary: Icon(
                               entry.isCategory
-                                  ? Icons.folder_outlined
+                                  ? AppIcons.folderOutlined
                                   : (entry.channel.type == 'arcade'
-                                        ? Icons.sports_esports_outlined
+                                        ? AppIcons.sportsEsportsOutlined
                                         : entry.channel.type == 'voice'
-                                        ? Icons.volume_up
+                                        ? AppIcons.volumeUp
                                         : entry.channel.type == 'stage'
-                                        ? Icons.podcasts
+                                        ? AppIcons.podcasts
                                         : (entry.channel.type == 'forum'
-                                              ? Icons.forum
-                                              : Icons.tag)),
+                                              ? AppIcons.forum
+                                              : AppIcons.tag)),
                               size: 16,
                               color: colors.dirtyWhite,
                             ),
@@ -290,16 +291,16 @@ class _ChannelReorderState extends ConsumerState<_ChannelReorder> {
                             ),
                             leading: Icon(
                               entry.isCategory
-                                  ? Icons.folder_outlined
+                                  ? AppIcons.folderOutlined
                                   : (entry.channel.type == 'arcade'
-                                        ? Icons.sports_esports_outlined
+                                        ? AppIcons.sportsEsportsOutlined
                                         : entry.channel.type == 'voice'
-                                        ? Icons.volume_up
+                                        ? AppIcons.volumeUp
                                         : entry.channel.type == 'stage'
-                                        ? Icons.podcasts
+                                        ? AppIcons.podcasts
                                         : (entry.channel.type == 'forum'
-                                              ? Icons.forum
-                                              : Icons.tag)),
+                                              ? AppIcons.forum
+                                              : AppIcons.tag)),
                               size: 16,
                               color: colors.dirtyWhite,
                             ),
@@ -313,7 +314,7 @@ class _ChannelReorderState extends ConsumerState<_ChannelReorder> {
                                     )
                                   : theme.textTheme.bodyMedium,
                             ),
-                            trailing: const Icon(Icons.drag_handle, size: 18),
+                            trailing: const Icon(AppIcons.dragHandle, size: 18),
                           );
                         },
                       ),
@@ -343,7 +344,7 @@ class _ChannelReorderState extends ConsumerState<_ChannelReorder> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.delete_outline, size: 16),
+                          : const Icon(AppIcons.deleteOutline, size: 16),
                       label: Text('Delete selected (${_selected.length})'),
                     )
                   else

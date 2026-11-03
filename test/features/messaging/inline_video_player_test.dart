@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/messaging/views/inline_video_player.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
@@ -22,15 +23,15 @@ void main() {
   group('InlineVideoPlayer container gate', () {
     testWidgets('offers playback for every container off iOS', (tester) async {
       await tester.pumpWidget(player('https://cdn.example/a.mkv'));
-      expect(find.byIcon(Icons.play_circle), findsOneWidget);
-      expect(find.byIcon(Icons.videocam_off), findsNothing);
+      expect(find.byIcon(AppIcons.playCircle), findsOneWidget);
+      expect(find.byIcon(AppIcons.videocamOff), findsNothing);
     });
 
     testWidgets('offers playback on iOS for an AVFoundation container',
         (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       await tester.pumpWidget(player('https://cdn.example/a.mp4?ex=deadbeef'));
-      expect(find.byIcon(Icons.play_circle), findsOneWidget);
+      expect(find.byIcon(AppIcons.playCircle), findsOneWidget);
       debugDefaultTargetPlatformOverride = null;
     });
 
@@ -38,8 +39,8 @@ void main() {
         (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       await tester.pumpWidget(player('https://cdn.example/a.mkv'));
-      expect(find.byIcon(Icons.videocam_off), findsOneWidget);
-      expect(find.byIcon(Icons.play_circle), findsNothing);
+      expect(find.byIcon(AppIcons.videocamOff), findsOneWidget);
+      expect(find.byIcon(AppIcons.playCircle), findsNothing);
       debugDefaultTargetPlatformOverride = null;
     });
 
@@ -49,7 +50,7 @@ void main() {
       await tester.pumpWidget(
         player('https://cdn.example/attachments/1', filename: 'clip.mov'),
       );
-      expect(find.byIcon(Icons.play_circle), findsOneWidget);
+      expect(find.byIcon(AppIcons.playCircle), findsOneWidget);
       debugDefaultTargetPlatformOverride = null;
     });
 
@@ -58,7 +59,7 @@ void main() {
       await tester.pumpWidget(
         player('https://example.com/watch', filename: 'Some video title'),
       );
-      expect(find.byIcon(Icons.videocam_off), findsOneWidget);
+      expect(find.byIcon(AppIcons.videocamOff), findsOneWidget);
       debugDefaultTargetPlatformOverride = null;
     });
   });

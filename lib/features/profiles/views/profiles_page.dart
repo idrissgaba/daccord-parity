@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/profiles/controllers/profiles_controller.dart';
 import 'package:bonfire/shared/utils/confirm_dialog.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
@@ -34,7 +35,7 @@ class ProfilesScreen extends ConsumerWidget {
       title: 'Device Profiles',
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _createProfile(context, ref),
-        icon: const Icon(Icons.add),
+        icon: const Icon(AppIcons.add),
         label: const Text('New profile'),
       ),
       body: ListView(
@@ -178,7 +179,7 @@ class _ProfileTile extends StatelessWidget {
       leading: CircleAvatar(
         backgroundColor: isActive ? colors.primary : colors.darkGray,
         child: Icon(
-          profile.hasPin ? Icons.lock : Icons.person,
+          profile.hasPin ? AppIcons.lock : AppIcons.person,
           color: Colors.white,
           size: 20,
         ),

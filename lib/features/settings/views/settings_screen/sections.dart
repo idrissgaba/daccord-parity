@@ -75,15 +75,6 @@ class _AppearanceSection extends StatelessWidget {
           value: settings.compactMode,
           onChanged: controller.setCompactMode,
         ),
-        SwitchListTile(
-          key: const Key('settings-channel-tabs'),
-          title: const Text('Channel tabs'),
-          subtitle: const Text(
-            'Show the channels you have open as tabs above the messages',
-          ),
-          value: settings.showChannelTabs,
-          onChanged: controller.setShowChannelTabs,
-        ),
       ],
     );
   }
@@ -373,7 +364,7 @@ class _SoundsSection extends StatelessWidget {
               onPressed: settings.soundsEnabled
                   ? () => soundManager.preview(name)
                   : null,
-              icon: const Icon(Icons.play_circle_outline, size: 20),
+              icon: const Icon(AppIcons.playCircleOutline, size: 20),
             ),
             value: !settings.disabledSounds.contains(name),
             onChanged: settings.soundsEnabled
@@ -397,12 +388,12 @@ class _VoiceVideoSection extends StatelessWidget {
       children: [
         SectionHeader('Voice & Video'),
         ListTile(
-          leading: Icon(Icons.mic_none, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.micNone, color: colors.dirtyWhite),
           title: const Text('Voice & video settings'),
           subtitle: const Text(
             'Microphone, speaker, sensitivity, camera, mic test',
           ),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => showVoiceSettings(context),
         ),
       ],
@@ -450,63 +441,69 @@ class _AccountSection extends StatelessWidget {
             subtitle: Text(session.server.baseUrl),
           ),
         ListTile(
-          leading: Icon(Icons.edit_outlined, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.editOutlined, color: colors.dirtyWhite),
           title: const Text('Edit profile'),
           subtitle: const Text('Display name, bio, avatar'),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => showAccordProfileEdit(context),
         ),
         ListTile(
-          leading: Icon(Icons.lock_outline, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.lockOutline, color: colors.dirtyWhite),
           title: const Text('Password & Security'),
           subtitle: const Text(
             'Password, two-factor authentication, delete account',
           ),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => showAccordAccountSettings(context),
         ),
         if (hasMultipleConnections)
           ListTile(
-            leading: Icon(Icons.dns_outlined, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.dnsOutlined, color: colors.dirtyWhite),
             title: const Text('Per-server profile'),
             subtitle: const Text("Override name/bio/avatar on one server"),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: onPickServerProfile,
           ),
         ListTile(
-          leading: Icon(Icons.switch_account, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.switchAccount, color: colors.dirtyWhite),
           title: const Text('Switch account'),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => context.push('/switcher'),
         ),
         ListTile(
-          leading: Icon(Icons.devices, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.devices, color: colors.dirtyWhite),
           title: const Text('Device profiles'),
           subtitle: const Text(
             'Local profiles with an optional casual PIN lock',
           ),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => showProfilesSettings(context),
         ),
         if (showSubPageTiles) ...[
           ListTile(
-            leading: Icon(Icons.link, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.link, color: colors.dirtyWhite),
             title: const Text('Connections'),
             subtitle: const Text('Linked third-party (OAuth) accounts'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showConnectionsSettings(context),
           ),
           ListTile(
-            leading: Icon(Icons.privacy_tip_outlined, color: colors.dirtyWhite),
+            leading: Icon(
+              AppIcons.privacyTipOutlined,
+              color: colors.dirtyWhite,
+            ),
             title: const Text('Privacy & Data'),
             subtitle: const Text('Data export, leave & delete data, retention'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showPrivacySettings(context),
           ),
         ],
         if (session?.isAdmin ?? false)
           ListTile(
-            leading: Icon(Icons.admin_panel_settings, color: colors.dirtyWhite),
+            leading: Icon(
+              AppIcons.adminPanelSettings,
+              color: colors.dirtyWhite,
+            ),
             title: const Text('Server administration'),
             subtitle: const Text('Spaces, users, reports, settings'),
             onTap: () => context.push('/admin'),
@@ -547,10 +544,10 @@ class _UpdatesSection extends StatelessWidget {
       children: [
         SectionHeader('Updates'),
         ListTile(
-          leading: Icon(Icons.system_update, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.systemUpdate, color: colors.dirtyWhite),
           title: const Text('Updates'),
           subtitle: const Text('Current version, check for new releases'),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => showUpdatesSettings(context),
         ),
       ],
@@ -595,10 +592,10 @@ class _DeveloperSection extends StatelessWidget {
         ),
         if (settings.developerMode)
           ListTile(
-            leading: Icon(Icons.terminal, color: colors.dirtyWhite),
+            leading: Icon(AppIcons.terminal, color: colors.dirtyWhite),
             title: const Text('Client MCP server'),
             subtitle: const Text('Token, port, tool groups, activity'),
-            trailing: const Icon(Icons.chevron_right),
+            trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showDeveloperSettings(context),
           ),
       ],
@@ -624,7 +621,7 @@ class _AboutSection extends StatelessWidget {
           trailing: Text('v$kAppVersion'),
         ),
         ListTile(
-          leading: const Icon(Icons.gavel_outlined),
+          leading: const Icon(AppIcons.gavelOutlined),
           title: const Text(appTermsTitle),
           subtitle: const Text(
             'The terms you accepted, including what is not allowed and how to '
@@ -633,12 +630,12 @@ class _AboutSection extends StatelessWidget {
           onTap: () => showAppTermsDialog(context),
         ),
         ListTile(
-          leading: const Icon(Icons.privacy_tip_outlined),
+          leading: const Icon(AppIcons.privacyTipOutlined),
           title: const Text('Privacy Policy'),
           subtitle: const Text(
             'How the app, website, and independent servers handle data.',
           ),
-          trailing: const Icon(Icons.open_in_new, size: 16),
+          trailing: const Icon(AppIcons.openInNew, size: 16),
           onTap: () => openTrustedUrl(kDaccordPrivacyPolicyUrl),
         ),
       ],
@@ -656,7 +653,7 @@ class _LogOutTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
     return ListTile(
-      leading: Icon(Icons.logout, color: colors.red),
+      leading: Icon(AppIcons.logout, color: colors.red),
       title: Text('Log out', style: TextStyle(color: colors.red)),
       onTap: onLogOut,
     );
@@ -675,7 +672,7 @@ Future<void> _pickServerProfile(BuildContext context, WidgetRef ref) async {
         children: [
           for (final conn in connections)
             ListTile(
-              leading: const Icon(Icons.dns_outlined),
+              leading: const Icon(AppIcons.dnsOutlined),
               title: Text(
                 conn.session.server.name ?? conn.session.server.baseUrl,
               ),

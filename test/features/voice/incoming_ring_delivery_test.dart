@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -388,6 +389,6 @@ void main() {
       isNotNull,
       reason: 'the call view must open inside the themed app',
     );
-    expect(find.byIcon(Icons.call_end), findsOneWidget);
+    expect(find.byIcon(AppIcons.callEnd), findsOneWidget);
   });
 }

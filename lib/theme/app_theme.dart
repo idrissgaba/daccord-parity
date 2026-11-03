@@ -28,19 +28,23 @@ enum AppThemePreset {
 /// dirtyWhite←text_body, gray←text_muted, primary←accent, red←error,
 /// green←success, yellow←warning.
 const Map<AppThemePreset, BonfireThemeExtension> _palettes = {
-  // Three surfaces, darkest to lightest: server rail (darkGray), channel and
-  // member columns (foreground), chat (background) — the layering familiar
-  // from other voice chat apps.
+  // The reference client's 2025 dark theme, measured on its web client
+  // (docs/discord-ref/discord-css-metrics-2026-11-03.md): one near-black base
+  // for the rail and the channel column (darkGray/foreground), a lighter
+  // surface for the chat and the member list (background), and raised panels
+  // (user panel, composer) above that.
   AppThemePreset.dark: BonfireThemeExtension(
-    background: Color(0xFF313338),
-    foreground: Color(0xFF2B2D31),
-    dirtyWhite: Color(0xFFDBDEE1),
-    gray: Color(0xFF949BA4),
-    darkGray: Color(0xFF1E1F22),
+    background: Color(0xFF1A1A1E),
+    foreground: Color(0xFF121214),
+    dirtyWhite: Color(0xFFFBFBFB),
+    gray: Color(0xFF81828A),
+    darkGray: Color(0xFF121214),
     primary: Color(0xFF5865F2),
     red: Color(0xFFF23F43),
     green: Color(0xFF23A55A),
     yellow: Color(0xFFF0B232),
+    raised: Color(0xFF202024),
+    interactive: Color(0xFFABACB2),
   ),
   // AMOLED variant of [dark]: pure-black base, same accent/text tokens.
   AppThemePreset.midnight: BonfireThemeExtension(
@@ -126,6 +130,18 @@ BonfireThemeExtension paletteFor(AppThemePreset preset, {Color? accent}) {
   return accent == null ? base : base.copyWith(primary: accent);
 }
 
+/// The UI typeface: Noto Sans (OFL, bundled in assets/fonts). The reference
+/// client lists it as the first fallback for its own proprietary face, so it is
+/// the closest free match; non-Latin scripts fall through to the platform font.
+const kAppFontFamily = 'NotoSans';
+
+/// Noto Sans sets about 19 % wider and 9 % taller than the reference
+/// client's typeface at the same CSS size (measured on its web client, see
+/// docs/discord-ref/discord-css-metrics-2026-11-03.md). The app shell scales
+/// all text by this factor so a 16 px label occupies the same footprint as
+/// the reference's 16 px label.
+const double kTypefaceScale = 0.875;
+
 /// Colour emoji fonts tried before the platform's own fallback. Without them
 /// Windows picked Segoe UI Symbol for some emoji (🔊 drawn as a grey outline,
 /// 🎶 as an empty box) where Segoe UI Emoji has the colour glyph.
@@ -157,17 +173,17 @@ TextTheme _textTheme(BonfireThemeExtension palette) {
   return TextTheme(
     displayLarge: s(36, high),
     displayMedium: s(20, high),
-    displaySmall: s(15, high),
+    displaySmall: s(16, high),
     titleLarge: s(36, high),
     titleMedium: s(20, high),
-    titleSmall: s(15, high),
+    titleSmall: s(16, high, FontWeight.w600),
     headlineLarge: s(18, high),
     headlineMedium: s(16, high),
     headlineSmall: s(24, high),
     labelLarge: s(15, medium),
     labelMedium: s(12, medium),
     labelSmall: s(12, medium),
-    bodyLarge: s(15, high),
+    bodyLarge: s(16, high),
     bodyMedium: s(14, medium),
     bodySmall: s(12, medium),
   );
@@ -181,6 +197,10 @@ ThemeData buildAppTheme(AppThemePreset preset, {Color? accent}) {
       ? ThemeData.light()
       : ThemeData.dark();
   return base.copyWith(
+    // ThemeData.copyWith has no fontFamily: apply it through the typography
+    // slots below and the default text style of every Material text.
+    textTheme: _textTheme(palette).apply(fontFamily: kAppFontFamily),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamily: kAppFontFamily),
     scaffoldBackgroundColor: palette.background,
     colorScheme:
         ColorScheme.fromSeed(
@@ -196,7 +216,6 @@ ThemeData buildAppTheme(AppThemePreset preset, {Color? accent}) {
           onError: _onColor(palette.red),
           surface: palette.background,
         ),
-    textTheme: _textTheme(palette),
     extensions: [palette],
   );
 }

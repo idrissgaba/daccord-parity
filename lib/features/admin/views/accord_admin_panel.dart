@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/automod/views/automod_panel.dart';
 import 'package:bonfire/features/admin/views/admin_reports_tab.dart';
 import 'package:bonfire/features/admin/views/admin_settings_tab.dart';
@@ -28,7 +29,7 @@ class AccordAdminPanel extends ConsumerWidget {
           backgroundColor: colors.foreground,
           title: const Text('Server administration'),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(AppIcons.arrowBack),
             onPressed: () =>
                 context.canPop() ? context.pop() : context.go('/spaces'),
           ),
@@ -61,7 +62,7 @@ class AccordAdminPanel extends ConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.lock_outline, size: 48, color: colors.gray),
+                      Icon(AppIcons.lockOutline, size: 48, color: colors.gray),
                       const SizedBox(height: 12),
                       Text(
                         'You do not have access to this area.',

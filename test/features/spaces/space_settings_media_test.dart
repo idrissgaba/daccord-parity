@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:typed_data';
 
 import 'package:bonfire/features/spaces/views/accord_space_settings_media.dart';
@@ -58,7 +59,7 @@ void main() {
               .foregroundImage,
           isNull,
         );
-        expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+        expect(find.byIcon(AppIcons.imageOutlined), findsOneWidget);
       },
     );
 
@@ -81,7 +82,7 @@ void main() {
       expect((image.image as MemoryImage).bytes, same(bytes));
       await tester.pumpWidget(host(const SpaceSettingsBannerPreview()));
       expect(find.byType(Image), findsNothing);
-      expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+      expect(find.byIcon(AppIcons.imageOutlined), findsOneWidget);
     });
   }
 }

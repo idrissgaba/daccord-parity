@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
@@ -167,7 +168,7 @@ class _SearchDialogState extends ConsumerState<_SearchDialog>
                       onChanged: _onChanged,
                       decoration: InputDecoration(
                         isDense: true,
-                        prefixIcon: const Icon(Icons.search, size: 18),
+                        prefixIcon: const Icon(AppIcons.search, size: 18),
                         hintText:
                             'Search — from:@user in:#channel before:2026-01-31 pinned:true',
                         border: const OutlineInputBorder(),
@@ -176,7 +177,7 @@ class _SearchDialogState extends ConsumerState<_SearchDialog>
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -296,7 +297,7 @@ class _SearchDialogState extends ConsumerState<_SearchDialog>
       itemBuilder: (context, index) {
         final member = members[index];
         return ListTile(
-          leading: const Icon(Icons.person_outline, size: 20),
+          leading: const Icon(AppIcons.personOutline, size: 20),
           title: Text(
             accordMemberName(member),
             style: theme.textTheme.titleSmall,

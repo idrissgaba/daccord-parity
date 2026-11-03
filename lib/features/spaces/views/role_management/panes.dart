@@ -33,7 +33,7 @@ class _RoleListPane extends StatelessWidget {
           padding: const EdgeInsets.all(8),
           child: FilledButton.icon(
             onPressed: busy ? null : onCreate,
-            icon: const Icon(Icons.add, size: 18),
+            icon: const Icon(AppIcons.add, size: 18),
             label: const Text('Create role'),
           ),
         ),
@@ -123,7 +123,11 @@ class _RoleListTile extends StatelessWidget {
               if (draggable && index != null)
                 ReorderableDragStartListener(
                   index: index!,
-                  child: Icon(Icons.drag_handle, size: 18, color: colors.gray),
+                  child: Icon(
+                    AppIcons.dragHandle,
+                    size: 18,
+                    color: colors.gray,
+                  ),
                 ),
             ],
           ),
@@ -325,7 +329,7 @@ class _RoleEditorPaneState extends State<_RoleEditorPane> {
               if (widget.onPreview != null)
                 TextButton.icon(
                   onPressed: widget.busy ? null : widget.onPreview,
-                  icon: const Icon(Icons.visibility, size: 16),
+                  icon: const Icon(AppIcons.visibility, size: 16),
                   label: const Text('Preview as role'),
                 ),
               const Spacer(),
@@ -365,7 +369,7 @@ class _ColorSwatch extends StatelessWidget {
       size: 28,
       borderRadius: BorderRadius.circular(6),
       borderWidth: 2,
-      icon: color == null ? Icons.format_color_reset : null,
+      icon: color == null ? AppIcons.formatColorReset : null,
       iconColor: color == null ? colors.gray : Colors.white,
       iconSize: 16,
       ink: true,

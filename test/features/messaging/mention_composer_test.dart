@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 
 import 'package:accordkit/accordkit.dart';
@@ -225,7 +226,7 @@ void main() {
 
     expect(find.text('@everyone'), findsOneWidget);
     expect(find.text('@here'), findsOneWidget);
-    expect(find.byIcon(Icons.campaign_outlined), findsNWidgets(2));
+    expect(find.byIcon(AppIcons.campaignOutlined), findsNWidgets(2));
     expect(
       tester.getTopLeft(find.text('@everyone')).dy,
       lessThan(tester.getTopLeft(find.text('@here')).dy),

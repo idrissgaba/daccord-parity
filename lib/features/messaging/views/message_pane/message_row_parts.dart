@@ -19,7 +19,7 @@ mixin _MessageRowParts
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.forum_outlined, size: 14, color: colors.primary),
+              Icon(AppIcons.forumOutlined, size: 14, color: colors.primary),
               const SizedBox(width: 6),
               Text(
                 '$count ${count == 1 ? 'reply' : 'replies'}',
@@ -157,7 +157,7 @@ mixin _MessageRowParts
       padding: const EdgeInsets.only(bottom: 2, left: 2),
       child: Row(
         children: [
-          Icon(Icons.reply, size: 12, color: colors.gray),
+          Icon(AppIcons.reply, size: 12, color: colors.gray),
           const SizedBox(width: 4),
           Flexible(
             child: Text(

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
@@ -190,7 +191,7 @@ class _AudienceChip extends StatelessWidget {
           if (raised) ...[
             const SizedBox(width: 4),
             Icon(
-              Icons.back_hand,
+              AppIcons.backHand,
               size: 14,
               color: colors.primary,
               semanticLabel: 'Hand raised',

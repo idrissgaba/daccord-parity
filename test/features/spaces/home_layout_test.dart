@@ -4,21 +4,23 @@ import 'package:bonfire/features/spaces/models/home_layout.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// The width the message column actually gets under [layout] at [width].
+/// The drag handle is part of the channel list's width.
 double _messagePaneWidth(HomeLayout layout, double width) {
   if (layout.mode == HomeLayoutMode.compact) return width;
   return width -
       kSpaceRailWidth -
       layout.channelListWidth -
-      kChannelListHandleWidth -
       (layout.showsMemberListInline ? kMemberListWidth : 0);
 }
 
 HomeLayout _at(
   double width, {
   double channelListWidth = AccordSettings.defaultChannelListWidth,
+  bool desktop = false,
 }) => resolveHomeLayout(
   width: width,
   preferredChannelListWidth: channelListWidth,
+  desktop: desktop,
 );
 
 void main() {
@@ -27,7 +29,10 @@ void main() {
       final layout = _at(1180);
       expect(layout.mode, HomeLayoutMode.wide);
       expect(layout.channelListWidth, AccordSettings.defaultChannelListWidth);
-      expect(_messagePaneWidth(layout, 1180), greaterThan(600));
+      expect(
+        _messagePaneWidth(layout, 1180),
+        greaterThanOrEqualTo(kMinMessagePaneWidth),
+      );
     });
 
     test('iPad Air portrait (820) drops the member list, not the channels', () {
@@ -85,11 +90,11 @@ void main() {
     test(
       'a dragged-wide channel list is squeezed before a pane is dropped',
       () {
-        // 1000pt with a 420pt channel list would leave 268pt of messages; the
+        // 1000pt with a 360pt channel list would leave 304pt of messages; the
         // list is trimmed instead of the roster being thrown into a drawer.
-        final layout = _at(1000, channelListWidth: 420);
+        final layout = _at(1000, channelListWidth: 360);
         expect(layout.mode, HomeLayoutMode.wide);
-        expect(layout.channelListWidth, lessThan(420));
+        expect(layout.channelListWidth, lessThan(360));
         expect(
           layout.channelListWidth,
           greaterThanOrEqualTo(AccordSettings.minChannelListWidth),
@@ -99,7 +104,7 @@ void main() {
     );
 
     test('a preference that already fits is honoured exactly', () {
-      expect(_at(1600, channelListWidth: 380).channelListWidth, 380);
+      expect(_at(1600, channelListWidth: 340).channelListWidth, 340);
     });
 
     test('the preference is clamped to the settings range', () {
@@ -110,6 +115,29 @@ void main() {
       expect(
         _at(2000, channelListWidth: 5000).channelListWidth,
         AccordSettings.maxChannelListWidth,
+      );
+    });
+  });
+
+  group('a desktop window keeps all three panes', () {
+    test('at the reference client minimum window width and above', () {
+      for (final width in <double>[kDesktopMinWindowWidth, 900, 1000, 1100]) {
+        final layout = _at(width, desktop: true);
+        expect(layout.mode, HomeLayoutMode.wide, reason: 'width=$width');
+        expect(layout.channelListWidth, AccordSettings.defaultChannelListWidth);
+      }
+    });
+
+    test('and honours a wide channel list even when messages get narrow', () {
+      final layout = _at(1000, channelListWidth: 360, desktop: true);
+      expect(layout.channelListWidth, 360);
+      expect(_messagePaneWidth(layout, 1000), 1000 - 72 - 360 - 264);
+    });
+
+    test('but falls back to the touch rules below that width', () {
+      expect(
+        _at(kDesktopMinWindowWidth - 1, desktop: true).mode,
+        HomeLayoutMode.medium,
       );
     });
   });

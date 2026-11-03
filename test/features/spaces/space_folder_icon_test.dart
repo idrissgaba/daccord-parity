@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/spaces/models/space_folder.dart';
 import 'package:bonfire/features/spaces/views/accord_home.dart';
@@ -36,11 +37,11 @@ void main() {
         );
         expect(
           tester.getSize(find.byType(SpaceFolderIcon)),
-          const Size(48, 48),
+          const Size(40, 40),
         );
         final expected = ids.take(4).map((id) => spaces[id]!.name).toList();
         expect(
-          find.byIcon(Icons.folder),
+          find.byIcon(AppIcons.folder),
           count == 0 ? findsOneWidget : findsNothing,
         );
         expect(find.byType(ClipRRect), findsNWidgets(expected.length));
@@ -51,11 +52,11 @@ void main() {
             of: label,
             matching: find.byType(ClipRRect),
           );
-          expect(tester.getSize(tile), const Size(18, 18));
+          expect(tester.getSize(tile), const Size(16, 16));
           final origin = tester.getTopLeft(find.byType(SpaceFolderIcon));
           expect(
             tester.getTopLeft(tile) - origin,
-            Offset(5.0 + (i % 2) * 20, 5.0 + (i ~/ 2) * 20),
+            Offset(3.0 + (i % 2) * 18, 3.0 + (i ~/ 2) * 18),
           );
         }
         for (final name
@@ -122,11 +123,11 @@ void main() {
       await tester.pumpWidget(
         _host(SpaceFolderIcon(folder: folder, spaces: spaces)),
       );
-      expect(find.byIcon(Icons.folder), findsOneWidget);
+      expect(find.byIcon(AppIcons.folder), findsOneWidget);
       final tile = tester.widget<Container>(find.byType(Container).first);
       expect(
         (tile.decoration! as BoxDecoration).color,
-        const Color(0xFFFF0000).withValues(alpha: 0.5),
+        const Color(0xFFFF0000).withValues(alpha: 0.4),
       );
       await tester.pumpWidget(
         _host(
@@ -139,7 +140,7 @@ void main() {
           ),
         ),
       );
-      expect(find.byIcon(Icons.folder_open), findsOneWidget);
+      expect(find.byIcon(AppIcons.folder), findsOneWidget);
       expect(find.byType(ClipRRect), findsNothing);
     },
   );
@@ -194,7 +195,12 @@ void main() {
           ),
         ),
       );
-      expect(find.byTooltip('My folder'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is RailTooltip && w.message == 'My folder',
+        ),
+        findsOneWidget,
+      );
       final gesture = await tester.startGesture(
         tester.getCenter(find.byType(SpaceFolderIcon)),
       );

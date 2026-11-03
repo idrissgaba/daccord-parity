@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
@@ -530,7 +531,7 @@ class _MemberPopoutState extends ConsumerState<_MemberPopout> {
               if (canEditNickname && member != null) ...[
                 const SizedBox(height: 8),
                 _ActionTile(
-                  icon: Icons.badge_outlined,
+                  icon: AppIcons.badgeOutlined,
                   label: (member.nickname ?? '').isEmpty
                       ? 'Set nickname'
                       : 'Edit nickname',
@@ -569,7 +570,7 @@ class _MemberPopoutState extends ConsumerState<_MemberPopout> {
                     style: TextButton.styleFrom(
                       foregroundColor: colors.primary,
                     ),
-                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    icon: const Icon(AppIcons.chatBubbleOutline, size: 18),
                     label: const Text('Direct Message'),
                   ),
                 ),
@@ -587,7 +588,7 @@ class _MemberPopoutState extends ConsumerState<_MemberPopout> {
                   child: TextButton.icon(
                     onPressed: _busy ? null : _report,
                     style: TextButton.styleFrom(foregroundColor: colors.red),
-                    icon: const Icon(Icons.flag_outlined, size: 18),
+                    icon: const Icon(AppIcons.flagOutlined, size: 18),
                     label: const Text('Report user'),
                   ),
                 ),
@@ -596,7 +597,7 @@ class _MemberPopoutState extends ConsumerState<_MemberPopout> {
                   child: TextButton.icon(
                     onPressed: _busy ? null : _block,
                     style: TextButton.styleFrom(foregroundColor: colors.red),
-                    icon: const Icon(Icons.block, size: 18),
+                    icon: const Icon(AppIcons.block, size: 18),
                     label: const Text('Block user'),
                   ),
                 ),

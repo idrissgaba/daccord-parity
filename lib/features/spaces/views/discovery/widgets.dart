@@ -14,7 +14,7 @@ class _DirectoryError extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.error_outline, size: 18, color: colors.red),
+        Icon(AppIcons.errorOutline, size: 18, color: colors.red),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -47,7 +47,7 @@ class _SparseDirectoryNote extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.info_outline, size: 18, color: colors.dirtyWhite),
+              Icon(AppIcons.infoOutline, size: 18, color: colors.dirtyWhite),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -105,13 +105,13 @@ class _ConnectFooter extends StatelessWidget {
             children: [
               FilledButton.icon(
                 onPressed: onManualConnect,
-                icon: const Icon(Icons.link, size: 18),
+                icon: const Icon(AppIcons.link, size: 18),
                 label: const Text('Connect to a server by URL'),
               ),
               TextButton.icon(
                 onPressed: () =>
                     showSelfHostingDialog(context, onConnect: onManualConnect),
-                icon: const Icon(Icons.home_work_outlined, size: 18),
+                icon: const Icon(AppIcons.homeWorkOutlined, size: 18),
                 label: const Text('Host your own'),
               ),
             ],

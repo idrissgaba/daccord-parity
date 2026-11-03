@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
@@ -195,7 +196,7 @@ class _EmojiManagementState extends ConsumerState<_EmojiManagement> {
               Row(
                 children: [
                   Icon(
-                    Icons.emoji_emotions_outlined,
+                    AppIcons.emojiEmotionsOutlined,
                     size: 18,
                     color: colors.dirtyWhite,
                   ),
@@ -205,14 +206,14 @@ class _EmojiManagementState extends ConsumerState<_EmojiManagement> {
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               FilledButton.icon(
                 onPressed: _busy ? null : _pickAndUpload,
-                icon: const Icon(Icons.upload, size: 18),
+                icon: const Icon(AppIcons.upload, size: 18),
                 label: const Text('Upload emoji'),
               ),
               if (_error != null) ...[
@@ -242,13 +243,13 @@ class _EmojiManagementState extends ConsumerState<_EmojiManagement> {
                           final url = _emojiUrl(emoji, cdnUrl);
                           return ListTile(
                             leading: url == null
-                                ? const Icon(Icons.image_outlined)
+                                ? const Icon(AppIcons.imageOutlined)
                                 : CachedNetworkImage(
                                     imageUrl: url,
                                     width: 28,
                                     height: 28,
                                     errorWidget: (_, _, _) =>
-                                        const Icon(Icons.broken_image),
+                                        const Icon(AppIcons.brokenImage),
                                   ),
                             title: Text(
                               ':${emoji.name}:',
@@ -262,7 +263,7 @@ class _EmojiManagementState extends ConsumerState<_EmojiManagement> {
                                   onPressed: _busy
                                       ? null
                                       : () => _rename(emoji),
-                                  icon: const Icon(Icons.edit, size: 18),
+                                  icon: const Icon(AppIcons.edit, size: 18),
                                 ),
                                 IconButton(
                                   tooltip: 'Delete',
@@ -270,7 +271,7 @@ class _EmojiManagementState extends ConsumerState<_EmojiManagement> {
                                       ? null
                                       : () => _delete(emoji),
                                   icon: Icon(
-                                    Icons.delete_outline,
+                                    AppIcons.deleteOutline,
                                     size: 18,
                                     color: colors.red,
                                   ),

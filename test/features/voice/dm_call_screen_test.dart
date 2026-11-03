@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/models/accord_session.dart';
@@ -250,7 +251,7 @@ Future<void> _openConversation(WidgetTester tester, _Harness h) async {
 /// the incoming-call banner's decline button shares the icon.
 final _hangUp = find.descendant(
   of: find.byType(VoiceChannelView),
-  matching: find.byIcon(Icons.call_end),
+  matching: find.byIcon(AppIcons.callEnd),
 );
 
 final _decline = find.descendant(

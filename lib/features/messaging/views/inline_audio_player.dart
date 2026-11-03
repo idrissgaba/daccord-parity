@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 import 'dart:typed_data';
 
@@ -190,7 +191,7 @@ class _InlineAudioPlayerState extends State<InlineAudioPlayer> {
           Row(
             children: [
               Icon(
-                voiceMessage ? Icons.mic : Icons.audiotrack,
+                voiceMessage ? AppIcons.mic : AppIcons.audiotrack,
                 size: 16,
                 color: colors.dirtyWhite,
               ),
@@ -212,7 +213,7 @@ class _InlineAudioPlayerState extends State<InlineAudioPlayer> {
                 iconSize: 28,
                 onPressed: _toggle,
                 icon: Icon(
-                  _playing ? Icons.pause_circle : Icons.play_circle,
+                  _playing ? AppIcons.pauseCircle : AppIcons.playCircle,
                   color: colors.primary,
                 ),
               ),
@@ -261,7 +262,7 @@ class _InlineAudioPlayerState extends State<InlineAudioPlayer> {
                         tooltip: 'Download',
                         onPressed: _download,
                         icon: Icon(
-                          Icons.download_outlined,
+                          AppIcons.downloadOutlined,
                           color: colors.dirtyWhite,
                         ),
                       ),

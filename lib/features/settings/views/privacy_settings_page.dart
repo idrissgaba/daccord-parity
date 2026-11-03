@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 import 'package:bonfire/shared/components/settings_scaffold.dart';
 import 'package:bonfire/shared/components/section_header.dart';
@@ -156,7 +157,7 @@ class _PrivacySettingsScreenState extends ConsumerState<PrivacySettingsScreen> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.download),
+                    : const Icon(AppIcons.download),
                 label: Text(_exporting ? 'Exporting…' : 'Request Data Export'),
               ),
             ),

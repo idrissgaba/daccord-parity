@@ -77,7 +77,7 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.grid_view_outlined, size: 40),
+              const Icon(AppIcons.gridViewOutlined, size: 40),
               const SizedBox(height: 12),
               Text(
                 'No spaces yet',
@@ -136,7 +136,7 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
   /// The space menu under its name, as in other chat apps: invite, settings,
   /// create channel or category, mark as read, then the per-server entries
   /// (mute, hide, leave) shared with the rail's menu.
-  void _openSpaceMenu(
+  Future<void> _openSpaceMenu(
     BuildContext anchorContext, {
     required AccordSpace space,
     required List<AccordChannel>? channels,
@@ -145,13 +145,13 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
     required bool canManageChannels,
   }) {
     final serverKey = ref.read(connectionsControllerProvider).activeKey;
-    if (serverKey == null) return;
+    if (serverKey == null) return Future.value();
     final box = anchorContext.findRenderObject() as RenderBox?;
     final anchor = box == null
         ? null
         : box.localToGlobal(Offset(0, box.size.height));
     const duplicated = {'Invite people', 'Space settings'};
-    showAccordContextMenu(
+    return showAccordContextMenu(
       context,
       globalPosition: anchor,
       title: space.name,
@@ -159,26 +159,26 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
         if (canInvite)
           AccordMenuEntry(
             label: 'Invite people',
-            icon: Icons.person_add_outlined,
+            icon: AppIcons.personAddOutlined,
             onSelected: () => showAccordInvites(context, spaceId: space.id),
           ),
         if (canManage)
           AccordMenuEntry(
             label: 'Space settings',
-            icon: Icons.settings_outlined,
+            icon: AppIcons.settingsOutlined,
             onSelected: () =>
                 showAccordSpaceSettings(context, spaceId: space.id),
           ),
         if (canManageChannels) ...[
           AccordMenuEntry(
             label: 'Create channel',
-            icon: Icons.add_circle_outline,
+            icon: AppIcons.addCircleOutline,
             onSelected: () =>
                 showCreateChannelDialog(context, spaceId: space.id),
           ),
           AccordMenuEntry(
             label: 'Create category',
-            icon: Icons.create_new_folder_outlined,
+            icon: AppIcons.createNewFolderOutlined,
             onSelected: () => showCreateChannelDialog(
               context,
               spaceId: space.id,
@@ -188,7 +188,7 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
           if (channels != null)
             AccordMenuEntry(
               label: 'Reorder channels',
-              icon: Icons.reorder,
+              icon: AppIcons.reorder,
               onSelected: () => showAccordChannelReorder(
                 context,
                 spaceId: space.id,
@@ -198,7 +198,7 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
         ],
         AccordMenuEntry(
           label: 'Mark as read',
-          icon: Icons.mark_chat_read_outlined,
+          icon: AppIcons.markChatReadOutlined,
           enabled: channels != null,
           onSelected: () {
             for (final channel in channels ?? const <AccordChannel>[]) {
@@ -270,95 +270,64 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
       canInvite = accordHasPermission(perms, AccordPermission.createInvites);
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.foreground,
-        border: Border(left: BorderSide(color: colors.background, width: 1)),
-      ),
+    final header = _SpaceHeader(
+      name: spaceName ?? 'Select a space',
+      origin: space?.origin,
+      canInvite: canInvite && id != null,
+      onInvite: id == null
+          ? null
+          : () => showAccordInvites(context, spaceId: id),
+      onMenu: id == null || space == null
+          ? null
+          : (anchorContext) => _openSpaceMenu(
+              anchorContext,
+              space: space,
+              channels: channels,
+              canInvite: canInvite,
+              canManage: canManage,
+              canManageChannels: canManageChannels,
+            ),
+    );
+
+    return ColoredBox(
+      color: colors.foreground,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            height: 48,
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.only(left: 16, right: 4),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: colors.background, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  // The space name opens the space menu, as in other chat
-                  // apps.
-                  child: Builder(
-                    builder: (nameContext) => InkWell(
-                      onTap: id == null || space == null
-                          ? null
-                          : () => _openSpaceMenu(
-                              nameContext,
-                              space: space,
-                              channels: channels,
-                              canInvite: canInvite,
-                              canManage: canManage,
-                              canManageChannels: canManageChannels,
-                            ),
-                      child: Text(
-                        spaceName ?? 'Select a space',
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleSmall,
+          // The banner, when there is one, sits behind the header and fades
+          // into the column.
+          if (bannerUrl != null)
+            SizedBox(
+              height: 135,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CachedNetworkImage(
+                    imageUrl: bannerUrl,
+                    fit: BoxFit.cover,
+                    errorWidget: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.6),
+                          Colors.transparent,
+                        ],
+                        stops: const [0, 0.6],
                       ),
                     ),
                   ),
-                ),
-                if (space?.origin != null) ...[
-                  const SizedBox(width: 6),
-                  RemoteOriginBadge(domain: space!.origin),
+                  Align(alignment: Alignment.topCenter, child: header),
                 ],
-                if (id != null)
-                  _HeaderAction(
-                    tooltip: 'Search',
-                    icon: Icons.search,
-                    color: colors.dirtyWhite,
-                    onPressed: () async {
-                      final selection = await showAccordSearch(
-                        context,
-                        spaceId: id,
-                      );
-                      if (selection != null && mounted) {
-                        widget.onSearchSelect(selection);
-                      }
-                    },
-                  ),
-                if (id != null && space != null)
-                  Builder(
-                    builder: (buttonContext) => _HeaderAction(
-                      tooltip: 'Space menu',
-                      icon: Icons.expand_more,
-                      color: colors.dirtyWhite,
-                      onPressed: () => _openSpaceMenu(
-                        buttonContext,
-                        space: space,
-                        channels: channels,
-                        canInvite: canInvite,
-                        canManage: canManage,
-                        canManageChannels: canManageChannels,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+              ),
+            )
+          else
+            header,
           if (id != null)
             WelcomeScreenGate(spaceId: id, onOpenChannel: onSelect),
-          if (bannerUrl != null)
-            CachedNetworkImage(
-              imageUrl: bannerUrl,
-              height: 100,
-              fit: BoxFit.cover,
-              errorWidget: (_, _, _) => const SizedBox.shrink(),
-            ),
           if (id != null) SpaceEventsEntry(spaceId: id),
           Expanded(
             child: channels == null
@@ -371,9 +340,10 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
                     onSelect: onSelect,
                     collapsed: collapsed,
                     onToggleCollapsed: _toggleCollapsed,
+                    canInvite: canInvite,
                   )
                 : ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.only(bottom: 12),
                     children: _buildChannelEntries(
                       context,
                       spaceId: id,
@@ -381,22 +351,166 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
                       selectedChannelId: selectedChannelId,
                       onSelect: onSelect,
                       canManageChannels: canManageChannels,
+                      canInvite: canInvite,
                       collapsed: collapsed,
                       onToggleCollapsed: _toggleCollapsed,
+                      unread: _visibleUnreadChannelIds(ref, channels),
                     ),
                   ),
-          ),
-          const StreamerModeBar(),
-          VoiceBar(
-            onTapStatus: () {
-              final channelId = ref.read(voiceControllerProvider).channelId;
-              if (channelId != null) onSelect(channelId);
-            },
           ),
         ],
       ),
     );
   }
+}
+
+/// The 49 px header of the channel column: the space name (16 px semibold)
+/// with a caret that opens the space menu and turns into a cross while it is
+/// open, and the invite button at the right; a hairline underneath.
+class _SpaceHeader extends StatefulWidget {
+  const _SpaceHeader({
+    required this.name,
+    required this.origin,
+    required this.canInvite,
+    required this.onInvite,
+    required this.onMenu,
+  });
+
+  final String name;
+  final String? origin;
+  final bool canInvite;
+  final VoidCallback? onInvite;
+
+  /// Opens the space menu anchored under the widget of [anchorContext]; the
+  /// returned future completes when the menu closes.
+  final Future<void> Function(BuildContext anchorContext)? onMenu;
+
+  @override
+  State<_SpaceHeader> createState() => _SpaceHeaderState();
+}
+
+class _SpaceHeaderState extends State<_SpaceHeader> {
+  bool _menuOpen = false;
+
+  Future<void> _open(BuildContext anchorContext) async {
+    final onMenu = widget.onMenu;
+    if (onMenu == null) return;
+    setState(() => _menuOpen = true);
+    try {
+      await onMenu(anchorContext);
+    } finally {
+      if (mounted) setState(() => _menuOpen = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Container(
+      key: const Key('space-header'),
+      height: 49,
+      padding: const EdgeInsets.fromLTRB(8, 9, 8, 0),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: colors.hairline)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Builder(
+              builder: (nameContext) => InkWell(
+                onTap: widget.onMenu == null ? null : () => _open(nameContext),
+                borderRadius: BorderRadius.circular(8),
+                hoverColor: colors.hover,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          widget.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall!
+                              .copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: colors.dirtyWhite,
+                              ),
+                        ),
+                      ),
+                      if (widget.origin != null) ...[
+                        const SizedBox(width: 6),
+                        RemoteOriginBadge(domain: widget.origin),
+                      ],
+                      if (widget.onMenu != null) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          _menuOpen ? AppIcons.close : AppIcons.expandMore,
+                          key: const Key('space-header-caret'),
+                          size: 14,
+                          color: colors.dirtyWhite,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (widget.canInvite && widget.onInvite != null)
+            Tooltip(
+              message: 'Invite',
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  key: const Key('space-header-invite'),
+                  onTap: widget.onInvite,
+                  borderRadius: BorderRadius.circular(8),
+                  hoverColor: colors.hover,
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: Icon(
+                      AppIcons.personAdd,
+                      size: 20,
+                      color: colors.dirtyWhite,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The channel ids among [channels] that are unread and not silenced on the
+/// active connection, for keeping them in view under a collapsed category.
+Set<String> _visibleUnreadChannelIds(
+  WidgetRef ref,
+  Iterable<AccordChannel> channels,
+) {
+  final activeKey = ref.watch(
+    connectionsControllerProvider.select((s) => s.activeKey),
+  );
+  if (activeKey == null) return const {};
+  // `channelNotificationsFor` builds a fresh map, so the stored map is
+  // watched instead.
+  ref.watch(settingsControllerProvider.select((s) => s.channelNotifications));
+  final levels = ref
+      .read(settingsControllerProvider)
+      .channelNotificationsFor(activeKey);
+  return ref.watch(
+    readStateControllerProvider(activeKey).select(
+      (readState) => {
+        for (final channel in channels)
+          if (channel.type != 'category' &&
+              readState.isUnreadVisible(channel.id, channelLevels: levels))
+            channel.id,
+      },
+    ),
+  );
 }
 
 /// A thin draggable divider between the channel list and the message pane that
@@ -433,44 +547,15 @@ class _ChannelListResizeHandleState extends State<_ChannelListResizeHandle> {
           setState(() => _active = false);
         },
         child: SizedBox(
-          width: 8,
+          width: kChannelListHandleWidth,
           child: Center(
             child: Container(
-              width: _active ? 2 : 1,
-              color: _active ? colors.primary : colors.background,
+              width: 2,
+              color: _active ? colors.primary : Colors.transparent,
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Compact icon button for the channel-list header. The header is only ~200px
-/// wide, so the default 48px `IconButton` hit target overflows once several
-/// management actions are visible; this trims the footprint to 32px.
-class _HeaderAction extends StatelessWidget {
-  const _HeaderAction({
-    required this.tooltip,
-    required this.icon,
-    required this.color,
-    required this.onPressed,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18, color: color),
-      padding: EdgeInsets.zero,
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
     );
   }
 }
@@ -487,8 +572,10 @@ List<Widget> _buildChannelEntries(
   required String? selectedChannelId,
   required ValueChanged<String> onSelect,
   required bool canManageChannels,
+  required bool canInvite,
   required Set<String> collapsed,
   required ValueChanged<String> onToggleCollapsed,
+  required Set<String> unread,
 }) {
   final categories = channels.where((c) => c.type == 'category').toList();
   final leaves = channels.where((c) => c.type != 'category').toList();
@@ -503,6 +590,7 @@ List<Widget> _buildChannelEntries(
     spaceId: spaceId,
     selected: channel.id == selectedChannelId,
     canManageChannels: canManageChannels,
+    canInvite: canInvite,
     onTap: () => onSelect(channel.id),
   );
 
@@ -522,8 +610,11 @@ List<Widget> _buildChannelEntries(
         onToggle: () => onToggleCollapsed(category.id),
       ),
     );
-    if (!isCollapsed) {
-      for (final channel in byParent[category.id] ?? const <AccordChannel>[]) {
+    // A collapsed category keeps its selected and unread channels in view.
+    for (final channel in byParent[category.id] ?? const <AccordChannel>[]) {
+      if (!isCollapsed ||
+          channel.id == selectedChannelId ||
+          unread.contains(channel.id)) {
         entries.add(tile(channel));
       }
     }

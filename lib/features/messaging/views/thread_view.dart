@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/app_info.dart';
 import 'dart:async';
 import 'package:accordkit/accordkit.dart';
@@ -311,7 +312,7 @@ class _AccordThreadPaneState extends ConsumerState<AccordThreadPane> {
     final entries = <AccordMenuEntry>[
       AccordMenuEntry(
         label: 'Share Daccord link',
-        icon: Icons.rocket_launch_outlined,
+        icon: AppIcons.rocketLaunchOutlined,
         onSelected: () => _copyShareLink(
           '$kUniversalLinkBase/navigate/$spaceId/'
               '${widget.channelId}?msg=${_root.id}',
@@ -360,7 +361,7 @@ class _AccordThreadPaneState extends ConsumerState<AccordThreadPane> {
       entries.add(
         AccordMenuEntry(
           label: 'Share with the internet',
-          icon: Icons.public,
+          icon: AppIcons.public,
           onSelected: () =>
               _copyShareLink(webLink, 'Public link copied to clipboard'),
         ),
@@ -501,12 +502,12 @@ class _AccordThreadPaneState extends ConsumerState<AccordThreadPane> {
                 tooltip: dialog || widget.panel ? 'Close' : 'Back',
                 onPressed: _close,
                 icon: Icon(
-                  dialog || widget.panel ? Icons.close : Icons.arrow_back,
+                  dialog || widget.panel ? AppIcons.close : AppIcons.arrowBack,
                   size: 18,
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.forum, size: 18, color: colors.dirtyWhite),
+              Icon(AppIcons.forum, size: 18, color: colors.dirtyWhite),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -520,7 +521,7 @@ class _AccordThreadPaneState extends ConsumerState<AccordThreadPane> {
                   tooltip: 'Share',
                   onPressed: _showShareMenu,
                   icon: Icon(
-                    Icons.ios_share,
+                    AppIcons.iosShare,
                     size: 18,
                     color: colors.dirtyWhite,
                   ),
@@ -569,7 +570,7 @@ class _AccordThreadPaneState extends ConsumerState<AccordThreadPane> {
                     ? sendCooldownLabel(_cooldown!, DateTime.now())
                     : 'Send reply',
                 onPressed: _sending || _waiting ? null : _send,
-                icon: Icon(Icons.send, size: 20, color: colors.dirtyWhite),
+                icon: Icon(AppIcons.send, size: 20, color: colors.dirtyWhite),
               ),
             ],
           ),

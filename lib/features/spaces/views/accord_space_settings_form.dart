@@ -77,7 +77,7 @@ class _BannerSection extends StatelessWidget {
                   children: [
                     FilledButton.icon(
                       onPressed: busy ? null : onPick,
-                      icon: const Icon(Icons.upload, size: 18),
+                      icon: const Icon(AppIcons.upload, size: 18),
                       label: Text(hasBanner ? 'Change' : 'Upload'),
                     ),
                     const SizedBox(width: 8),
@@ -404,7 +404,7 @@ class _SaveSettingsButton extends StatelessWidget {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.save, size: 18),
+              : const Icon(AppIcons.save, size: 18),
           label: const Text('Save settings'),
         ),
       ),

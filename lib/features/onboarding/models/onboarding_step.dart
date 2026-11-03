@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/spaces/models/home_layout.dart';
 import 'package:flutter/material.dart';
 
@@ -85,7 +86,7 @@ const _welcomeStep = OnboardingStep(
       'A quick tour of the four things you need: your spaces, your channels, '
       'sending messages, and voice. It takes about thirty seconds — you can '
       'skip it at any point and replay it later from Settings.',
-  icon: Icons.waving_hand_outlined,
+  icon: AppIcons.wavingHandOutlined,
 );
 
 const List<OnboardingStep> _wideSteps = <OnboardingStep>[
@@ -97,7 +98,7 @@ const List<OnboardingStep> _wideSteps = <OnboardingStep>[
         'Every community you join — on any server you connect to — gets an icon '
         'in this rail. Click one to switch to it, drag to reorder, and use the '
         '+ button to connect to another server or join a space.',
-    icon: Icons.workspaces_outline,
+    icon: AppIcons.workspacesOutline,
     anchors: <OnboardingAnchorId>[OnboardingAnchorId.spaceRail],
   ),
   OnboardingStep(
@@ -107,7 +108,7 @@ const List<OnboardingStep> _wideSteps = <OnboardingStep>[
         'The selected space lists its channels here, grouped into categories '
         'you can collapse. Text channels open a conversation; a bold name means '
         'there is something new to read.',
-    icon: Icons.tag,
+    icon: AppIcons.tag,
     anchors: <OnboardingAnchorId>[OnboardingAnchorId.channelList],
   ),
   OnboardingStep(
@@ -117,7 +118,7 @@ const List<OnboardingStep> _wideSteps = <OnboardingStep>[
         'Type here to post to the open channel. Markdown, @mentions, emoji and '
         'file drag-and-drop all work, and hovering a message reveals reply, '
         'react, edit and thread actions.',
-    icon: Icons.chat_bubble_outline,
+    icon: AppIcons.chatBubbleOutline,
     anchors: <OnboardingAnchorId>[
       OnboardingAnchorId.messageComposer,
       OnboardingAnchorId.messageList,
@@ -131,7 +132,7 @@ const List<OnboardingStep> _wideSteps = <OnboardingStep>[
         'lobby — who is in the call and a Join button — so a stray click never '
         'drops you into a live call. Once connected you can turn on your camera '
         'or share a screen.',
-    icon: Icons.headset_mic_outlined,
+    icon: AppIcons.headsetMicOutlined,
     anchors: <OnboardingAnchorId>[
       OnboardingAnchorId.voiceChannel,
       OnboardingAnchorId.channelList,
@@ -144,7 +145,7 @@ const List<OnboardingStep> _wideSteps = <OnboardingStep>[
         'Everything else — appearance, notifications, voice devices, accounts — '
         'lives in Settings, at the bottom of the space rail. Stuck, or found a '
         'bug? Help & support has the docs and the issue tracker.',
-    icon: Icons.check_circle_outline,
+    icon: AppIcons.checkCircleOutline,
   ),
 ];
 
@@ -160,7 +161,7 @@ const List<OnboardingStep> _narrowSteps = <OnboardingStep>[
         'Tap here (or swipe in from the left edge) for the sidebar. It holds the '
         'rail of every space you have joined, and the channel list for whichever '
         'one is selected.',
-    icon: Icons.workspaces_outline,
+    icon: AppIcons.workspacesOutline,
     anchors: <OnboardingAnchorId>[
       OnboardingAnchorId.navMenu,
       OnboardingAnchorId.spaceRail,
@@ -173,7 +174,7 @@ const List<OnboardingStep> _narrowSteps = <OnboardingStep>[
         'Pick a channel in that sidebar and it opens here as a tab. The tab '
         'strip across the top keeps your recent channels one tap away, and a '
         'bold name means unread messages.',
-    icon: Icons.tag,
+    icon: AppIcons.tag,
     anchors: <OnboardingAnchorId>[
       OnboardingAnchorId.channelList,
       OnboardingAnchorId.navMenu,
@@ -186,7 +187,7 @@ const List<OnboardingStep> _narrowSteps = <OnboardingStep>[
         'Type here to post to the open channel. Markdown, @mentions, emoji and '
         'attachments all work, and long-pressing a message reveals reply, react '
         'and thread actions.',
-    icon: Icons.chat_bubble_outline,
+    icon: AppIcons.chatBubbleOutline,
     anchors: <OnboardingAnchorId>[
       OnboardingAnchorId.messageComposer,
       OnboardingAnchorId.messageList,
@@ -199,7 +200,7 @@ const List<OnboardingStep> _narrowSteps = <OnboardingStep>[
         'Channels with a speaker icon in the sidebar are voice channels. Opening '
         'one shows its lobby — who is in the call and a Join button — so a stray '
         'tap never drops you into a live call.',
-    icon: Icons.headset_mic_outlined,
+    icon: AppIcons.headsetMicOutlined,
     anchors: <OnboardingAnchorId>[
       OnboardingAnchorId.voiceChannel,
       OnboardingAnchorId.navMenu,
@@ -213,6 +214,6 @@ const List<OnboardingStep> _narrowSteps = <OnboardingStep>[
         'lives in Settings, reachable from the bottom of the space rail in the '
         'sidebar. Stuck, or found a bug? Help & support has the docs and the '
         'issue tracker.',
-    icon: Icons.check_circle_outline,
+    icon: AppIcons.checkCircleOutline,
   ),
 ];

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
@@ -105,7 +106,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(Icons.graphic_eq), findsOneWidget);
+    expect(find.byIcon(AppIcons.graphicEq), findsOneWidget);
     expect(find.byTooltip('Soundboard'), findsOneWidget);
   });
 
@@ -118,7 +119,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(Icons.graphic_eq), findsNothing);
+    expect(find.byIcon(AppIcons.graphicEq), findsNothing);
   });
 
   testWidgets('hides soundboard button in a DM voice call (null spaceId)', (
@@ -131,6 +132,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(Icons.graphic_eq), findsNothing);
+    expect(find.byIcon(AppIcons.graphicEq), findsNothing);
   });
 }

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:bonfire/shared/utils/decrypted_media.dart';
 import 'package:flutter/foundation.dart';
@@ -85,7 +86,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
           child: !widget._playableHere
               ? _VideoPoster(
                   filename: widget.filename,
-                  icon: Icons.videocam_off,
+                  icon: AppIcons.videocamOff,
                 )
               : !_loaded
               ? GestureDetector(
@@ -105,7 +106,7 @@ class _InlineVideoPlayerState extends State<InlineVideoPlayer> {
 /// [icon] overridden, the dead-end shown for a container this platform can't
 /// decode.
 class _VideoPoster extends StatelessWidget {
-  const _VideoPoster({required this.filename, this.icon = Icons.play_circle});
+  const _VideoPoster({required this.filename, this.icon = AppIcons.playCircle});
 
   final String filename;
   final IconData icon;
@@ -228,7 +229,7 @@ class _AvFoundationVideoState extends State<_AvFoundationVideo> {
       return Container(
         color: colors.darkGray,
         alignment: Alignment.center,
-        child: Icon(Icons.videocam_off, size: 40, color: colors.dirtyWhite),
+        child: Icon(AppIcons.videocamOff, size: 40, color: colors.dirtyWhite),
       );
     }
     if (!_controller.value.isInitialized) {
@@ -262,7 +263,7 @@ class _AvFoundationVideoState extends State<_AvFoundationVideo> {
               ),
             ),
             if (!_controller.value.isPlaying)
-              Icon(Icons.play_circle, size: 48, color: colors.dirtyWhite),
+              Icon(AppIcons.playCircle, size: 48, color: colors.dirtyWhite),
             Positioned(
               left: 0,
               right: 0,

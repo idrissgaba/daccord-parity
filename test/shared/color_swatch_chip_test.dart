@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/components/color_swatch_chip.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -44,7 +45,7 @@ void main() {
           onTap: () {},
         )),
       );
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(AppIcons.check), findsOneWidget);
     });
 
     testWidgets('shows no icon when not selected and not transparent',
@@ -56,7 +57,7 @@ void main() {
           onTap: () {},
         )),
       );
-      expect(find.byIcon(Icons.check), findsNothing);
+      expect(find.byIcon(AppIcons.check), findsNothing);
     });
 
     testWidgets('shows format_color_reset icon when transparent', (tester) async {
@@ -68,7 +69,7 @@ void main() {
           transparent: true,
         )),
       );
-      expect(find.byIcon(Icons.format_color_reset_outlined), findsOneWidget);
+      expect(find.byIcon(AppIcons.formatColorResetOutlined), findsOneWidget);
     });
 
     testWidgets('calls onTap when tapped', (tester) async {

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/channels/controllers/dm_channels.dart';
@@ -110,12 +111,12 @@ class _ForwardMessageDialogState extends ConsumerState<_ForwardMessageDialog> {
     return [
       for (final channel in channels)
         if (channel.type == 'text' || channel.type == 'announcement')
-          _Destination(channel.id, '#${channel.name ?? channel.id}', Icons.tag),
+          _Destination(channel.id, '#${channel.name ?? channel.id}', AppIcons.tag),
       for (final dm in dms)
         _Destination(
           dm.id,
           dmChannelTitle(dm, selfId, fallback: 'Direct message', users: users),
-          Icons.person_outline,
+          AppIcons.personOutline,
         ),
     ];
   }
@@ -217,7 +218,7 @@ class _ForwardMessageDialogState extends ConsumerState<_ForwardMessageDialog> {
               controller: _filter,
               autofocus: true,
               decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: Icon(AppIcons.search),
                 hintText: 'Search channels and direct messages',
               ),
               onChanged: (_) => setState(() {}),
@@ -245,7 +246,7 @@ class _ForwardMessageDialogState extends ConsumerState<_ForwardMessageDialog> {
                             ),
                             selected: _selected == d.channelId,
                             trailing: _selected == d.channelId
-                                ? Icon(Icons.check, color: colors.primary)
+                                ? Icon(AppIcons.check, color: colors.primary)
                                 : null,
                             onTap: _sending
                                 ? null

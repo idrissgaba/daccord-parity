@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart' show AccordVoiceState;
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
@@ -86,7 +87,7 @@ Widget _app({
 /// full-screen call view's control bar carries the same icon.
 final _decline = find.descendant(
   of: find.byType(IncomingCallOverlay),
-  matching: find.byIcon(Icons.call_end),
+  matching: find.byIcon(AppIcons.callEnd),
 );
 
 /// The voice view's chat panel is the real [MessagePane], whose rows and

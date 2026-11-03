@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -418,7 +419,7 @@ class _AutomodWorkbenchState extends State<AutomodWorkbench> {
               IconButton(
                 tooltip: 'Refresh AutoMod',
                 onPressed: _loading || _busy ? null : _load,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(AppIcons.refresh),
               ),
             ],
           ),
@@ -576,7 +577,7 @@ class _AutomodWorkbenchState extends State<AutomodWorkbench> {
                             rules.insert(i - 1, r);
                             policy['rules'] = rules;
                           }),
-                    icon: const Icon(Icons.arrow_upward),
+                    icon: const Icon(AppIcons.arrowUpward),
                   ),
                   IconButton(
                     tooltip: 'Delete rule',
@@ -586,7 +587,7 @@ class _AutomodWorkbenchState extends State<AutomodWorkbench> {
                             rules.removeAt(i);
                             policy['rules'] = rules;
                           }),
-                    icon: const Icon(Icons.delete_outline),
+                    icon: const Icon(AppIcons.deleteOutline),
                   ),
                 ],
               ),
@@ -597,7 +598,7 @@ class _AutomodWorkbenchState extends State<AutomodWorkbench> {
           children: [
             TextButton.icon(
               onPressed: _busy || rules.length >= 32 ? null : () => _rule(),
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               label: const Text('Add rule'),
             ),
             FilledButton(
@@ -736,7 +737,7 @@ class _AutomodWorkbenchState extends State<AutomodWorkbench> {
       ),
       TextButton.icon(
         onPressed: _busy ? null : _blockDigest,
-        icon: const Icon(Icons.block),
+        icon: const Icon(AppIcons.block),
         label: const Text('Block file digest'),
       ),
       if (_hashes.isEmpty && !_loading)
@@ -750,7 +751,7 @@ class _AutomodWorkbenchState extends State<AutomodWorkbench> {
             ),
             trailing: IconButton(
               tooltip: 'Unblock file',
-              icon: const Icon(Icons.delete_outline),
+              icon: const Icon(AppIcons.deleteOutline),
               onPressed: _busy
                   ? null
                   : () async {

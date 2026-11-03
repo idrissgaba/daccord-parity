@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:accordkit/accordkit.dart';
@@ -212,13 +213,17 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
             children: [
               DialogTitleBar(
                 'Soundboard',
-                icon: Icons.graphic_eq,
+                icon: AppIcons.graphicEq,
                 actions: [
                   if (widget.canManage)
                     IconButton(
                       tooltip: 'Add sound',
                       onPressed: _busy ? null : _add,
-                      icon: Icon(Icons.add, size: 20, color: colors.dirtyWhite),
+                      icon: Icon(
+                        AppIcons.add,
+                        size: 20,
+                        color: colors.dirtyWhite,
+                      ),
                     ),
                 ],
               ),
@@ -236,7 +241,7 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, size: 16, color: colors.gray),
+                      Icon(AppIcons.infoOutline, size: 16, color: colors.gray),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -259,7 +264,7 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
                       filled: true,
                       fillColor: colors.darkGray,
                       prefixIcon: Icon(
-                        Icons.search,
+                        AppIcons.search,
                         size: 18,
                         color: colors.gray,
                       ),
@@ -335,8 +340,8 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
                     message: 'Soundboard volume',
                     child: Icon(
                       soundboardVolume == 0
-                          ? Icons.volume_off
-                          : Icons.volume_up,
+                          ? AppIcons.volumeOff
+                          : AppIcons.volumeUp,
                       size: 18,
                       color: colors.gray,
                     ),
@@ -416,7 +421,7 @@ class _SoundTile extends StatelessWidget {
                 visualDensity: VisualDensity.compact,
                 iconSize: 18,
                 onPressed: onPreview,
-                icon: Icon(Icons.volume_up, color: colors.gray),
+                icon: Icon(AppIcons.volumeUp, color: colors.gray),
               ),
               Expanded(
                 child: Text(
@@ -434,7 +439,7 @@ class _SoundTile extends StatelessWidget {
                   iconSize: 16,
                   tooltip: 'Manage',
                   padding: EdgeInsets.zero,
-                  icon: Icon(Icons.more_vert, color: colors.gray),
+                  icon: Icon(AppIcons.moreVert, color: colors.gray),
                   onSelected: (v) {
                     switch (v) {
                       case 'rename':

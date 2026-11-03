@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/onboarding/models/onboarding_step.dart';
 import 'package:bonfire/features/onboarding/views/onboarding_anchors.dart';
 import 'package:bonfire/features/onboarding/views/onboarding_help.dart';
@@ -375,7 +376,7 @@ class _OnboardingCard extends StatelessWidget {
                   IconButton(
                     tooltip: 'Help & support',
                     visualDensity: VisualDensity.compact,
-                    icon: Icon(Icons.help_outline, color: colors.gray),
+                    icon: Icon(AppIcons.helpOutline, color: colors.gray),
                     onPressed: onHelp,
                   ),
                 ],

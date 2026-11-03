@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 
 String arcadeGameName(String id) => id
@@ -30,7 +31,7 @@ class ArcadeGameArtwork extends StatelessWidget {
             ? const SizedBox.expand()
             : Center(
                 child: Icon(
-                  Icons.sports_esports_rounded,
+                  AppIcons.sportsEsportsRounded,
                   color: arcadeGameColor(gameId),
                   size: 64,
                 ),

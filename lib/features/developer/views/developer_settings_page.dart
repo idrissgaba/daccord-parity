@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/developer/controllers/mcp_server_controller.dart';
 import 'package:bonfire/shared/components/settings_scaffold.dart';
 import 'package:bonfire/shared/components/section_header.dart';
@@ -112,7 +113,7 @@ class DeveloperSettingsPage extends ConsumerWidget {
                 ListTile(
                   dense: true,
                   leading: Icon(
-                    entry.ok ? Icons.check_circle : Icons.error,
+                    entry.ok ? AppIcons.checkCircle : AppIcons.error,
                     color: entry.ok ? colors.green : colors.red,
                     size: 18,
                   ),
@@ -221,7 +222,7 @@ class _TokenTile extends ConsumerWidget {
         children: [
           IconButton(
             tooltip: 'Copy',
-            icon: const Icon(Icons.copy, size: 18),
+            icon: const Icon(AppIcons.copy, size: 18),
             onPressed: token.isEmpty
                 ? null
                 : () {
@@ -231,7 +232,7 @@ class _TokenTile extends ConsumerWidget {
           ),
           IconButton(
             tooltip: 'Regenerate',
-            icon: const Icon(Icons.refresh, size: 18),
+            icon: const Icon(AppIcons.refresh, size: 18),
             onPressed: () => ref
                 .read(settingsControllerProvider.notifier)
                 .regenerateMcpToken(),

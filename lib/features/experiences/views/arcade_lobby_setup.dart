@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:accordkit/accordkit.dart';
@@ -126,13 +127,13 @@ class _ArcadeLobbySetupState extends State<ArcadeLobbySetup> {
               runSpacing: 8,
               children: [
                 ChoiceChip(
-                  avatar: const Icon(Icons.public, size: 18),
+                  avatar: const Icon(AppIcons.public, size: 18),
                   label: const Text('Open'),
                   selected: !_private,
                   onSelected: (_) => _setPrivate(false),
                 ),
                 ChoiceChip(
-                  avatar: const Icon(Icons.lock_outline, size: 18),
+                  avatar: const Icon(AppIcons.lockOutline, size: 18),
                   label: const Text('Invite-only'),
                   selected: _private,
                   onSelected: (_) => _setPrivate(true),
@@ -150,7 +151,7 @@ class _ArcadeLobbySetupState extends State<ArcadeLobbySetup> {
               TextField(
                 decoration: const InputDecoration(
                   hintText: 'Search username or nickname',
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: Icon(AppIcons.search),
                   border: OutlineInputBorder(),
                 ),
                 onChanged: (query) {

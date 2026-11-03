@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
@@ -130,8 +131,8 @@ class _TransferOwnershipDialogState
                               dense: true,
                               leading: Icon(
                                 _selectedId == m.userId
-                                    ? Icons.radio_button_checked
-                                    : Icons.radio_button_unchecked,
+                                    ? AppIcons.radioButtonChecked
+                                    : AppIcons.radioButtonUnchecked,
                                 size: 18,
                                 color: _selectedId == m.userId
                                     ? colors.primary

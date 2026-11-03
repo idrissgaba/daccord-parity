@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/admin/views/admin_list_scaffold.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
@@ -166,7 +167,7 @@ class _AdminSpacesTabState extends ConsumerState<AdminSpacesTab>
               child: TextField(
                 decoration: const InputDecoration(
                   isDense: true,
-                  prefixIcon: Icon(Icons.search, size: 18),
+                  prefixIcon: Icon(AppIcons.search, size: 18),
                   hintText: 'Filter by name',
                   border: OutlineInputBorder(),
                 ),
@@ -176,13 +177,13 @@ class _AdminSpacesTabState extends ConsumerState<AdminSpacesTab>
             const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: loading ? null : _create,
-              icon: const Icon(Icons.add, size: 18),
+              icon: const Icon(AppIcons.add, size: 18),
               label: const Text('Create'),
             ),
             IconButton(
               tooltip: 'Refresh',
               onPressed: loading ? null : load,
-              icon: const Icon(Icons.refresh, size: 18),
+              icon: const Icon(AppIcons.refresh, size: 18),
             ),
           ],
         ),

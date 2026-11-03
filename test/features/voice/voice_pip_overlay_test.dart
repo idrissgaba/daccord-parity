@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart'
     show AccordChannel, AccordUser, AccordVoiceState;
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
@@ -55,7 +56,7 @@ final _dm = AccordChannel(
 );
 
 /// The PiP's "reopen" affordance, and the only widget unique to it.
-final _pip = find.byIcon(Icons.open_in_full);
+final _pip = find.byIcon(AppIcons.openInFull);
 
 /// The voice view's chat panel is the real [MessagePane], whose rows and
 /// composer read local preferences — and the live [SettingsController] reads a

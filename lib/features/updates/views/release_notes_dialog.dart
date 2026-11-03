@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -37,7 +38,7 @@ class ReleaseNotesDialog extends StatelessWidget {
     // off-screen, and stay within a narrow (phone) window.
     final size = MediaQuery.sizeOf(context);
     return AlertDialog(
-      icon: Icon(Icons.auto_awesome, color: colors.primary),
+      icon: Icon(AppIcons.autoAwesome, color: colors.primary),
       title: Text("What's new in v${release.version}"),
       // AlertDialog gives its content bounded height, so the scroll view keeps
       // a long changelog from pushing the actions off-screen.

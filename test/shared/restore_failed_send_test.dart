@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/utils/restore_failed_send.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -59,7 +60,7 @@ class _ComposerState extends State<_Composer> {
               ),
               IconButton(
                 onPressed: sending ? null : send,
-                icon: const Icon(Icons.send),
+                icon: const Icon(AppIcons.send),
               ),
             ],
           ),

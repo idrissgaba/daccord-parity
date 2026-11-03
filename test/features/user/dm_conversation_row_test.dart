@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/models/accord_session.dart';
@@ -402,7 +403,7 @@ void main() {
         final titleRect = tester.getRect(find.text(longName));
         // Too narrow for the "@domain" text: the badge keeps its globe.
         expect(find.text('@remote.example'), findsNothing);
-        final originRect = tester.getRect(find.byIcon(Icons.public));
+        final originRect = tester.getRect(find.byIcon(AppIcons.public));
         final timeRect = tester.getRect(time);
         // Name, then the origin badge beside it, then the time at the end.
         expect(titleRect.right, lessThanOrEqualTo(originRect.left));

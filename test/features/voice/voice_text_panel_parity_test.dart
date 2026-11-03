@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 
 import 'package:accordkit/accordkit.dart';
@@ -231,8 +232,8 @@ void main() {
     await _settle(tester);
 
     // Attachments and the emoji picker were both missing from the old panel.
-    expect(find.byIcon(Icons.add_circle_outline), findsOneWidget);
-    expect(find.byIcon(Icons.emoji_emotions_outlined), findsOneWidget);
+    expect(find.byIcon(AppIcons.addCircleOutline), findsOneWidget);
+    expect(find.byIcon(AppIcons.emojiEmotionsOutlined), findsOneWidget);
   });
 
   testWidgets('below the side-panel breakpoint the chat is still a full '

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/dm_channels.dart';
 import 'package:bonfire/features/user/views/accord_direct_messages.dart';
@@ -72,7 +73,7 @@ void main() {
     await openDialog(tester);
     expect(find.text('bob'), findsOneWidget);
     expect(find.text('Missed call'), findsNothing);
-    expect(find.byIcon(Icons.call_missed), findsNothing);
+    expect(find.byIcon(AppIcons.callMissed), findsNothing);
   });
 
   testWidgets('a missed call labels the conversation in the DM list', (
@@ -85,7 +86,7 @@ void main() {
     await openDialog(tester);
 
     expect(find.text('Missed call'), findsOneWidget);
-    expect(find.byIcon(Icons.call_missed), findsOneWidget);
+    expect(find.byIcon(AppIcons.callMissed), findsOneWidget);
   });
 
   testWidgets('repeat misses show the count, video misses use the video icon', (
@@ -98,8 +99,8 @@ void main() {
     await openDialog(tester);
 
     expect(find.text('Missed call (2)'), findsOneWidget);
-    expect(find.byIcon(Icons.missed_video_call), findsOneWidget);
-    expect(find.byIcon(Icons.call_missed), findsNothing);
+    expect(find.byIcon(AppIcons.missedVideoCall), findsOneWidget);
+    expect(find.byIcon(AppIcons.callMissed), findsNothing);
   });
 
   testWidgets('opening the conversation clears the indicator', (tester) async {
@@ -133,7 +134,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byTooltip('Pinned messages'), findsOneWidget);
+    expect(find.byTooltip('Pinned Messages'), findsOneWidget);
     // The attach tooltip now carries the server's limits after the label
     // (#330), so match on its prefix rather than the exact string.
     expect(

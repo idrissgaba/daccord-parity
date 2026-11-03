@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/profiles/controllers/profiles_controller.dart';
 import 'package:bonfire/features/profiles/utils/profile_pin_security.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -108,7 +109,7 @@ class _PinLockScreenState extends ConsumerState<_PinLockScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.lock_outline, size: 48, color: colors.primary),
+                Icon(AppIcons.lockOutline, size: 48, color: colors.primary),
                 const SizedBox(height: 16),
                 Text(
                   widget.profileName,

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
@@ -121,10 +122,11 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
               onPressed: () => Navigator.of(ctx).pop(channel.id),
               child: Row(
                 children: [
-                  const Icon(Icons.tag, size: 16),
+                  const Icon(AppIcons.tag, size: 16),
                   const SizedBox(width: 8),
                   Expanded(child: Text(channel.name ?? channel.id)),
-                  if (channel.id == current) const Icon(Icons.check, size: 16),
+                  if (channel.id == current)
+                    const Icon(AppIcons.check, size: 16),
                 ],
               ),
             ),
@@ -236,14 +238,14 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.webhook, size: 18, color: colors.dirtyWhite),
+                  Icon(AppIcons.webhook, size: 18, color: colors.dirtyWhite),
                   const SizedBox(width: 8),
                   Text('Webhooks', style: theme.textTheme.titleMedium),
                   const Spacer(),
                   IconButton(
                     tooltip: 'Close',
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close, size: 18),
+                    icon: const Icon(AppIcons.close, size: 18),
                   ),
                 ],
               ),
@@ -259,7 +261,7 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
                 onPressed: _busy || channels.isEmpty
                     ? null
                     : () => _create(channels),
-                icon: const Icon(Icons.add, size: 18),
+                icon: const Icon(AppIcons.add, size: 18),
                 label: const Text('New webhook'),
               ),
               if (_error != null) ...[
@@ -321,7 +323,7 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
                                   key: ValueKey('webhook-copy-${webhook.id}'),
                                   tooltip: 'Copy webhook URL',
                                   onPressed: () => _copyUrl(webhook),
-                                  icon: const Icon(Icons.link, size: 18),
+                                  icon: const Icon(AppIcons.link, size: 18),
                                 ),
                                 PopupMenuButton<String>(
                                   key: ValueKey('webhook-menu-${webhook.id}'),

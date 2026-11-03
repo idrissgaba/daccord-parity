@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 
@@ -33,7 +34,7 @@ class ServerUnreachable extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined, size: 40, color: colors.gray),
+            Icon(AppIcons.cloudOffOutlined, size: 40, color: colors.gray),
             const SizedBox(height: 12),
             Text(
               title,
@@ -50,7 +51,7 @@ class ServerUnreachable extends StatelessWidget {
               const SizedBox(height: 16),
               TextButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh, size: 18),
+                icon: const Icon(AppIcons.refresh, size: 18),
                 label: const Text('Retry'),
                 style: TextButton.styleFrom(
                   foregroundColor: colors.dirtyWhite,

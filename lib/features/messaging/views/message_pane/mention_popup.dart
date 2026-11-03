@@ -69,9 +69,9 @@ class _MentionPopup extends ConsumerWidget {
                       Icon(
                         switch (entry.kind) {
                           _MentionEntryKind.broadcast =>
-                            Icons.campaign_outlined,
-                          _MentionEntryKind.member => Icons.person,
-                          _MentionEntryKind.role => Icons.label_outline,
+                            AppIcons.campaignOutlined,
+                          _MentionEntryKind.member => AppIcons.person,
+                          _MentionEntryKind.role => AppIcons.labelOutline,
                         },
                         size: 14,
                         color: entry.kind == _MentionEntryKind.broadcast

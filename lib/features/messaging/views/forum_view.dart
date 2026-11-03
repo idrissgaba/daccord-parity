@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/messaging/utils/send_cooldown.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
@@ -195,25 +196,25 @@ class _ForumChannelViewState extends ConsumerState<ForumChannelView> {
     final entries = <AccordMenuEntry>[
       AccordMenuEntry(
         label: 'Open',
-        icon: Icons.open_in_new,
+        icon: AppIcons.openInNew,
         onSelected: () => _openPost(post),
       ),
       if (isOwn)
         AccordMenuEntry(
           label: 'Edit',
-          icon: Icons.edit_outlined,
+          icon: AppIcons.editOutlined,
           onSelected: () => _editPost(post),
         ),
       if (widget.canManageMessages)
         AccordMenuEntry(
           label: post.pinned ? 'Unpin' : 'Pin',
-          icon: post.pinned ? Icons.push_pin_outlined : Icons.push_pin,
+          icon: post.pinned ? AppIcons.pushPinOutlined : AppIcons.pushPin,
           onSelected: () => _togglePin(post),
         ),
       if (isOwn || widget.canManageMessages)
         AccordMenuEntry(
           label: 'Delete',
-          icon: Icons.delete_outline,
+          icon: AppIcons.deleteOutline,
           destructive: true,
           onSelected: () => _deletePost(post),
         ),
@@ -301,7 +302,7 @@ class _ForumChannelViewState extends ConsumerState<ForumChannelView> {
             bottom: 16,
             child: FloatingActionButton.extended(
               onPressed: _newPost,
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               label: const Text('New post'),
             ),
           ),
@@ -335,7 +336,7 @@ class _SortBar extends StatelessWidget {
             style: theme.textTheme.labelMedium!.copyWith(color: colors.gray),
           ),
           const Spacer(),
-          Icon(Icons.sort, size: 16, color: colors.gray),
+          Icon(AppIcons.sort, size: 16, color: colors.gray),
           const SizedBox(width: 6),
           PopupMenuButton<ForumSort>(
             initialValue: sort,
@@ -349,7 +350,7 @@ class _SortBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(sort.label, style: theme.textTheme.labelMedium),
-                Icon(Icons.arrow_drop_down, size: 18, color: colors.gray),
+                Icon(AppIcons.arrowDropDown, size: 18, color: colors.gray),
               ],
             ),
           ),
@@ -450,7 +451,7 @@ class _PostRow extends ConsumerWidget {
                         children: [
                           if (post.pinned) ...[
                             Icon(
-                              Icons.push_pin,
+                              AppIcons.pushPin,
                               size: 14,
                               color: colors.primary,
                             ),
@@ -504,7 +505,7 @@ class _PostRow extends ConsumerWidget {
                         onMenu(pos);
                       },
                       icon: Icon(
-                        Icons.more_horiz,
+                        AppIcons.moreHoriz,
                         size: 18,
                         color: colors.gray,
                       ),
@@ -516,7 +517,7 @@ class _PostRow extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.forum_outlined,
+                              AppIcons.forumOutlined,
                               size: 14,
                               color: colors.gray,
                             ),

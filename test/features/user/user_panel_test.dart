@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/models/accord_session.dart';
@@ -55,11 +56,11 @@ void main() {
     // Our own user isn't cached yet: the signed-in name shows, not the id.
     expect(find.text('alice'), findsWidgets);
     expect(find.text('u1'), findsNothing);
-    expect(find.byIcon(Icons.mic), findsOneWidget);
+    expect(find.byIcon(AppIcons.mic), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('user-panel-mute')));
     await tester.pump();
-    expect(find.byIcon(Icons.mic_off), findsOneWidget);
+    expect(find.byIcon(AppIcons.micOff), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('user-panel-settings')));
     expect(settings, 1);

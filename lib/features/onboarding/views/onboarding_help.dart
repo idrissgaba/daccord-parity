@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/app_info.dart';
 import 'package:bonfire/shared/utils/external_url.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -33,19 +34,19 @@ const List<OnboardingHelpLink> kOnboardingHelpLinks = <OnboardingHelpLink>[
     label: 'Documentation',
     description: 'Setup, features and keyboard shortcuts.',
     url: kDaccordHelpUrl,
-    icon: Icons.menu_book_outlined,
+    icon: AppIcons.menuBookOutlined,
   ),
   OnboardingHelpLink(
     label: 'Report a problem',
     description: 'Search existing issues or open a new one.',
     url: kDaccordIssuesUrl,
-    icon: Icons.bug_report_outlined,
+    icon: AppIcons.bugReportOutlined,
   ),
   OnboardingHelpLink(
     label: 'The Daccord project',
     description: 'Servers, protocol docs and other clients.',
     url: kDaccordProjectUrl,
-    icon: Icons.public,
+    icon: AppIcons.public,
   ),
 ];
 
@@ -60,7 +61,7 @@ Future<void> showOnboardingHelpDialog(BuildContext context) => showDialog<void>(
   builder: (dialogContext) {
     final colors = BonfireThemeExtension.of(dialogContext);
     return AlertDialog(
-      icon: Icon(Icons.help_outline, color: colors.primary),
+      icon: Icon(AppIcons.helpOutline, color: colors.primary),
       title: const Text('Help & support'),
       content: SizedBox(
         width: 380,
@@ -74,7 +75,7 @@ Future<void> showOnboardingHelpDialog(BuildContext context) => showDialog<void>(
                 leading: Icon(link.icon, color: colors.primary),
                 title: Text(link.label),
                 subtitle: Text(link.description),
-                trailing: const Icon(Icons.open_in_new, size: 16),
+                trailing: const Icon(AppIcons.openInNew, size: 16),
                 onTap: () => openTrustedUrl(link.url),
               ),
           ],

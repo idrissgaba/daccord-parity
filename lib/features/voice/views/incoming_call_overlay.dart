@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/features/channels/controllers/dm_channels.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
@@ -161,7 +162,7 @@ class IncomingCallOverlay extends ConsumerWidget {
                 const SizedBox(width: 8),
                 _RoundButton(
                   color: colors.red,
-                  icon: Icons.call_end,
+                  icon: AppIcons.callEnd,
                   tooltip: 'Decline',
                   onPressed: () => ref
                       .read(callControllerProvider.notifier)
@@ -170,7 +171,7 @@ class IncomingCallOverlay extends ConsumerWidget {
                 const SizedBox(width: 8),
                 _RoundButton(
                   color: colors.green,
-                  icon: incoming.video ? Icons.videocam : Icons.call,
+                  icon: incoming.video ? AppIcons.videocam : AppIcons.call,
                   tooltip: 'Accept',
                   onPressed: () => _accept(context, ref),
                 ),

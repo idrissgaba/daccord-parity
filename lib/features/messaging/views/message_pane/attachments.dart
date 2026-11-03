@@ -27,13 +27,13 @@ double? _asDouble(Object? value) {
 IconData _attachmentIcon(AttachmentPreview preview, {required bool unknown}) {
   switch (preview) {
     case AttachmentPreview.image:
-      return Icons.image_outlined;
+      return AppIcons.imageOutlined;
     case AttachmentPreview.video:
-      return Icons.movie_outlined;
+      return AppIcons.movieOutlined;
     case AttachmentPreview.audio:
-      return Icons.audiotrack_outlined;
+      return AppIcons.audiotrackOutlined;
     case AttachmentPreview.none:
-      return unknown ? Icons.help_outline : Icons.insert_drive_file_outlined;
+      return unknown ? AppIcons.helpOutline : AppIcons.insertDriveFileOutlined;
   }
 }
 
@@ -53,22 +53,22 @@ class _PendingAttachmentTile extends StatelessWidget {
     final colors = BonfireThemeExtension.of(context);
     final (icon, title, detail) = switch (upload.status) {
       AutomodUploadStatus.quarantined => (
-        Icons.visibility_off_outlined,
+        AppIcons.visibilityOffOutlined,
         'Attachment under review',
         upload.reason ?? 'Held for a moderator to check before it is shown.',
       ),
       AutomodUploadStatus.rejected => (
-        Icons.block_outlined,
+        AppIcons.blockOutlined,
         'Attachment removed by AutoMod',
         upload.reason ?? "This file didn't pass the server's upload rules.",
       ),
       AutomodUploadStatus.removed => (
-        Icons.block_outlined,
+        AppIcons.blockOutlined,
         'Attachment removed by AutoMod',
         upload.reason ?? 'A moderator or server policy withdrew this file.',
       ),
       _ => (
-        Icons.hourglass_top_outlined,
+        AppIcons.hourglassTopOutlined,
         'Attachment processing',
         'Being checked by AutoMod before it is shown to others.',
       ),
@@ -167,7 +167,7 @@ class _AttachmentChip extends StatelessWidget {
             InkWell(
               onTap: onRemove,
               borderRadius: BorderRadius.circular(12),
-              child: Icon(Icons.close, size: 16, color: colors.gray),
+              child: Icon(AppIcons.close, size: 16, color: colors.gray),
             ),
           ],
         ),
@@ -224,7 +224,7 @@ class _ImageAttachment extends StatelessWidget {
           errorWidget: (_, _, _) => Container(
             padding: const EdgeInsets.all(8),
             color: colors.darkGray,
-            child: Icon(Icons.broken_image_outlined, color: colors.gray),
+            child: Icon(AppIcons.brokenImageOutlined, color: colors.gray),
           ),
         ),
       ),

@@ -5,6 +5,7 @@
 /// in the `part` files stays private to this library.
 library;
 
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/automod/views/block_attachment_dialog.dart';
 
 import 'dart:async';
@@ -74,6 +75,7 @@ import 'package:bonfire/features/settings/models/accord_settings.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/spaces/utils/message_time.dart';
 import 'package:bonfire/features/spaces/views/accord_reports.dart';
+import 'package:bonfire/features/spaces/views/accord_search.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
 import 'package:bonfire/features/voice/utils/stage_logic.dart';
 import 'package:bonfire/features/voice/views/voice_view.dart';
@@ -133,11 +135,29 @@ class MessagePane extends ConsumerStatefulWidget {
     this.onUserTap,
     this.onUserContextMenu,
     this.composerTitle,
+    this.membersShown = false,
+    this.onToggleMembers,
+    this.onSearchSelect,
+    this.sidePanel,
   });
 
   final AccordChannel? channel;
   final String? channelId;
   final String? spaceId;
+
+  /// Whether the member list is on screen beside this pane (lights the
+  /// header's members button). Toggled by [onToggleMembers]; the button is
+  /// hidden while that is null.
+  final bool membersShown;
+  final VoidCallback? onToggleMembers;
+
+  /// Receives what the user picked in the header's search; the search box is
+  /// hidden while this is null.
+  final ValueChanged<AccordSearchSelection>? onSearchSelect;
+
+  /// The member list or an open thread, laid out beside the messages *under*
+  /// the header, which spans both — as in other chat apps.
+  final Widget? sidePanel;
 
   /// What the composer placeholder names instead of [channel]'s name: DMs
   /// pass the conversation title (their channel has no name).
@@ -502,6 +522,269 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
   /// A null message list means either "still fetching" or "the fetch failed",
   /// and rendering both as a spinner leaves a failed channel loading forever.
   /// The failed case gets an explanation and a Retry (see `LoadFailed`).
+  /// The 49 px channel header: icon and name (with the topic after a hairline
+  /// when the channel has one), then on the right Threads, the bell, pinned
+  /// messages, the members toggle and the search box, as in other chat apps.
+  /// The slim [MessagePane.panel] presentation and DM hosts keep their
+  /// leading / title / actions.
+  Widget _buildHeaderRow(
+    BuildContext context, {
+    required AccordChannel? channel,
+    required String channelId,
+    required String? spaceId,
+    required bool canManageMessages,
+  }) {
+    final colors = BonfireThemeExtension.of(context);
+    final theme = Theme.of(context);
+    final panel = widget.panel;
+    final topic = panel ? '' : (channel?.topic ?? '').trim();
+    final spaceName = spaceId == null
+        ? null
+        : ref.watch(
+            spacesControllerProvider.select(
+              (s) => s?.firstWhereOrNull((sp) => sp.id == spaceId)?.name,
+            ),
+          );
+    final iconColor = panel ? colors.dirtyWhite : colors.interactive;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The search box is the first thing to give way when the column is
+        // squeezed: full width while the header has room for the title and
+        // the buttons, narrower (down to nothing) otherwise.
+        final searchWidth = (constraints.maxWidth - 400).clamp(0.0, 244.0);
+        return Row(
+          children: [
+            if (widget.headerLeading != null)
+              widget.headerLeading!
+            else ...[
+              Icon(
+                panel
+                    ? AppIcons.chatBubbleOutline
+                    : channel?.type == 'announcement'
+                    ? AppIcons.campaign
+                    : isVoiceChannelType(channel?.type)
+                    ? AppIcons.volumeUp
+                    : AppIcons.tag,
+                size: panel ? 16 : 20,
+                color: iconColor,
+              ),
+              const SizedBox(width: 8),
+            ],
+            if (widget.headerTitle != null)
+              Expanded(child: widget.headerTitle!)
+            else
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        panel
+                            ? (widget.panelTitle ?? channel?.name ?? 'Chat')
+                            : channel?.name ?? '',
+                        key: const Key('channel-header-name'),
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyLarge!.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: colors.dirtyWhite,
+                        ),
+                      ),
+                    ),
+                    if (topic.isNotEmpty) ...[
+                      Container(
+                        width: 1,
+                        height: 24,
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        color: colors.hairline,
+                      ),
+                      Flexible(
+                        flex: 4,
+                        child: InkWell(
+                          onTap: () =>
+                              _showTopic(context, channel?.name ?? '', topic),
+                          child: Text(
+                            topic,
+                            key: const Key('channel-header-topic'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium!.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: colors.interactive,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ...widget.headerActions,
+            if (spaceId == null && ref.accordClient?.encryption != null)
+              _HeaderButton(
+                tooltip: 'End-to-end encryption and identity backup',
+                icon: AppIcons.lockOutline,
+                onPressed: () => showPrivateChatSecurity(
+                  context,
+                  ref.accordClient!.encryption!,
+                  channelId,
+                ),
+              ),
+            if (!panel && spaceId != null)
+              _HeaderButton(
+                key: const Key('channel-header-threads'),
+                tooltip: 'Threads',
+                icon: AppIcons.threads,
+                onPressed: () => _showThreadsPopover(context),
+              ),
+            _MuteButton(channelId: channelId),
+            _HeaderButton(
+              key: const Key('channel-header-pins'),
+              tooltip: 'Pinned Messages',
+              icon: AppIcons.pushPin,
+              onPressed: () => showPinnedMessages(
+                context,
+                channelId: channelId,
+                spaceId: spaceId,
+                canManage: canManageMessages,
+                onUserTap: widget.onUserTap,
+                onUserContextMenu: widget.onUserContextMenu,
+                onJump: (message) => _jumpTo(message.id),
+              ),
+            ),
+            if (widget.onToggleMembers != null)
+              _HeaderButton(
+                key: const Key('channel-header-members'),
+                tooltip: widget.membersShown
+                    ? 'Hide Member List'
+                    : 'Show Member List',
+                icon: AppIcons.group,
+                active: widget.membersShown,
+                onPressed: widget.onToggleMembers!,
+              ),
+            if (!panel && spaceId != null && widget.onSearchSelect != null) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                width: searchWidth,
+                child: _HeaderSearchBox(
+                  key: const Key('channel-header-search'),
+                  placeholder: 'Search ${spaceName ?? ''}'.trim(),
+                  onTap: () async {
+                    final selection = await showAccordSearch(
+                      context,
+                      spaceId: spaceId,
+                    );
+                    if (selection != null && mounted) {
+                      widget.onSearchSelect!(selection);
+                    }
+                  },
+                ),
+              ),
+            ],
+            if (panel && widget.onClosePanel != null)
+              _HeaderButton(
+                tooltip: 'Close chat',
+                icon: AppIcons.close,
+                onPressed: widget.onClosePanel!,
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// The full topic, for when the header had to cut it short.
+  Future<void> _showTopic(BuildContext context, String name, String topic) =>
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('#$name'),
+          content: SelectableText(topic),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+
+  /// The Threads popover. The channel\'s thread list is not cached yet (the
+  /// messaging lot adds it), so until then it says there are none.
+  Future<void> _showThreadsPopover(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final box = context.findRenderObject() as RenderBox?;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final anchor = box == null || overlay == null
+        ? Offset.zero
+        : box.localToGlobal(
+            Offset(box.size.width, box.size.height),
+            ancestor: overlay,
+          );
+    return showDialog<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (context) => Stack(
+        children: [
+          Positioned(
+            right: 8,
+            top: anchor.dy + 4,
+            child: Material(
+              color: colors.raised,
+              elevation: 8,
+              borderRadius: BorderRadius.circular(8),
+              clipBehavior: Clip.antiAlias,
+              child: SizedBox(
+                width: 480,
+                height: 320,
+                child: Column(
+                  children: [
+                    Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      alignment: Alignment.centerLeft,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: colors.hairline),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            AppIcons.threads,
+                            size: 20,
+                            color: colors.dirtyWhite,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Threads',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'There are no threads.',
+                          key: const Key('threads-empty'),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium!.copyWith(color: colors.gray),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _historyEmptyState(String channelId) {
     final serverKey = ref.watchActiveServerKey() ?? '';
     if (!ref.watch(messagesLoadFailedProvider(serverKey, channelId))) {
@@ -673,7 +956,7 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.forum, size: 18, color: colors.dirtyWhite),
+                  Icon(AppIcons.forum, size: 18, color: colors.dirtyWhite),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -726,7 +1009,7 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
       child: Column(
         children: [
           Container(
-            height: panel ? 44 : 48,
+            height: panel ? 44 : 49,
             alignment: Alignment.centerLeft,
             padding: EdgeInsets.only(
               left: panel ? 12 : 16,
@@ -734,7 +1017,7 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
             ),
             decoration: BoxDecoration(
               border: Border(
-                bottom: BorderSide(color: colors.foreground, width: 1),
+                bottom: BorderSide(color: colors.hairline, width: 1),
               ),
             ),
             child: _selecting
@@ -744,7 +1027,7 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
                         tooltip: 'Cancel',
                         onPressed: _bulkDeleting ? null : _exitSelection,
                         icon: Icon(
-                          Icons.close,
+                          AppIcons.close,
                           size: 18,
                           color: colors.dirtyWhite,
                         ),
@@ -770,7 +1053,7 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
                                 ),
                               )
                             : Icon(
-                                Icons.delete_outline,
+                                AppIcons.deleteOutline,
                                 size: 18,
                                 color: Theme.of(context).colorScheme.error,
                               ),
@@ -783,245 +1066,206 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
                       ),
                     ],
                   )
-                : Row(
+                : _buildHeaderRow(
+                    context,
+                    channel: channel,
+                    channelId: channelId,
+                    spaceId: spaceId,
+                    canManageMessages: canManageMessages,
+                  ),
+          ),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Column(
                     children: [
-                      if (widget.headerLeading != null)
-                        widget.headerLeading!
-                      else ...[
-                        Icon(
-                          panel
-                              ? Icons.chat_bubble_outline
-                              : channel?.type == 'announcement'
-                              ? Icons.campaign
-                              : Icons.tag,
-                          size: panel ? 16 : 18,
-                          color: colors.dirtyWhite,
-                        ),
-                        const SizedBox(width: 6),
-                      ],
-                      Expanded(
-                        child:
-                            widget.headerTitle ??
-                            Text(
-                              panel
-                                  ? (widget.panelTitle ??
-                                        channel?.name ??
-                                        'Chat')
-                                  : channel?.name ?? '',
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleSmall,
-                            ),
+                      if (widget.topPanel != null)
+                        Flexible(flex: 11, child: widget.topPanel!),
+                      Flexible(
+                        flex: 9,
+                        child: messages == null
+                            ? _historyEmptyState(channelId)
+                            : messages.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No messages yet',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: _scroll,
+                                reverse: true,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: panel ? 10 : 16,
+                                  vertical: panel ? 8 : 12,
+                                ),
+                                // One extra slot at the top of history (rendered last
+                                // under `reverse: true`) shows a spinner while older
+                                // pages load and a "Beginning of channel" hint once we
+                                // hit the start of history.
+                                itemCount: messages.length + 1,
+                                // Lets the sliver *move* a keyed row to its new index
+                                // rather than tearing its element down and rebuilding
+                                // it there. Without this the ValueKeys below only stop
+                                // rows adopting each other's state — every row would
+                                // still be recreated (losing an open editor, and
+                                // unmounting a row mid-dialog) each time the list
+                                // shifted. See #198.
+                                findChildIndexCallback: (key) {
+                                  if (key is! MessageRowKey) return null;
+                                  return childIndexByMessageId[key.messageId];
+                                },
+                                itemBuilder: (context, index) {
+                                  if (index == messages.length) {
+                                    return _OlderHistoryHeader(
+                                      channelId: channelId,
+                                    );
+                                  }
+                                  final messageIndex =
+                                      messages.length - 1 - index;
+                                  final message = messages[messageIndex];
+                                  // Group with the previous (older) message when it's
+                                  // from the same author, this message isn't a reply,
+                                  // and the two are close together in time. Grouped
+                                  // rows drop the repeated avatar/name/timestamp header.
+                                  final prev = messageIndex > 0
+                                      ? messages[messageIndex - 1]
+                                      : null;
+                                  final grouped = _isGrouped(
+                                    previous: prev,
+                                    current: message,
+                                  );
+                                  final author = members?[message.authorId];
+                                  // Members only loads the first page; backfill authors
+                                  // outside it from the on-demand user cache.
+                                  AccordUser? authorUser;
+                                  if (author == null) {
+                                    authorUser = userCache[message.authorId];
+                                    if (authorUser == null) {
+                                      ref
+                                          .read(
+                                            accordUsersControllerProvider(
+                                              ref.readActiveServerKey() ?? '',
+                                            ).notifier,
+                                          )
+                                          .ensure(message.authorId);
+                                    }
+                                  }
+                                  final colorRole = author == null
+                                      ? null
+                                      : memberColorRole(author, roles);
+                                  final uid = currentUserId;
+                                  final isOwn =
+                                      uid != null &&
+                                      isSameUser(
+                                        message.authorId,
+                                        uid,
+                                        localDomain: homeDomain,
+                                      );
+                                  final mentionsMe =
+                                      !isOwn &&
+                                      uid != null &&
+                                      MessageNotificationGate.countsAsMention(
+                                        mentionsMe: _mentionsSelf(
+                                          message,
+                                          uid,
+                                          homeDomain,
+                                          myRoles,
+                                        ),
+                                        mentionEveryone:
+                                            message.mentionEveryone,
+                                        suppressEveryone: suppressEveryone,
+                                      );
+                                  final row = _MessageRow(
+                                    // Keyed by message id, not list position. Under
+                                    // `reverse: true` every index shifts when a message
+                                    // arrives, so without a key Flutter re-binds a live
+                                    // _MessageRowState to a *different* message — and
+                                    // any dialog it had open (delete confirm, emoji
+                                    // picker) would then act on the wrong one. See #198.
+                                    key: ValueKey(message.id),
+                                    message: message,
+                                    grouped: grouped,
+                                    narrow: panel,
+                                    editRequest: _editRequest,
+                                    rowRegistry: _rowContexts,
+                                    highlighted:
+                                        _highlightedMessageId == message.id,
+                                    author: author,
+                                    authorUser: authorUser,
+                                    nameColor: colorRole == null
+                                        ? null
+                                        : accordRoleColor(colorRole.color),
+                                    channelId: channelId,
+                                    spaceId: spaceId,
+                                    isOwn: isOwn,
+                                    mentionsMe: mentionsMe,
+                                    canManageMessages: canManageMessages,
+                                    onUserTap: widget.onUserTap,
+                                    onUserContextMenu: widget.onUserContextMenu,
+                                    selecting: _selecting,
+                                    selected: _selectedMessageIds.contains(
+                                      message.id,
+                                    ),
+                                    onLongPressSelect: canManageMessages
+                                        ? () => _enterSelection(message.id)
+                                        : null,
+                                    onToggleSelected: () =>
+                                        _toggleSelected(message.id),
+                                    messagesById: messagesById,
+                                    onReply: () =>
+                                        setState(() => _replyTo = message),
+                                  );
+                                  return withMessageDividers(
+                                    row,
+                                    key: MessageRowKey(message.id),
+                                    previous: prev,
+                                    message: message,
+                                    unreadFrom: _unreadFrom,
+                                  );
+                                },
+                              ),
                       ),
-                      ...widget.headerActions,
-                      if (spaceId == null &&
-                          ref.accordClient?.encryption != null)
-                        IconButton(
-                          tooltip: 'End-to-end encryption and identity backup',
-                          icon: const Icon(Icons.lock_outline, size: 18),
-                          onPressed: () => showPrivateChatSecurity(
-                            context,
-                            ref.accordClient!.encryption!,
-                            channelId,
-                          ),
-                        ),
-                      IconButton(
-                        tooltip: 'Pinned messages',
-                        onPressed: () => showPinnedMessages(
-                          context,
+                      _TypingIndicator(channelId: channelId, spaceId: spaceId),
+                      OnboardingAnchor(
+                        anchor: OnboardingAnchorId.messageComposer,
+                        child: _Composer(
                           channelId: channelId,
+                          channelName: panel
+                              ? (widget.panelTitle ?? channel?.name)
+                              : (widget.composerTitle ?? channel?.name),
                           spaceId: spaceId,
-                          canManage: canManageMessages,
-                          onUserTap: widget.onUserTap,
-                          onUserContextMenu: widget.onUserContextMenu,
-                          onJump: (message) => _jumpTo(message.id),
-                        ),
-                        icon: Icon(
-                          Icons.push_pin_outlined,
-                          size: 18,
-                          color: colors.dirtyWhite,
-                        ),
-                      ),
-                      _MuteButton(channelId: channelId),
-                      if (panel && widget.onClosePanel != null)
-                        IconButton(
-                          tooltip: 'Close chat',
-                          onPressed: widget.onClosePanel,
-                          icon: Icon(
-                            Icons.close,
-                            size: 18,
-                            color: colors.dirtyWhite,
+                          canMentionEveryone: canMentionEveryone,
+                          slowmodeSeconds: slowmodeSeconds,
+                          replyingTo: _replyTo,
+                          replyName: _replyTo == null
+                              ? null
+                              : accordAuthorName(
+                                  _replyTo!.authorId,
+                                  members: members,
+                                  users: userCache,
+                                  ensure: ref
+                                      .read(
+                                        accordUsersControllerProvider(
+                                          ref.readActiveServerKey() ?? '',
+                                        ).notifier,
+                                      )
+                                      .ensure,
+                                ),
+                          onCancelReply: () => setState(() => _replyTo = null),
+                          onEditLastMessage: () => _editLastOwnMessage(
+                            loadedMessages,
+                            currentUserId,
                           ),
                         ),
+                      ),
                     ],
                   ),
-          ),
-          if (widget.topPanel != null)
-            Flexible(flex: 11, child: widget.topPanel!),
-          Flexible(
-            flex: 9,
-            child: messages == null
-                ? _historyEmptyState(channelId)
-                : messages.isEmpty
-                ? Center(
-                    child: Text(
-                      'No messages yet',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scroll,
-                    reverse: true,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: panel ? 10 : 16,
-                      vertical: panel ? 8 : 12,
-                    ),
-                    // One extra slot at the top of history (rendered last
-                    // under `reverse: true`) shows a spinner while older
-                    // pages load and a "Beginning of channel" hint once we
-                    // hit the start of history.
-                    itemCount: messages.length + 1,
-                    // Lets the sliver *move* a keyed row to its new index
-                    // rather than tearing its element down and rebuilding
-                    // it there. Without this the ValueKeys below only stop
-                    // rows adopting each other's state — every row would
-                    // still be recreated (losing an open editor, and
-                    // unmounting a row mid-dialog) each time the list
-                    // shifted. See #198.
-                    findChildIndexCallback: (key) {
-                      if (key is! MessageRowKey) return null;
-                      return childIndexByMessageId[key.messageId];
-                    },
-                    itemBuilder: (context, index) {
-                      if (index == messages.length) {
-                        return _OlderHistoryHeader(channelId: channelId);
-                      }
-                      final messageIndex = messages.length - 1 - index;
-                      final message = messages[messageIndex];
-                      // Group with the previous (older) message when it's
-                      // from the same author, this message isn't a reply,
-                      // and the two are close together in time. Grouped
-                      // rows drop the repeated avatar/name/timestamp header.
-                      final prev = messageIndex > 0
-                          ? messages[messageIndex - 1]
-                          : null;
-                      final grouped = _isGrouped(
-                        previous: prev,
-                        current: message,
-                      );
-                      final author = members?[message.authorId];
-                      // Members only loads the first page; backfill authors
-                      // outside it from the on-demand user cache.
-                      AccordUser? authorUser;
-                      if (author == null) {
-                        authorUser = userCache[message.authorId];
-                        if (authorUser == null) {
-                          ref
-                              .read(
-                                accordUsersControllerProvider(
-                                  ref.readActiveServerKey() ?? '',
-                                ).notifier,
-                              )
-                              .ensure(message.authorId);
-                        }
-                      }
-                      final colorRole = author == null
-                          ? null
-                          : memberColorRole(author, roles);
-                      final uid = currentUserId;
-                      final isOwn =
-                          uid != null &&
-                          isSameUser(
-                            message.authorId,
-                            uid,
-                            localDomain: homeDomain,
-                          );
-                      final mentionsMe =
-                          !isOwn &&
-                          uid != null &&
-                          MessageNotificationGate.countsAsMention(
-                            mentionsMe: _mentionsSelf(
-                              message,
-                              uid,
-                              homeDomain,
-                              myRoles,
-                            ),
-                            mentionEveryone: message.mentionEveryone,
-                            suppressEveryone: suppressEveryone,
-                          );
-                      final row = _MessageRow(
-                        // Keyed by message id, not list position. Under
-                        // `reverse: true` every index shifts when a message
-                        // arrives, so without a key Flutter re-binds a live
-                        // _MessageRowState to a *different* message — and
-                        // any dialog it had open (delete confirm, emoji
-                        // picker) would then act on the wrong one. See #198.
-                        key: ValueKey(message.id),
-                        message: message,
-                        grouped: grouped,
-                        narrow: panel,
-                        editRequest: _editRequest,
-                        rowRegistry: _rowContexts,
-                        highlighted: _highlightedMessageId == message.id,
-                        author: author,
-                        authorUser: authorUser,
-                        nameColor: colorRole == null
-                            ? null
-                            : accordRoleColor(colorRole.color),
-                        channelId: channelId,
-                        spaceId: spaceId,
-                        isOwn: isOwn,
-                        mentionsMe: mentionsMe,
-                        canManageMessages: canManageMessages,
-                        onUserTap: widget.onUserTap,
-                        onUserContextMenu: widget.onUserContextMenu,
-                        selecting: _selecting,
-                        selected: _selectedMessageIds.contains(message.id),
-                        onLongPressSelect: canManageMessages
-                            ? () => _enterSelection(message.id)
-                            : null,
-                        onToggleSelected: () => _toggleSelected(message.id),
-                        messagesById: messagesById,
-                        onReply: () => setState(() => _replyTo = message),
-                      );
-                      return withMessageDividers(
-                        row,
-                        key: MessageRowKey(message.id),
-                        previous: prev,
-                        message: message,
-                        unreadFrom: _unreadFrom,
-                      );
-                    },
-                  ),
-          ),
-          _TypingIndicator(channelId: channelId, spaceId: spaceId),
-          OnboardingAnchor(
-            anchor: OnboardingAnchorId.messageComposer,
-            child: _Composer(
-              channelId: channelId,
-              channelName: panel
-                  ? (widget.panelTitle ?? channel?.name)
-                  : (widget.composerTitle ?? channel?.name),
-              spaceId: spaceId,
-              canMentionEveryone: canMentionEveryone,
-              slowmodeSeconds: slowmodeSeconds,
-              replyingTo: _replyTo,
-              replyName: _replyTo == null
-                  ? null
-                  : accordAuthorName(
-                      _replyTo!.authorId,
-                      members: members,
-                      users: userCache,
-                      ensure: ref
-                          .read(
-                            accordUsersControllerProvider(
-                              ref.readActiveServerKey() ?? '',
-                            ).notifier,
-                          )
-                          .ensure,
-                    ),
-              onCancelReply: () => setState(() => _replyTo = null),
-              onEditLastMessage: () =>
-                  _editLastOwnMessage(loadedMessages, currentUserId),
+                ),
+                if (widget.sidePanel != null) widget.sidePanel!,
+              ],
             ),
           ),
         ],
@@ -1129,6 +1373,90 @@ class _TypingIndicator extends ConsumerWidget {
                 ),
               ),
             ),
+    );
+  }
+}
+
+/// A 20 px icon in a 40 px slot of the channel header; white while [active]
+/// (the members button with the list shown), muted otherwise.
+class _HeaderButton extends StatelessWidget {
+  const _HeaderButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.active = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.standard,
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      icon: Icon(
+        icon,
+        size: 20,
+        color: active ? colors.dirtyWhite : colors.interactive,
+      ),
+    );
+  }
+}
+
+/// The 244×32 search field of the channel header: a dark rounded box with a
+/// hairline, the placeholder and a magnifier; tapping it opens the search.
+class _HeaderSearchBox extends StatelessWidget {
+  const _HeaderSearchBox({
+    super.key,
+    required this.placeholder,
+    required this.onTap,
+  });
+
+  final String placeholder;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Material(
+      color: Colors.black.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 32,
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+          decoration: BoxDecoration(
+            border: Border.all(color: colors.hairline),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  placeholder,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: colors.gray,
+                  ),
+                ),
+              ),
+              Icon(AppIcons.search, size: 16, color: colors.interactive),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

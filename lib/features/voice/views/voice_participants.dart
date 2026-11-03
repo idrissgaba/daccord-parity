@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:accordkit/accordkit.dart';
@@ -98,24 +99,21 @@ class VoiceParticipantList extends ConsumerWidget {
           ).notifier,
         )
         .ensure;
-    final rows =
-        [
-          for (final vs in bucket.values)
-            (
-              voiceState: vs,
-              display: participantDisplay(
-                vs.userId,
-                members: members,
-                users: users,
-                cdnUrl: cdnUrl,
-                ensure: ensure,
-              ),
-            ),
-        ]..sort(
-          (a, b) => a.display.name.toLowerCase().compareTo(
-            b.display.name.toLowerCase(),
+    final rows = [
+      for (final vs in bucket.values)
+        (
+          voiceState: vs,
+          display: participantDisplay(
+            vs.userId,
+            members: members,
+            users: users,
+            cdnUrl: cdnUrl,
+            ensure: ensure,
           ),
-        );
+        ),
+    ];
+    // Rows keep the order members joined in (the cache's insertion order),
+    // as in other chat apps; no alphabetical re-sort.
 
     // Moderators drag participants onto another voice channel to move them
     // (mouse layouts; touch keeps long-press for the menu).
@@ -138,7 +136,7 @@ class VoiceParticipantList extends ConsumerWidget {
         feedback: Material(
           color: Colors.transparent,
           child: Chip(
-            avatar: const Icon(Icons.volume_up, size: 16),
+            avatar: const Icon(AppIcons.volumeUp, size: 16),
             label: Text(name),
           ),
         ),
@@ -285,7 +283,7 @@ class _ParticipantRowState extends State<_ParticipantRow> {
         : memberColorRole(member, widget.roles);
     final nameColor =
         (colorRole == null ? null : accordRoleColor(colorRole.color)) ??
-        colors.dirtyWhite;
+        colors.gray;
     final afk = widget.afk;
     final display = widget.display;
 
@@ -324,74 +322,90 @@ class _ParticipantRowState extends State<_ParticipantRow> {
                 : (d) => openVolume(d.globalPosition),
             onLongPress: openVolume == null ? null : () => openVolume(null),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(28, 1, 8, 1),
-              child: Row(
-                children: [
-                  Opacity(
-                    // Dimmed avatar for an away member, matching how every
-                    // other chat client signals "present but not here".
-                    opacity: afk ? 0.4 : 1,
-                    child: Container(
-                      width: 22,
-                      height: 22,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: widget.speaking
-                            ? Border.all(color: colors.green, width: 2)
-                            : null,
-                      ),
-                      padding: const EdgeInsets.all(1),
-                      child: AccordMemberAvatar(
-                        avatarUrl: display.avatarUrl,
-                        initial: accordInitial(display.name),
-                        radius: 9,
-                        backgroundColor: display.color,
-                        initialStyle: const TextStyle(fontSize: 9),
+              padding: const EdgeInsets.fromLTRB(8, 1, 8, 1),
+              child: _Hover(
+                builder: (hovered) => Material(
+                  color: hovered ? colors.hover : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    height: 32,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(32, 0, 8, 0),
+                      child: Row(
+                        children: [
+                          Opacity(
+                            // Dimmed avatar for an away member, matching how
+                            // every other chat client signals "present but
+                            // not here".
+                            opacity: afk ? 0.4 : 1,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: widget.speaking
+                                    ? Border.all(color: colors.green, width: 2)
+                                    : null,
+                              ),
+                              child: AccordMemberAvatar(
+                                avatarUrl: display.avatarUrl,
+                                initial: accordInitial(display.name),
+                                radius: widget.speaking ? 10 : 12,
+                                backgroundColor: display.color,
+                                initialStyle: const TextStyle(fontSize: 10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              display.name,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium!.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: afk
+                                    ? nameColor.withValues(alpha: 0.5)
+                                    : widget.speaking || hovered
+                                    ? colors.dirtyWhite
+                                    : nameColor,
+                              ),
+                            ),
+                          ),
+                          if (afk)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 4),
+                              child: Tooltip(
+                                message: 'Away',
+                                child: Icon(
+                                  AppIcons.nightlightRound,
+                                  size: 14,
+                                  color: colors.gray,
+                                  key: const Key('voice-participant-afk'),
+                                ),
+                              ),
+                            ),
+                          ..._flags(colors),
+                          if (widget.voiceState.selfStream)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: GestureDetector(
+                                key: Key(
+                                  'voice-participant-live-${widget.voiceState.userId}',
+                                ),
+                                // Touch has no hover: the badge itself opens
+                                // the stream.
+                                onTap: shouldUseDesktopLayout(context)
+                                    ? null
+                                    : widget.onWatchStream,
+                                child: const LiveBadge(small: true),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      display.name,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall!.copyWith(
-                        color: afk
-                            ? nameColor.withValues(alpha: 0.5)
-                            : nameColor,
-                      ),
-                    ),
-                  ),
-                  if (afk)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Tooltip(
-                        message: 'Away',
-                        child: Icon(
-                          Icons.nightlight_round,
-                          size: 11,
-                          color: colors.gray,
-                          key: const Key('voice-participant-afk'),
-                        ),
-                      ),
-                    ),
-                  ..._flags(colors),
-                  if (widget.voiceState.selfStream)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: GestureDetector(
-                        key: Key(
-                          'voice-participant-live-${widget.voiceState.userId}',
-                        ),
-                        // Touch has no hover: the badge itself opens the
-                        // stream.
-                        onTap: shouldUseDesktopLayout(context)
-                            ? null
-                            : widget.onWatchStream,
-                        child: const LiveBadge(small: true),
-                      ),
-                    ),
-                ],
+                ),
               ),
             ),
           ),
@@ -408,7 +422,7 @@ class _ParticipantRowState extends State<_ParticipantRow> {
     if (voiceState.deaf) {
       flags.add(
         _serverFlag(
-          Icons.headset_off,
+          AppIcons.headsetOff,
           'Server deafened',
           colors.red,
           const Key('voice-participant-server-deaf'),
@@ -417,27 +431,50 @@ class _ParticipantRowState extends State<_ParticipantRow> {
     } else if (voiceState.mute) {
       flags.add(
         _serverFlag(
-          Icons.mic_off,
+          AppIcons.micOff,
           'Server muted',
           colors.red,
           const Key('voice-participant-server-mute'),
         ),
       );
     } else if (voiceState.selfDeaf) {
-      flags.add(_flag('D', colors.red));
+      flags.add(
+        _serverFlag(
+          AppIcons.headsetOff,
+          'Deafened',
+          colors.gray,
+          const Key('voice-participant-self-deaf'),
+        ),
+      );
     } else if (voiceState.selfMute) {
-      flags.add(_flag('M', colors.red));
+      flags.add(
+        _serverFlag(
+          AppIcons.micOff,
+          'Muted',
+          colors.gray,
+          const Key('voice-participant-self-mute'),
+        ),
+      );
     } else if (voiceState.suppress) {
       flags.add(
         _serverFlag(
-          Icons.mic_off,
+          AppIcons.micOff,
           "Can't speak in this channel",
           colors.gray,
           const Key('voice-participant-suppressed'),
         ),
       );
     }
-    if (voiceState.selfVideo) flags.add(_flag('V', colors.green));
+    if (voiceState.selfVideo) {
+      flags.add(
+        _serverFlag(
+          AppIcons.videocam,
+          'Camera on',
+          colors.gray,
+          const Key('voice-participant-video'),
+        ),
+      );
+    }
     return flags;
   }
 
@@ -446,16 +483,29 @@ class _ParticipantRowState extends State<_ParticipantRow> {
         padding: const EdgeInsets.only(left: 4),
         child: Tooltip(
           message: tooltip,
-          child: Icon(icon, key: key, size: 13, color: color),
+          child: Icon(icon, key: key, size: 16, color: color),
         ),
       );
+}
 
-  Widget _flag(String text, Color color) => Padding(
-    padding: const EdgeInsets.only(left: 4),
-    child: Text(
-      text,
-      style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
-    ),
+/// Rebuilds [builder] with whether the pointer is over it.
+class _Hover extends StatefulWidget {
+  const _Hover({required this.builder});
+
+  final Widget Function(bool hovered) builder;
+
+  @override
+  State<_Hover> createState() => _HoverState();
+}
+
+class _HoverState extends State<_Hover> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) => MouseRegion(
+    onEnter: (_) => setState(() => _hovered = true),
+    onExit: (_) => setState(() => _hovered = false),
+    child: widget.builder(_hovered),
   );
 }
 
@@ -544,7 +594,7 @@ class _StreamCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                icon: const Icon(Icons.desktop_windows_outlined, size: 16),
+                icon: const Icon(AppIcons.desktopWindowsOutlined, size: 16),
                 label: Text(isSelf ? "You're Streaming!" : 'Watch Stream'),
               ),
             ),

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 
 part 'emoji_catalog_data.dart';
@@ -5,15 +6,15 @@ part 'emoji_catalog_data.dart';
 /// Standard unicode emoji categories shown in the picker (custom space emoji
 /// and recently-used are handled separately by the picker UI).
 enum EmojiCategory {
-  smileys('Smileys', Icons.emoji_emotions_outlined),
-  people('People', Icons.emoji_people_outlined),
-  nature('Nature', Icons.pets_outlined),
-  food('Food', Icons.restaurant_outlined),
-  activities('Activities', Icons.sports_esports_outlined),
-  travel('Travel', Icons.directions_car_filled_outlined),
-  objects('Objects', Icons.lightbulb_outline),
-  symbols('Symbols', Icons.emoji_symbols_outlined),
-  flags('Flags', Icons.flag_outlined);
+  smileys('Smileys', AppIcons.emojiEmotionsOutlined),
+  people('People', AppIcons.emojiPeopleOutlined),
+  nature('Nature', AppIcons.petsOutlined),
+  food('Food', AppIcons.restaurantOutlined),
+  activities('Activities', AppIcons.sportsEsportsOutlined),
+  travel('Travel', AppIcons.directionsCarFilledOutlined),
+  objects('Objects', AppIcons.lightbulbOutline),
+  symbols('Symbols', AppIcons.emojiSymbolsOutlined),
+  flags('Flags', AppIcons.flagOutlined);
 
   const EmojiCategory(this.label, this.icon);
 

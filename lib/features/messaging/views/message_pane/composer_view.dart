@@ -90,7 +90,7 @@ mixin _ComposerView
                   padding: const EdgeInsets.fromLTRB(8, 6, 4, 0),
                   child: Row(
                     children: [
-                      Icon(Icons.reply, size: 14, color: colors.gray),
+                      Icon(AppIcons.reply, size: 14, color: colors.gray),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -106,7 +106,11 @@ mixin _ComposerView
                         tooltip: 'Cancel reply',
                         visualDensity: VisualDensity.compact,
                         onPressed: widget.onCancelReply,
-                        icon: Icon(Icons.close, size: 14, color: colors.gray),
+                        icon: Icon(
+                          AppIcons.close,
+                          size: 14,
+                          color: colors.gray,
+                        ),
                       ),
                     ],
                   ),
@@ -122,7 +126,11 @@ mixin _ComposerView
                         tooltip: 'Dismiss',
                         visualDensity: VisualDensity.compact,
                         onPressed: () => setState(() => _error = null),
-                        icon: Icon(Icons.close, size: 14, color: colors.gray),
+                        icon: Icon(
+                          AppIcons.close,
+                          size: 14,
+                          color: colors.gray,
+                        ),
                       ),
                     ],
                   ),
@@ -170,7 +178,7 @@ mixin _ComposerView
                   child: Row(
                     children: [
                       Icon(
-                        Icons.timer_outlined,
+                        AppIcons.timerOutlined,
                         size: 14,
                         color: cooldown != null ? colors.yellow : colors.gray,
                       ),
@@ -244,7 +252,7 @@ mixin _ComposerView
                           ? null
                           : _pickFiles,
                       icon: Icon(
-                        Icons.add_circle_outline,
+                        AppIcons.addCircleOutline,
                         size: 20,
                         color: atAttachmentLimit
                             ? colors.gray
@@ -257,7 +265,7 @@ mixin _ComposerView
                         tooltip: 'Create a poll',
                         onPressed: _sending ? null : _createPoll,
                         icon: Icon(
-                          Icons.poll_outlined,
+                          AppIcons.pollOutlined,
                           size: 20,
                           color: colors.dirtyWhite,
                         ),
@@ -292,7 +300,7 @@ mixin _ComposerView
                       tooltip: 'Emoji',
                       onPressed: _sending ? null : _pickEmoji,
                       icon: Icon(
-                        Icons.emoji_emotions_outlined,
+                        AppIcons.emojiEmotionsOutlined,
                         size: 20,
                         color: colors.dirtyWhite,
                       ),
@@ -303,7 +311,7 @@ mixin _ComposerView
                         tooltip: 'Stickers',
                         onPressed: _sending ? null : _pickSticker,
                         icon: Icon(
-                          Icons.sticky_note_2_outlined,
+                          AppIcons.stickyNote2Outlined,
                           size: 20,
                           color: colors.dirtyWhite,
                         ),
@@ -323,7 +331,7 @@ mixin _ComposerView
                                 ? null
                                 : _startVoiceMessage,
                             icon: Icon(
-                              Icons.mic_none,
+                              AppIcons.micNone,
                               size: 20,
                               color: voiceBlocked
                                   ? colors.gray
@@ -337,7 +345,7 @@ mixin _ComposerView
                               : 'Send',
                           onPressed: _sending || sendBlocked ? null : _send,
                           icon: Icon(
-                            Icons.send,
+                            AppIcons.send,
                             size: 20,
                             color: sendBlocked
                                 ? colors.gray

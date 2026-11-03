@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:accordkit/accordkit.dart';
@@ -52,7 +53,7 @@ class _ArcadeParticipant extends ConsumerWidget {
       trailing: participant['ready'] == true
           ? const Tooltip(
               message: 'Ready',
-              child: Icon(Icons.check_circle_outline),
+              child: Icon(AppIcons.checkCircleOutline),
             )
           : null,
     );
@@ -495,7 +496,7 @@ class _ExperienceSessionViewState extends ConsumerState<ExperienceSessionView>
         actions: [
           IconButton(
             onPressed: _refresh,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             tooltip: 'Refresh',
           ),
         ],

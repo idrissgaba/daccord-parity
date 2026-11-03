@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
@@ -24,7 +25,6 @@ import 'package:bonfire/features/voice/views/screen_share_picker.dart';
 import 'package:bonfire/features/voice/views/stream_menu.dart';
 import 'package:bonfire/features/voice/views/voice_settings_screen.dart';
 import 'package:bonfire/features/voice/views/voice_text_panel.dart';
-import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/shared/components/horizontal_wheel_scroll.dart';
 import 'package:bonfire/shared/utils/platform.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
@@ -300,8 +300,8 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
         children: [
           Icon(
             watchIsStage(ref, widget.spaceId, widget.channelId)
-                ? Icons.podcasts
-                : Icons.volume_up,
+                ? AppIcons.podcasts
+                : AppIcons.volumeUp,
             size: 18,
             color: colors.dirtyWhite,
           ),
@@ -347,7 +347,7 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
             tooltip: _chatOpen ? 'Hide chat' : 'Show chat',
             onPressed: () => setState(() => _chatOpen = !_chatOpen),
             icon: Icon(
-              _chatOpen ? Icons.chat_bubble : Icons.chat_bubble_outline,
+              _chatOpen ? AppIcons.chatBubble : AppIcons.chatBubbleOutline,
               size: 18,
               color: _chatOpen ? colors.primary : colors.dirtyWhite,
             ),

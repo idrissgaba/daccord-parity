@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -46,7 +47,7 @@ class _ChannelMemberPickerDialogState extends State<ChannelMemberPickerDialog> {
                 autofocus: true,
                 decoration: const InputDecoration(
                   isDense: true,
-                  prefixIcon: Icon(Icons.search, size: 18),
+                  prefixIcon: Icon(AppIcons.search, size: 18),
                   hintText: 'Search members',
                   border: OutlineInputBorder(),
                 ),
@@ -70,7 +71,7 @@ class _ChannelMemberPickerDialogState extends State<ChannelMemberPickerDialog> {
                           ListTile(
                             dense: true,
                             leading: Icon(
-                              Icons.person_outline,
+                              AppIcons.personOutline,
                               color: colors.gray,
                             ),
                             title: Text(accordMemberName(m)),

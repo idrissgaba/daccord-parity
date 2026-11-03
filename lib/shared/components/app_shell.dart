@@ -1,6 +1,7 @@
 import 'package:bonfire/features/profiles/views/profile_gate.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
 import 'package:bonfire/features/voice/views/incoming_call_overlay.dart';
+import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:bonfire/features/experiences/views/turn_banner.dart';
 
@@ -33,10 +34,14 @@ Widget buildAppShell(
   // Compose with the platform text scale (iOS Dynamic Type, Android font
   // size) rather than replacing it.
   final systemScale = MediaQuery.textScalerOf(context).scale(1);
-  final combined = (systemScale * uiScale).clamp(
-    AccordSettings.minUiScale,
-    maxEffectiveTextScale,
-  );
+  // [kTypefaceScale] compensates the bundled typeface's larger metrics so the
+  // layout measured on the reference client holds at the same pixel sizes.
+  final combined =
+      (systemScale * uiScale).clamp(
+        AccordSettings.minUiScale,
+        maxEffectiveTextScale,
+      ) *
+      kTypefaceScale;
   return MediaQuery(
     data: MediaQuery.of(context).copyWith(
       textScaler: TextScaler.linear(combined),

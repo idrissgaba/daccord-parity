@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/experiences/controllers/turns.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:flutter/material.dart';
@@ -37,14 +38,14 @@ class ExperienceTurnBanner extends ConsumerWidget {
           elevation: 4,
           color: Theme.of(context).colorScheme.secondaryContainer,
           child: ListTile(
-            leading: const Icon(Icons.sports_esports_outlined),
+            leading: const Icon(AppIcons.sportsEsportsOutlined),
             title: Text('Your turn in ${turn.value.gameId}'),
             subtitle: const Text(
               'Open this space’s Arcade to resume the game.',
             ),
             trailing: IconButton(
               tooltip: 'Dismiss turn notification',
-              icon: const Icon(Icons.close),
+              icon: const Icon(AppIcons.close),
               onPressed: () =>
                   ref.read(experienceTurnsProvider.notifier).dismiss(turn.key),
             ),

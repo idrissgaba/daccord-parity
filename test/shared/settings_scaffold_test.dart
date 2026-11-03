@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/components/settings_scaffold.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -37,13 +38,13 @@ void main() {
           body: const SizedBox(),
           actions: [
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(AppIcons.refresh),
               onPressed: () {},
             ),
           ],
         )),
       );
-      expect(find.byIcon(Icons.refresh), findsOneWidget);
+      expect(find.byIcon(AppIcons.refresh), findsOneWidget);
     });
 
     testWidgets('renders back button', (tester) async {
@@ -53,7 +54,7 @@ void main() {
           body: const SizedBox(),
         )),
       );
-      expect(find.byIcon(Icons.arrow_back), findsOneWidget);
+      expect(find.byIcon(AppIcons.arrowBack), findsOneWidget);
     });
 
     testWidgets('renders floatingActionButton when provided', (tester) async {
@@ -63,11 +64,11 @@ void main() {
           body: const SizedBox(),
           floatingActionButton: FloatingActionButton(
             onPressed: () {},
-            child: const Icon(Icons.add),
+            child: const Icon(AppIcons.add),
           ),
         )),
       );
-      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.byIcon(AppIcons.add), findsOneWidget);
     });
   });
 }

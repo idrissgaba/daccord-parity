@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/custom_keybind.dart';
 import 'package:bonfire/features/spaces/utils/home_shortcuts.dart';
@@ -91,14 +92,14 @@ class KeybindsSection extends ConsumerWidget {
                 ...keybinds,
                 CustomKeybind(action: HomeShortcut.quickSwitcher.name),
               ]),
-              icon: const Icon(Icons.add),
+              icon: const Icon(AppIcons.add),
               label: const Text('Add a keybind'),
             ),
           ),
         ),
         const Divider(height: 24),
         ListTile(
-          leading: Icon(Icons.mic_none, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.micNone, color: colors.dirtyWhite),
           title: const Text('Push to talk'),
           subtitle: Text(
             settings.pushToTalk
@@ -138,10 +139,10 @@ class KeybindsSection extends ConsumerWidget {
         for (final (chord, label) in composerShortcutRows)
           ListTile(dense: true, title: Text(label), trailing: _Chip(chord)),
         ListTile(
-          leading: Icon(Icons.list_alt_outlined, color: colors.dirtyWhite),
+          leading: Icon(AppIcons.listAltOutlined, color: colors.dirtyWhite),
           title: const Text('Show the shortcuts in force'),
           subtitle: const Text('Also on Ctrl+/ anywhere in the app'),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const Icon(AppIcons.chevronRight),
           onTap: () => showKeyboardShortcutsDialog(context),
         ),
       ],
@@ -246,14 +247,14 @@ class _BuiltInRow extends StatelessWidget {
               key: ValueKey('builtin-restore-${binding.shortcut.name}'),
               tooltip: 'Restore the built-in chord',
               onPressed: onRestore,
-              icon: Icon(Icons.restart_alt, size: 18, color: colors.gray),
+              icon: Icon(AppIcons.restartAlt, size: 18, color: colors.gray),
             )
           else
             IconButton(
               key: ValueKey('builtin-remove-${binding.shortcut.name}'),
               tooltip: 'Remove this keybind',
               onPressed: onRemove,
-              icon: Icon(Icons.close, size: 18, color: colors.gray),
+              icon: Icon(AppIcons.close, size: 18, color: colors.gray),
             ),
         ],
       ),
@@ -335,7 +336,7 @@ class _KeybindRow extends StatelessWidget {
           IconButton(
             tooltip: 'Remove',
             onPressed: onRemove,
-            icon: Icon(Icons.close, color: colors.gray),
+            icon: Icon(AppIcons.close, color: colors.gray),
           ),
         ],
       ),
@@ -444,7 +445,7 @@ class _RecordButtonState extends State<_RecordButton> {
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
     final icon = Icon(
-      _recording ? Icons.fiber_manual_record : Icons.keyboard,
+      _recording ? AppIcons.fiberManualRecord : AppIcons.keyboard,
       size: widget.compact ? 18 : 16,
       color: _recording ? colors.red : (widget.compact ? colors.gray : null),
     );

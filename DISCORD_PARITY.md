@@ -21,8 +21,15 @@ sauvegarde `backup/pre-discord-parity-2026-11-03`).
 
 Dossier `docs/discord-ref/` (**ignoré par git** : les captures contiennent vos amis, vos
 serveurs et votre compte ; elles restent locales). Prises le 2026-11-03 sur **Discord web**
-dans votre Chrome (même interface que le client desktop), fenêtre 1600×900, viewport
-**1568×711** (à reproduire pour les captures de l'app). Thème sombre par défaut, langue EN.
+dans votre Chrome (même interface que le client desktop). Thème sombre par défaut, langue EN.
+
+**Échelle (constat du lot A)** : le viewport réel est **1920×927 px CSS** (fenêtre maximisée,
+DPR 1) ; l'extension Chrome réduit ses captures à 1568 px de large (facteur 0,8167 ; 711 ou
+757 px de haut selon la barre de favoris). Les captures de l'app se prennent donc à
+**1920×927** (Chrome DevTools, `resize_page`) puis sont réduites à 1568 pour le côte à côte
+(`app-*-1568.jpg`). Les captures `app-stream-*` du lot D avaient été prises à 1568 px CSS
+réels, soit 18 % trop grandes ; à reprendre au lot C. Les mesures CSS relevées sur Discord
+(tailles, couleurs, polices) sont dans `docs/discord-ref/discord-css-metrics-2026-11-03.md`.
 
 | Fichier | Contenu |
 |---|---|
@@ -68,6 +75,10 @@ dans votre Chrome (même interface que le client desktop), fenêtre 1600×900, v
 | `official-watching-stream-focus.png`, `official-focus-view.png` | Stream regardé en focus : bande 16:9 (tuile stream avec LIVE + « … », caméra, avatar), pilule chevron + icône membres au-dessus de la bande, volume du stream en bas à droite |
 | `official-watched-stream-menu.png` | Clic droit sur un stream regardé : Stop Watching / Mute ☐ / Stream Volume (slider) / Show Non-Video Participants ☑ / Report Problem |
 | `official-live-badge.png` | Zoom du badge LIVE en bout de ligne |
+| `desktop-resized-1100.jpg`, `desktop-resized-900.jpg` | **Lot A** : fenêtre à 1100 et 900 px (émulation zoom CSS + `innerWidth` simulé, la fenêtre maximisée refusant `resize_window`) : Discord garde les trois colonnes, le chat se comprime (260 px à 900), la recherche d'en-tête rétrécit |
+| `desktop-category-collapsed-unread.jpg` | Catégorie repliée (serveur ECD) : chevron tourné vers la droite, seuls les salons non lus restent visibles avec leur pilule gauche |
+| `official-folder-*.png` (create 0-3, menu, settings, add 0-3, nomerge 0-3, badges 0-3) | **Images officielles Discord** (article « Server Folders 101 », thème 2019) : création par glisser, tuile fermée 2×2, tiroir ouvert, menu Mark Server Folder As Read / Folder Settings, dialogue nom + couleur, badges. La création de dossier par glisser-déposer synthétique n'a pas pu être déclenchée dans votre Discord |
+| `app-layout-server-text.png` (+ `-1568.jpg`), `app-rail-hover-tooltip.png`, `app-channel-list-hover-voice.png`, `app-voice-connected-sidebar.png`, `app-members-hidden.png`, `app-resized-1100.png`, `app-resized-900.png`, `app-folder-open.png`, `app-folder-closed.png` | Captures de l'app du lot A (build web local, 1920×927) comparées à `desktop-owner-server-text-channel`, `desktop-rail-hover-tooltip`, `desktop-channel-list-hover-voice`, `desktop-voice-connected-sidebar`, `desktop-resized-*`, `official-folder-*` |
 
 ### 1.1 Captures manquantes (à fournir ou à faire ensemble)
 
@@ -88,7 +99,7 @@ Desktop (il faut un ami en vocal, ou vous + moi sur votre serveur « Idriss + Ic
 10. **Glisser-déposer** d'un fichier (overlay « Upload to #channel ») et chips de pièces jointes.
 11. **Confirmation de suppression** d'un message.
 12. **Ctrl+/** liste des raccourcis (l'extension Chrome n'a pas transmis Ctrl+/ ; à capturer dans l'app desktop).
-13. Fenêtre **redimensionnée** à ~1100 px et ~900 px (disparition de la liste des membres / colonne salons).
+13. ~~Fenêtre **redimensionnée** à ~1100 px et ~900 px~~ → fait le 2026-11-03 par émulation (`desktop-resized-1100/900`) : **rien ne disparaît**, le chat se comprime.
 14. Paramètres : **Keybinds**, **Chat (Messages / Chat Box)**, **Accessibility**, barre « Careful — you have unsaved changes! » (modifier un champ sans sauver).
 15. **Profil complet** (View Full Profile), **statut personnalisé** (dialogue), **Edit Profile**.
 16. **Éditeur de salon** (Edit Channel : Overview / Permissions / Invites / Integrations) et **éditeur de rôle** (Display / Permissions / Manage Members).
@@ -106,7 +117,7 @@ Android (depuis votre téléphone, en PNG) :
 
 | Zone | Fichier | Rôle |
 |---|---|---|
-| Accueil | `spaces/views/accord_home.dart` | écran 3 colonnes, 3 modes (large ≥920, moyen 680-919, compact <680), tiroirs, panneau de fil |
+| Accueil | `spaces/views/accord_home.dart` | écran 3 colonnes (desktop : toujours trois dès 720 px ; tactile : large / moyen / compact selon `home_layout.dart`), barre de titre desktop (`accord_home_title_bar.dart`), tiroirs, panneau de fil sous l'en-tête |
 | Barre serveurs | `accord_home_rail.dart`, `_rail_tiles.dart`, `_rail_folders.dart`, `rail_draggable.dart` | rail 72 px, tuiles 48, dossiers, drag, menus, feuille « serveurs masqués », dialogue couleur dossier |
 | Colonne salons | `accord_home_channels.dart`, `_channel_rows.dart`, `_channel_drag.dart` | en-tête + menu, bannière, Events, catégories, lignes, redimensionnement 180-420 |
 | Onglets | `accord_home_tabs.dart` | bande d'onglets de salons ouverts (pas d'équivalent Discord) |
@@ -124,9 +135,16 @@ Android (depuis votre téléphone, en PNG) :
 | Autres | `admin/*` (`/admin` : Spaces, Users, Reports, Settings, AutoMod), `automod/*`, `authentication/*`, `profiles/*` (profils d'appareil + PIN), `onboarding/*`, `updates/*`, `experiences/*` (Arcade), `developer/*` | hors périmètre Discord sauf là où ils apparaissent dans les menus/paramètres |
 | Partagé | `shared/components/context_menu.dart` (menu ancré desktop / feuille mobile, 40 px, icône gauche, pas de sous-menu ni de case à cocher), `settings_scaffold.dart`, `dialog_title_bar.dart`, `escape_to_close.dart`, `drawer_swipe_area.dart`, `image_crop_dialog.dart`, `server_unreachable.dart`, `app_banner.dart`, `async_state_views.dart` | |
 
-Faits transverses : aucune `fontFamily` (police système), icônes **Material uniquement**, aucune
-constante partagée d'espacement/rayon, thème sombre `#313338 / #2B2D31 / #1E1F22`, accent
-`#5865F2`, texte `#DBDEE1` / gris `#949BA4`.
+Faits transverses (après le lot A) : police **Noto Sans** (OFL, `assets/fonts`, le repli que
+Discord déclare lui-même après gg sans) avec une échelle de texte globale de **0,875**
+(`kTypefaceScale`) car Noto Sans rend ~19 % plus large et ~9 % plus haut que gg sans à taille
+égale ; icônes **Phosphor** (MIT, graisses Fill + Bold, fork local `packages/phosphor_flutter`)
+via la table `lib/theme/app_icons.dart` — plus aucun `Icons.*` Material dans `lib/` ; préréglage
+« Dark » aligné sur le thème sombre Discord 2025 mesuré : base `#121214` (rail, colonne
+salons, barre de titre), surface `#1A1A1E` (chat, membres), panneaux `#202024`, texte
+`#FBFBFB`, icônes `#ABACB2`, atténué `#81828A`, survol/sélection `#9696A0` à 10 % / 20 %,
+filets à 12 % (`hairline`, `hover`, `selection`, `raised`, `interactive` dans
+`BonfireThemeExtension`). Les autres préréglages sont inchangés.
 
 ### 2.2 Serveur Rust (`../accordserver/src`)
 
@@ -147,27 +165,34 @@ Colonnes : Élément Discord attendu | État actuel dans l'app | Écart précis 
 
 ### A. Disposition générale
 
+Lot livré le 2026-11-03 (commits du lot, voir §6). « réf » = capture Discord ; « app » = capture
+de l'app (`docs/discord-ref/app-*.png`, build web local, 1920×927 réduit à 1568). Les menus
+(en-tête serveur, clic droit) restent au lot F, le composeur et l'accueil DM au lot B.
+
 | Élément Discord attendu | État actuel dans l'app | Écart précis | Prio | Statut |
 |---|---|---|---|---|
-| Rail 72 px, DM en haut (icône logo, cercle visible), séparateur 32×2 visible, puis serveurs (réf `rail-hover-tooltip`) | `accord_home_rail.dart:104-237` : rail 72, bouton DM `chat_bubble_outline` **fond identique au rail**, séparateur **même couleur que le rail** (invisible) | Cercle DM invisible ; séparateur invisible ; espacement 12 px entre icônes (Discord 8) ; DM ouvre un **dialogue** au lieu de la vue accueil (pas d'état sélectionné) | P1 | ⚠️ |
-| Icône ronde → carré arrondi au survol (anim ~150 ms), fond accent au survol si initiales, tooltip **à droite** avec nom (réf `rail-hover-tooltip`) | `_rail_tiles.dart:154-292` : 24→16 px anim 150 ms, fond `primary` | Tooltip Material (au-dessus/dessous) au lieu de bulle à droite ; pas de flèche | P1 | ⚠️ |
-| Pilule blanche à gauche : 8 non-lu / 20 survol / 40 sélection (réf `rail-hover-tooltip`) | `_rail_tiles.dart:235-261` : 8/20/40, largeur 8, décalée −16 (≈4 px visibles) | Largeur visible et rayon à vérifier par capture ; absente sur dossiers et bouton DM | P1 | ⚠️ |
-| Pastille mention rouge bas-droite avec **anneau découpé** couleur rail, « 99+ » | `_channel_rows.dart:436-460` : rouge `#ED4245`, rayon 10 | Pas d'anneau de découpe ; sur le bouton DM elle est en haut-droite | P2 | ⚠️ |
-| Dossiers : tuile teintée, grille 2×2 fermée, **tiroir teinté** ouvert, animation, non-lu/mentions sur le dossier, menu (Mark as read, Folder settings) | `_rail_folders.dart` : grille 2×2, ouverture sans animation, couleur par défaut = couleur rail (invisible) | Pas de tiroir, pas de pilule/badge dossier, menu différent (Rename / Recolor / Delete) | P2 | ⚠️ |
-| Bouton « + » (cercle, + vert → fond vert au survol), bouton **Explorer** (boussole, même style), bouton **Télécharger apps** | `_rail_tiles.dart:499-511` + `accord_home_rail.dart:232-236` | « + » sans fond ni survol ; Explorer = `IconButton` hors liste ; bouton télécharger absent (🚫 sans objet web ? à décider : garder un bouton « Télécharger l'app » vers vos builds) | P2 | ⚠️ |
-| Colonne salons **240 px fixe**, fond `#2B2D31` | `accord_settings.dart:155` : 220 par défaut, redimensionnable 180-420 | Largeur + poignée de redimensionnement à retirer ou neutraliser à 240 | P1 | ⚠️ |
-| En-tête : nom serveur 16 px semibold + chevron qui devient ✕ ; bannière **derrière** l'en-tête ; menu déroulant (réf `menu-server-header-owner`) : Server Boost / Invite to Server, Server Settings, Create Channel, Create Category, Create Event, App Directory / Notification Settings, Privacy Settings / Edit Per-server Profile, Hide Muted Channels ☐ / Copy Server ID (+ Leave Server en rouge si non propriétaire) | `accord_home_channels.dart:139-224, 281-361` : nom 15 px, icône recherche + chevron ; bannière 100 px **sous** l'en-tête | Ordre et entrées du menu différents (Reorder channels, Mark as read, Mute, Copy link, Hide, Leave & delete data, Remove server ; **divider final orphelin**) ; pas d'icônes à gauche ; bannière mal placée ; icône recherche à retirer (Discord : recherche dans l'en-tête central) | P1 | ⚠️ |
-| Catégories : chevron qui **tourne**, nom 12 px uppercase, « + » visible **au survol** uniquement, catégorie repliée garde salons non-lus/sélectionné | `_channel_rows.dart:51-130` ; repli cache tout (`accord_home_channels.dart:525`) | Gear + « + » toujours visibles ; pas de rotation ; non-lus cachés au repli | P1 | ⚠️ |
-| Salon : icône gris 20 px, nom 16 px gris (blanc si non-lu, blanc sur fond `#404249` rayon 4 si sélectionné), survol fond léger + icônes **Inviter** + **Réglages** (réf `owner-server-text-channel`) | `_channel_rows.dart:247-401` : icône 18 `dirtyWhite`, nom 14, sélection fond `#1E1F22` rayon 8, survol = InkWell | Tailles, couleurs, rayon ; pas d'icône « inviter » au survol ; icône « join » téléphone verte inexistante chez Discord | P1 | ⚠️ |
-| Participants sous le salon vocal : avatar 24, nom 14, icônes micro barré / casque barré, icône caméra, **badge LIVE rouge** (réf `voice-connected-sidebar`) ; ligne « Set a channel status » pour l'admin | `voice_participants.dart:181-335` : avatar 22, nom 12, **lettres « M » « D » « V » « S »** à la place des icônes ; tri alphabétique | Icônes manquantes, LIVE manquant, tri (Discord : ordre d'arrivée), pas de statut de salon | P0 (LIVE) / P1 | ❌ |
-| Panneau « Voice Connected » (réf `voice-panel-userpanel-zoom`) : icône signal vert + « Voice Connected » (vert) / « salon / serveur » ; à droite **infos connexion** (barres) + **raccrocher** ; dessous 4 boutons pleine largeur : Caméra, Partage d'écran, Activités, Soundboard | `voice_bar.dart:118-267` : point 8 px, texte, icône `network_check`, rangée 32×32 : [PTT] Caméra, Partage, Soundboard, …, Raccrocher | Raccrocher mal placé ; Activités absent (🚫 pas d'activités Discord → bouton **Arcade** à la même place) ; forme/taille des boutons ; pas de barre de niveau micro chez Discord | P1 | ⚠️ |
-| Panneau utilisateur 52 px : avatar 32 + statut, nom, sous-ligne « Online » / « In voice » ; boutons Micro (**avec chevron** périphériques), Casque (**avec chevron**), Réglages ; fond rouge translucide quand muet (réf idem) | `user_panel.dart:74-166` | Pas de chevrons ; pas de fond rouge ; sous-ligne = username au lieu de « Online » ; le clic avatar ouvre un PopupMenu au lieu de la **carte compte** (réf `user-panel-popup`) | P1 | ⚠️ |
-| En-tête central 48 px : `#` + nom + **sujet** ; à droite : Threads, Cloche, Épinglés, Membres, **champ de recherche** (réf `server-text-channel-members`) ; barre titre au-dessus avec Inbox + Aide | `message_pane.dart:722-851` : icône + nom ; Épinglés + Cloche | Sujet absent ; Threads, Membres, Recherche, Inbox, Aide absents ; l'ordre doit être Threads · Cloche · Pin · Membres · Recherche | P1 | ⚠️ |
-| Liste membres 240 px : groupes « RÔLE — N », **« Online — N »**, « Offline — N », ligne 42 px, avatar 32 + statut, nom 16 en couleur de rôle, sous-ligne statut/activité, **couronne** propriétaire, hors-ligne à 30 % (réf `server-text-channel-members`) | `accord_member_list.dart` : groupe sans rôle nommé **« Members »**, nom 14, pas de couronne, pas de sous-ligne, hors-ligne 50 % | Libellé, tailles, couronne, sous-ligne, opacité | P1 | ⚠️ |
-| Masquage liste membres : bouton d'en-tête, mémorisé | Ctrl+U seulement (`home_shortcuts.dart:162`) | Bouton absent | P1 | ⚠️ |
-| Points de rupture : liste membres auto-masquée sous ~1200 px(à confirmer), colonne salons conservée jusqu'à ~ 940 px(à confirmer) | `home_layout.dart` : membres 920, tiroir sous 680 | À confirmer par capture 13 | P2 | ⚠️ |
-| Police : gg sans (propriétaire) → équivalent libre proche ; icônes : set libre proche | Police système, Material Icons | Choisir une police libre (ex. Noto Sans / Inter) et un set d'icônes libre proche (Phosphor / Lucide) ; appliquer partout | P1 | ❌ |
-| Bande d'onglets de salons | `accord_home_tabs.dart` | N'existe pas chez Discord : désactiver par défaut / retirer | P2 | ⚠️ |
+| Barre de titre 32 px au-dessus de tout : icône + nom du serveur centrés (14/500), Inbox et Aide à droite (réf `owner-server-text-channel`) | `accord_home_title_bar.dart` : `HomeTitleBar` (web + desktop), Inbox = popover « Nothing here yet » jusqu'au lot H, Aide = page d'aide ; **Windows** : fenêtre sans cadre natif (`TitleBarStyle.hidden`) avec boutons réduire / agrandir / fermer et déplacement par la barre ; macOS/Linux gardent leur cadre ; app `app-layout-server-text` | Icône de serveur sans image = dièse (Discord : initiales ?, à confirmer) ; Windows non vérifié visuellement | P1 | ✅ |
+| Rail 72 px, tuiles **40 px** pas 48, DM en haut (cercle gris visible), séparateur 32×1 visible, puis serveurs (réf `rail-hover-tooltip`, mesures CSS) | `accord_home_rail*.dart` : tuiles 40, gaps 8, bouton DM gris 12 % sélectionné quand aucun espace, séparateur `hairline` ; app `app-layout-server-text` | Aucun visible | P1 | ✅ |
+| Icône ronde → carré arrondi au survol (150 ms), tooltip **à droite** avec flèche (réf `rail-hover-tooltip`) | `_RailTile` rayon 20 → 12 ; `RailTooltip` (bulle `#111214`, flèche, 16/600) ; app `app-rail-hover-tooltip` | Bulle peu contrastée sur la base `#121214` (la réf date du thème 2023, fond plus clair) : à confirmer sur le thème 2025 | P1 | ✅ |
+| Pilule blanche à gauche : 8 non-lu / 20 survol / 40 sélection, 4 px visibles | `_RailTile` : 4×8/20/40 sur le bord du rail, aussi sur le bouton DM, les dossiers fermés et les tuiles utilitaires | Aucun visible | P1 | ✅ |
+| Pastille mention rouge bas-droite avec anneau découpé, « 99+ » ; badge vert « en vocal » haut-droite | `_MentionBadge(ring:)` 16 px + anneau 2 px ; badge vocal `rail-voice-badge` (app `app-voice-connected-sidebar`) | Pastille mention non capturée (aucune mention disponible) : à confirmer | P2 | ⚠️ |
+| Dossiers : tuile teintée (carré arrondi 12) avec grille 2×2 de 16 px, tiroir teinté ouvert, pilule/badges sur le dossier fermé, menu Mark Server Folder As Read / Folder Settings (réf `official-folder-*`) | `accord_home_rail_folders.dart` : tuile 40 teintée 40 % (couleur par défaut = accent), tiroir 48 (`hover`), glyphe dossier ouvert, non-lu/mentions/sélection agrégés sur le dossier fermé, menu refait + dialogue « Folder Settings » (nom + couleur) ; app `app-folder-open`, `app-folder-closed` | Comparé aux images officielles 2019 seulement : à confirmer sur le Discord 2025 (création par glisser impossible à déclencher dans votre Chrome) | P2 | ⚠️ |
+| Bouton « + », bouton **Discover**, bouton **Download Apps** : cercles gris, icône blanche 20 px, dans la liste sous les serveurs | `_AddServerButton`, `_ExploreButton`, `_DownloadAppsButton` (ouvre la page des releases GitHub du fork) ; app `app-layout-server-text` | Couleur de survol (vert) héritée de l'ancien Discord : à confirmer | P2 | ✅ |
+| Colonne salons **303 px** par défaut, **redimensionnable** 192–360 (poignée 4 px), fond `#121214` (mesures CSS, poignée glissée dans votre Discord) | `AccordSettings.defaultChannelListWidth = 303`, min 192, max 360 ; l'ancienne valeur par défaut 220 persistée est lue comme « non réglée » ; poignée transparente incluse dans la largeur | Aucun | P1 | ✅ |
+| En-tête 49 px : nom 16/600 + chevron qui devient ✕ pendant le menu, bouton inviter 32×32 à droite, filet dessous ; bannière **derrière** l'en-tête (135 px, dégradé) | `_SpaceHeader` ; bannière en `Stack` derrière l'en-tête | Contenu du menu = lot F ; bannière non capturée (aucun serveur avec bannière) : à confirmer | P1 | ✅ |
+| « Events » : ligne de salon 32 px (icône 20, texte 16/500 gris) puis filet 1 px avant les catégories | `SpaceEventsEntry` refait + `Divider` ; app `app-layout-server-text` | « Server Boosts » 🚫 omis | P1 | ✅ |
+| Catégories : 14/500 gris, caret **après** le nom qui tourne (−90° replié), « + » 16 px au survol seulement, 16 px d'air au-dessus ; catégorie repliée **garde** les salons non lus et le salon sélectionné (réf `category-collapsed-unread`) | `_CategoryHeader` (`AnimatedRotation`, « + » au survol), `_buildChannelEntries` et `_ChannelDragList` gardent non-lus + sélection ; gear retiré (Discord : clic droit) | **Aucune capture de l'app** : aucun espace du compte n'a de catégorie (je n'en ai pas créé dans vos serveurs). À confirmer dès qu'une catégorie existe | P1 | ⚠️ |
+| Salon : lien 286×32 rayon 8 à 8 px du bord, icône 20 + nom 16/500 gris `#81828A` (blanc si non-lu ou sélectionné, fond `#9696A0` 20 % sélectionné, 10 % survol), pilule 4×8 au bord gauche si non-lu, au survol/sélection **Inviter** + **Réglages** (texte) ou **Chat** + Inviter + Réglages (vocal), ligne « Set a channel status ✎ » pour les gestionnaires (réf `owner-server-text-channel`, `channel-list-hover-voice`) | `_ChannelTile` ; icône téléphone verte supprimée ; statut = `topic` du salon vocal ; app `app-layout-server-text`, `app-channel-list-hover-voice` | Aucun visible | P1 | ✅ |
+| Clic sur un salon vocal (desktop) : **rejoint sans quitter** le salon texte affiché ; un second clic ouvre la vue d'appel ; icône verte quand connecté ; pas de compteur sans limite (réf `voice-connected-sidebar`) | `_handleTap`, `voiceOccupancyLabel` (« n/limite » seulement) ; app `app-voice-connected-sidebar` | Aucun | P1 | ✅ |
+| Participants sous le salon vocal : ligne 32, avatar 24, nom 14/500, icônes micro barré / casque barré / caméra, LIVE, ordre d'arrivée ; ligne **Invite to Voice ›** sous les participants du salon où l'on est | `voice_participants.dart` (icônes à la place des lettres M/D/V, tri d'arrivée), `_InviteToVoiceRow` ; app `app-voice-connected-sidebar` | Icônes muet/sourd non capturées (je n'étais pas muet) : à confirmer | P1 | ✅ |
+| Panneau « Voice Connected » (réf `voice-panel-userpanel-zoom`) : carte au-dessus du panneau utilisateur, icône signal dans un carré 32, titre vert 14/600, « salon / serveur » 12 gris, infos connexion + raccrocher à droite, 4 boutons pleine largeur Caméra / Partage / **Arcade** / Soundboard | `voice_bar.dart` + `SidebarPanels` (une carte `#202024` rayon 8 qui s'étend sous le rail) ; barre de niveau micro retirée ; bouton PTT conservé (pleine largeur) quand le réglage est actif ; app `app-voice-connected-sidebar` | Soundboard masqué sans permission (Discord : à confirmer) | P1 | ✅ |
+| Panneau utilisateur 58 px à 8 px des bords, sous le rail et la colonne : avatar 32 + statut, nom 16/500, sous-ligne 12 « Online » / « In voice » / « Sharing their screen » / statut perso ; Micro et Casque **avec chevron** (périphériques), Réglages ; fond rouge 12 % quand muet | `user_panel.dart` (`_SplitButton`, menu périphériques via LiveKit `Hardware`), `sidebar_panels.dart` ; app `app-layout-server-text`, `app-voice-connected-sidebar` | État muet non capturé : à confirmer ; carte compte au clic = lot F | P1 | ✅ |
+| En-tête central 49 px **sur toute la largeur** (la liste des membres commence dessous) : `#` + nom 16/500 + sujet après un filet vertical ; à droite Threads · Cloche · Épinglés · **Membres** (blanc quand la liste est visible) · champ de recherche 244×32 qui rétrécit en premier (réf `server-text-channel-members`, `resized-900`) | `message_pane.dart` : `_buildHeaderRow`, `sidePanel` (membres / fil sous l'en-tête), `_HeaderSearchBox`, popover Threads « There are no threads. » jusqu'au lot B, recherche = dialogue existant jusqu'au lot B ; app `app-layout-server-text`, `app-members-hidden` | Glyphe Threads différent (équivalent libre) ; recherche en popover = lot B | P1 | ✅ |
+| Liste membres **264 px** : groupes « Rôle — N », « Online — N », « Offline — N » (14/500 gris, boîte 42), ligne 42 rayon 8, avatar 32 + pastille 10 px, nom 16/500 (`#81828A` ou couleur de rôle), couronne 14 px `#EA9800`, sous-ligne « In voice » / statut perso, hors-ligne à 30 % | `accord_member_list.dart` ; app `app-layout-server-text`, `app-voice-connected-sidebar` | Aucun visible | P1 | ✅ |
+| Masquage liste membres : bouton d'en-tête, **mémorisé** | `memberListVisible` persisté (`AccordSettings`), bouton + Ctrl+U + MCP ; app `app-members-hidden` | Aucun | P1 | ✅ |
+| Points de rupture : Discord ne retire **jamais** la liste des membres ni la colonne salons sur desktop ; le chat se comprime (260 px à 900) ; la recherche rétrécit (réf `resized-1100/900`) | `resolveHomeLayout(desktop:)` : trois colonnes dès 720 px sur desktop/web desktop, règles tactiles en dessous et sur tablette/mobile ; app `app-resized-1100/900` | Aucun visible | P2 | ✅ |
+| Police gg sans → équivalent libre ; icônes → set libre | **Noto Sans** (OFL) + échelle 0,875 ; **Phosphor** Fill/Bold (MIT) via `AppIcons` partout (231 icônes mappées) | Les écrans hors lot A seront comparés dans leur lot | P1 | ✅ |
+| Bande d'onglets de salons | supprimée (`accord_home_tabs.dart`, réglage « Channel tabs ») ; le contrôleur `open_tabs` reste pour l'historique de navigation | Aucun | P2 | ✅ |
 
 ### B. Messages
 
@@ -290,7 +315,10 @@ de l'app (`docs/discord-ref/app-*.jpg`, build web local, même viewport 1568×71
 | GIF (Tenor/Klipy), Nitro, Shop, Quests, Gift, Boost, Bookmarks, Reminders, Speak Message, Apps, App Directory, Family Centre, Billing | Services propriétaires sans backend Accord | Omis (pas de bouton factice) ; onglet GIF = favoris + GIF uploadés |
 | « Activities » | Discord Activities propriétaires | Bouton **Arcade** au même emplacement (panneau vocal + barre d'appel) |
 | Découpage audio du soundboard à l'upload | Pas d'encodeur côté client web | Limite de durée côté serveur + message d'erreur |
-| Police gg sans, icônes Discord | Propriétaires | Police libre proche (à valider : Inter / Noto Sans) + set d'icônes libre proche (à valider : Phosphor ou Lucide) |
+| Police gg sans, icônes Discord | Propriétaires | **Noto Sans** (le repli déclaré par Discord lui-même) avec échelle de texte 0,875 pour retrouver l'encombrement de gg sans ; **Phosphor** Fill + Bold (fork local car `IconData` est `final` dans ce Flutter) |
+| Dossiers de serveurs : capture Discord 2025 | Le glisser-déposer synthétique (extension Chrome, événements DOM) ne déclenche pas la création chez Discord | Images officielles de l'article « Server Folders 101 » (thème 2019) pour la structure ; à confirmer visuellement plus tard |
+| Fenêtre Discord redimensionnée | Fenêtre maximisée : `resize_window` sans effet | Émulation : `zoom` CSS sur `<html>` + `innerWidth`/`innerHeight` simulés + `resize` ; Discord se réorganise comme à la largeur visée |
+| Barre de titre avec boutons de fenêtre sur macOS/Linux | Boutons natifs (feux macOS) et rendu Linux fragile | Barre in-app sur web + Windows (fenêtre sans cadre) ; macOS/Linux gardent le cadre natif au-dessus |
 | Sons Discord | Propriétaires | Sons synthétisés existants (`tool/make_sfx.py`) retravaillés pour être proches en caractère |
 
 ## 5. Ordre des lots proposé (à valider)
@@ -311,4 +339,5 @@ de l'app (`docs/discord-ref/app-*.jpg`, build web local, même viewport 1568×71
 |---|---|---|---|---|---|
 | 2026-11-03 | Étape 0 — audit | (ce fichier) | — | tout | voir §1.1 |
 | 2026-11-03 | Lot D — partage d'écran / Live | `a8c987b6` (serveur `ecdfa2c`) | `desktop-stream-*` (11) / `app-stream-*` (8) | sélecteur desktop (capture Discord desktop à fournir), stream distant (second compte requis : spectateurs, Watch Stream, 2 streams) | §1.1 points 2, 4 (autre streamer), 5, 6 |
+| 2026-11-03 | Lot A — disposition générale | (commit du lot A, id dans l'entrée suivante) | `desktop-resized-*`, `desktop-category-collapsed-unread`, `official-folder-*` (14) / `app-layout-server-text`, `app-rail-hover-tooltip`, `app-channel-list-hover-voice`, `app-voice-connected-sidebar`, `app-members-hidden`, `app-resized-1100/900`, `app-folder-open/closed` (9) | catégories (aucune dans les espaces du compte), pastille mention, état muet du panneau, bannière, Windows sans cadre (non vu), bulle de tooltip sur base sombre, dossiers vs Discord 2025 | §1.1 : 1, 5, 6 ; catégories et dossiers à capturer quand possible |
 | 2026-11-03 | Lot D — complément d'après les images officielles Discord | `5d18cec4` | `official-*` (8), `desktop-stream-others-channel-list` | sélecteur desktop aligné sur les deux étapes officielles (tests widget, pas de capture app Windows), menu du stream regardé = Stop Watching / Mute / Stream Volume, carte PROTIP + double-clic ; reste : tuile « Watch Stream » et compteur côté app (second compte), capture visuelle du sélecteur sur Windows | §1.1 points 5, 6 |

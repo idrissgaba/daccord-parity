@@ -106,7 +106,7 @@ class _DangerZoneSectionState extends ConsumerState<_DangerZoneSection> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.delete_forever, size: 18),
+                : const Icon(AppIcons.deleteForever, size: 18),
             label: const Text('Delete my account'),
           ),
         ),

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
@@ -162,7 +163,7 @@ class _Button extends StatelessWidget {
                 Text(label),
                 if (button.style == ComponentButtonStyle.link) ...[
                   const SizedBox(width: 4),
-                  const Icon(Icons.open_in_new, size: 14),
+                  const Icon(AppIcons.openInNew, size: 14),
                 ],
               ],
             ),
@@ -250,7 +251,7 @@ class _Select extends StatelessWidget {
                 height: 14,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Icon(Icons.checklist, size: 16),
+            : const Icon(AppIcons.checklist, size: 16),
         label: Text(select.placeholder ?? 'Choose'),
       );
     }
@@ -333,7 +334,7 @@ class MessageInteractionHeader extends ConsumerWidget {
       padding: const EdgeInsets.only(bottom: 2),
       child: Row(
         children: [
-          Icon(Icons.subdirectory_arrow_right, size: 14, color: colors.gray),
+          Icon(AppIcons.subdirectoryArrowRight, size: 14, color: colors.gray),
           const SizedBox(width: 4),
           Flexible(
             child: Text.rich(
@@ -417,7 +418,7 @@ class EphemeralFooter extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.visibility_outlined, size: 14, color: colors.gray),
+          Icon(AppIcons.visibilityOutlined, size: 14, color: colors.gray),
           const SizedBox(width: 4),
           Text('Only you can see this · ', style: style),
           InkWell(

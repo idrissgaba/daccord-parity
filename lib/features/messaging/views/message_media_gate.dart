@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/utils/external_url.dart';
 import 'package:flutter/material.dart';
 
@@ -88,7 +89,7 @@ class _ConsentPrompt extends StatelessWidget {
           key: const ValueKey('load-external-message-image'),
           tooltip: label,
           onPressed: onLoad,
-          icon: const Icon(Icons.visibility_off_outlined),
+          icon: const Icon(AppIcons.visibilityOffOutlined),
         ),
       );
     }
@@ -99,7 +100,7 @@ class _ConsentPrompt extends StatelessWidget {
       child: TextButton.icon(
         key: const ValueKey('load-external-message-image'),
         onPressed: onLoad,
-        icon: const Icon(Icons.visibility_off_outlined),
+        icon: const Icon(AppIcons.visibilityOffOutlined),
         label: Text(label),
       ),
     );

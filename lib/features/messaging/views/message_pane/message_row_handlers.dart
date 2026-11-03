@@ -365,43 +365,43 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
       if (copySelection != null)
         AccordMenuEntry(
           label: 'Copy selection',
-          icon: Icons.content_copy,
+          icon: AppIcons.contentCopy,
           onSelected: copySelection,
         ),
       AccordMenuEntry(
         label: 'Add reaction',
-        icon: Icons.add_reaction_outlined,
+        icon: AppIcons.addReactionOutlined,
         onSelected: () => _openReactionPicker(message.id),
       ),
       AccordMenuEntry(
         label: 'Super reaction',
-        icon: Icons.auto_awesome,
+        icon: AppIcons.autoAwesome,
         onSelected: () => _openSuperReactionPicker(message.id),
       ),
       AccordMenuEntry(
         label: 'Reply',
-        icon: Icons.reply,
+        icon: AppIcons.reply,
         onSelected: widget.onReply,
       ),
       AccordMenuEntry(
         label: 'Thread',
-        icon: Icons.forum_outlined,
+        icon: AppIcons.forumOutlined,
         onSelected: () => _openThread(message),
       ),
       AccordMenuEntry(
         label: 'Forward',
-        icon: Icons.shortcut,
+        icon: AppIcons.shortcut,
         onSelected: () => _forward(message),
       ),
       AccordMenuEntry(
         label: 'Mark unread',
-        icon: Icons.mark_chat_unread_outlined,
+        icon: AppIcons.markChatUnreadOutlined,
         onSelected: () => _markUnread(message),
       ),
       if (widget.spaceId case final spaceId?)
         AccordMenuEntry(
           label: 'Copy message link',
-          icon: Icons.link,
+          icon: AppIcons.link,
           onSelected: () {
             Clipboard.setData(
               ClipboardData(
@@ -419,7 +419,7 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
           when !poll.closed && (widget.isOwn || widget.canManageMessages))
         AccordMenuEntry(
           label: 'End poll',
-          icon: Icons.stop_circle_outlined,
+          icon: AppIcons.stopCircleOutlined,
           onSelected: () => _endPoll(message.id),
         ),
       ...buildMessageActionEntries(
@@ -436,13 +436,15 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
               (message.spaceId != null || ref.readIsAdmin()))
             AccordMenuEntry(
               label: 'Block files and delete',
-              icon: Icons.block,
+              icon: AppIcons.block,
               onSelected: () => _blockFiles(message),
             ),
           if (widget.canManageMessages)
             AccordMenuEntry(
               label: message.pinned ? 'Unpin' : 'Pin',
-              icon: message.pinned ? Icons.push_pin_outlined : Icons.push_pin,
+              icon: message.pinned
+                  ? AppIcons.pushPinOutlined
+                  : AppIcons.pushPin,
               onSelected: () => _togglePin(message.id, pinned: message.pinned),
             ),
         ],
@@ -450,14 +452,14 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
       if (canReport)
         AccordMenuEntry(
           label: 'Report',
-          icon: Icons.flag_outlined,
+          icon: AppIcons.flagOutlined,
           onSelected: () => _report(message),
         ),
       if (widget.onLongPressSelect != null) ...[
         const AccordMenuEntry.divider(),
         AccordMenuEntry(
           label: 'Select messages',
-          icon: Icons.checklist,
+          icon: AppIcons.checklist,
           onSelected: widget.onLongPressSelect,
         ),
       ],

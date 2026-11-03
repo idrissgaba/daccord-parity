@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/dialog_title_bar.dart';
@@ -277,8 +278,8 @@ class _ReportDialogState extends ConsumerState<_ReportDialog> {
                   children: [
                     Icon(
                       _outcomes.isEmpty
-                          ? Icons.info_outline
-                          : Icons.check_circle,
+                          ? AppIcons.infoOutline
+                          : AppIcons.checkCircle,
                       color: _outcomes.isEmpty ? colors.gray : colors.green,
                       size: 40,
                     ),

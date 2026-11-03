@@ -1,5 +1,17 @@
 part of 'accord_home.dart';
 
+/// Side of a rail tile.
+const double _kRailTileSize = 40;
+
+/// Gap between rail tiles (the pitch is the tile plus this gap); the
+/// insertion gaps between items provide it.
+const double _kRailGap = 8;
+
+/// Corner radius of a tile at rest (a circle) and once hovered or selected (a
+/// rounded square).
+const double _kRailRestRadius = _kRailTileSize / 2;
+const double _kRailActiveRadius = 12;
+
 /// Payload carried while dragging a rail item, so a drop target can tell a
 /// space drag (reorder / move between folders) from a folder drag (reorder the
 /// whole folder) without overloading a bare id string.
@@ -20,7 +32,7 @@ class _FolderDrag extends _RailDrag {
 /// A drop zone occupying the track between two rail items, so a space or folder
 /// can be inserted *at* that position (e.g. between a space and a folder)
 /// instead of only onto an icon. Grows and shows an insertion bar while a
-/// compatible drag hovers it.
+/// compatible drag hovers it. At rest it is the 8 px gap between tiles.
 class _InsertionGap extends StatelessWidget {
   const _InsertionGap({required this.onDropSpace, required this.onDropFolder});
 
@@ -48,11 +60,11 @@ class _InsertionGap extends StatelessWidget {
         final active = candidate.isNotEmpty;
         return AnimatedContainer(
           duration: const Duration(milliseconds: 120),
-          height: active ? 24 : 12,
+          height: active ? 24 : _kRailGap,
           alignment: Alignment.center,
           child: active
               ? Container(
-                  width: 40,
+                  width: 32,
                   height: 4,
                   decoration: BoxDecoration(
                     color: colors.primary,
@@ -68,8 +80,8 @@ class _InsertionGap extends StatelessWidget {
 
 /// A space icon that can be dragged to reorder (drop in the gaps between tiles)
 /// or to group: dropping another space *onto* it merges the two into a new
-/// folder (Discord-style), and dropping a folder onto it reorders that folder
-/// before this space.
+/// folder, and dropping a folder onto it reorders that folder before this
+/// space.
 class _DraggableSpace extends StatelessWidget {
   const _DraggableSpace({
     required this.space,
@@ -151,6 +163,42 @@ class _DraggableSpace extends StatelessWidget {
   }
 }
 
+/// The unread / mention roll-up of one space on [serverKey], filtered by the
+/// user's mute settings so the rail agrees with the notification gate.
+({bool unread, int mentions}) _watchSpaceBadges(
+  WidgetRef ref,
+  String serverKey,
+  String spaceId,
+) {
+  final spaceMuted = ref.watch(
+    settingsControllerProvider.select(
+      (s) => s.isSpaceMuted(serverKey, spaceId),
+    ),
+  );
+  // `channelNotificationsFor` builds a fresh map, so the stored map is watched
+  // instead.
+  ref.watch(settingsControllerProvider.select((s) => s.channelNotifications));
+  final channelLevels = ref
+      .read(settingsControllerProvider)
+      .channelNotificationsFor(serverKey);
+  return ref.watch(
+    readStateControllerProvider(serverKey).select(
+      (readState) => (
+        unread: readState.spaceShowsUnread(
+          spaceId,
+          spaceMuted: spaceMuted,
+          channelLevels: channelLevels,
+        ),
+        mentions: readState.visibleMentionsInSpace(
+          spaceId,
+          spaceMuted: spaceMuted,
+          channelLevels: channelLevels,
+        ),
+      ),
+    ),
+  );
+}
+
 class _SpaceIcon extends ConsumerWidget {
   const _SpaceIcon({
     required this.space,
@@ -176,39 +224,10 @@ class _SpaceIcon extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = BonfireThemeExtension.of(context);
-    // Roll up this server's READY-hydrated + live read state into one rail
-    // indicator, filtered by the user's mute settings so the rail agrees with
-    // the notification gate. Filtering here rather than in `markUnread` means
-    // unmuting reveals what arrived while muted immediately. Only the slices
-    // that matter are watched, so an unrelated settings write (a draft
-    // keystroke) or another space's read state can't rebuild every rail icon;
-    // `channelNotificationsFor` builds a fresh map, so the stored map is
-    // watched instead.
-    final spaceMuted = ref.watch(
-      settingsControllerProvider.select(
-        (s) => s.isSpaceMuted(serverKey, space.id),
-      ),
-    );
-    ref.watch(settingsControllerProvider.select((s) => s.channelNotifications));
-    final channelLevels = ref
-        .read(settingsControllerProvider)
-        .channelNotificationsFor(serverKey);
-    final (:unread, :mentions) = ref.watch(
-      readStateControllerProvider(serverKey).select(
-        (readState) => (
-          unread: readState.spaceShowsUnread(
-            space.id,
-            spaceMuted: spaceMuted,
-            channelLevels: channelLevels,
-          ),
-          mentions: readState.visibleMentionsInSpace(
-            space.id,
-            spaceMuted: spaceMuted,
-            channelLevels: channelLevels,
-          ),
-        ),
-      ),
-    );
+    // Only the slices that matter are watched, so an unrelated settings write
+    // (a draft keystroke) or another space's read state can't rebuild every
+    // rail icon.
+    final (:unread, :mentions) = _watchSpaceBadges(ref, serverKey, space.id);
     final hasUnread = !selected && unread;
     // Dim the icon while its server's gateway is down, so an unreachable space
     // reads as offline rather than just unselected.
@@ -222,67 +241,177 @@ class _SpaceIcon extends ConsumerWidget {
                 )
                 ?.isUnreachable ??
             false);
-    // No Tooltip here: in the rail, [RailDraggable] owns the name tooltip (its
+    // The green speaker badge of the space whose voice channel we are in.
+    final inVoiceHere = ref.watch(
+      voiceControllerProvider.select(
+        (v) => v.isConnected && v.spaceId == space.id,
+      ),
+    );
+    // No tooltip here: in the rail, [RailDraggable] owns the name tooltip (its
     // long-press trigger must not compete with the drag / menu gesture), and
     // the other host — the hidden-servers sheet — prints the name beside it.
+    return _RailTile(
+      selected: selected,
+      unread: hasUnread,
+      mentions: mentions,
+      voice: inVoiceHere,
+      onTap: onTap,
+      activeColor: colors.primary,
+      restColor: colors.background,
+      builder: (hovered) => Opacity(
+        opacity: unreachable ? 0.4 : 1.0,
+        child: _SpaceIconImage(space: space, cdnUrl: cdnUrl),
+      ),
+    );
+  }
+}
+
+/// The common rail tile: a 40 px square that is a circle at rest and a rounded
+/// square once hovered or selected (150 ms), with the white pill on the rail's
+/// edge saying unread (short), hovered (medium) or selected (tall), and the
+/// red mention badge punched out of the bottom-right corner.
+class _RailTile extends StatelessWidget {
+  const _RailTile({
+    required this.selected,
+    required this.unread,
+    required this.mentions,
+    required this.onTap,
+    required this.activeColor,
+    required this.restColor,
+    required this.builder,
+    this.alwaysSquare = false,
+    this.voice = false,
+    this.foregroundColor,
+    this.activeForegroundColor,
+  });
+
+  final bool selected;
+  final bool unread;
+  final int mentions;
+
+  /// We are in a voice channel of this space: a green speaker badge on the
+  /// tile's top-right corner.
+  final bool voice;
+  final VoidCallback? onTap;
+
+  /// Background once hovered or selected, and at rest.
+  final Color activeColor;
+  final Color restColor;
+
+  /// A rounded square at rest too (folders), instead of a circle.
+  final bool alwaysSquare;
+
+  /// Icon tint at rest / when active, for icon tiles; null leaves the child
+  /// to pick its own.
+  final Color? foregroundColor;
+  final Color? activeForegroundColor;
+
+  final Widget Function(bool hovered) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
     return Center(
       child: _Hover(
         builder: (hovered) {
-          // Round at rest, rounded-square when hovered or selected; a white
-          // pill at the rail edge says unread (short), hovered (medium) or
-          // selected (tall).
-          final radius = BorderRadius.circular(selected || hovered ? 16 : 24);
+          final active = selected || hovered;
+          final radius = BorderRadius.circular(
+            active || alwaysSquare ? _kRailActiveRadius : _kRailRestRadius,
+          );
           final pillHeight = selected
               ? 40.0
               : hovered
               ? 20.0
-              : hasUnread
+              : unread
               ? 8.0
               : 0.0;
+          final tint = active
+              ? (activeForegroundColor ?? foregroundColor)
+              : foregroundColor;
           return GestureDetector(
             onTap: onTap,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: -16,
-                  top: (48 - pillHeight) / 2,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 8,
-                    height: pillHeight,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.horizontal(
-                        right: Radius.circular(4),
+            child: MouseRegion(
+              cursor: onTap == null
+                  ? MouseCursor.defer
+                  : SystemMouseCursors.click,
+              child: SizedBox(
+                width: _kRailTileSize,
+                height: _kRailTileSize,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // The pill sits on the rail's left edge, 16 px left of
+                    // the tile, 4 px wide.
+                    Positioned(
+                      left: -16,
+                      top: (_kRailTileSize - pillHeight) / 2,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 4,
+                        height: pillHeight,
+                        decoration: BoxDecoration(
+                          color: colors.dirtyWhite,
+                          borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(4),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                Opacity(
-                  opacity: unreachable ? 0.4 : 1.0,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 48,
-                    height: 48,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: selected || hovered
-                          ? colors.primary
-                          : colors.background,
-                      borderRadius: radius,
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: _kRailTileSize,
+                      height: _kRailTileSize,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: active ? activeColor : restColor,
+                        borderRadius: radius,
+                      ),
+                      alignment: Alignment.center,
+                      child: tint == null
+                          ? builder(hovered)
+                          : IconTheme.merge(
+                              data: IconThemeData(color: tint),
+                              child: builder(hovered),
+                            ),
                     ),
-                    alignment: Alignment.center,
-                    child: _SpaceIconImage(space: space, cdnUrl: cdnUrl),
-                  ),
+                    if (mentions > 0)
+                      Positioned(
+                        right: -4,
+                        bottom: -4,
+                        child: _MentionBadge(
+                          count: mentions,
+                          ring: colors.foreground,
+                        ),
+                      ),
+                    if (voice)
+                      Positioned(
+                        right: -4,
+                        top: -4,
+                        child: Container(
+                          key: const Key('rail-voice-badge'),
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: colors.foreground,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Container(
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              AppIcons.volumeUp,
+                              size: 10,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                if (mentions > 0)
-                  Positioned(
-                    right: -4,
-                    bottom: -2,
-                    child: _MentionBadge(count: mentions),
-                  ),
-              ],
+              ),
             ),
           );
         },
@@ -318,7 +447,7 @@ class _SpaceIconImage extends StatelessWidget {
   const _SpaceIconImage({
     required this.space,
     required this.cdnUrl,
-    this.size = 48,
+    this.size = _kRailTileSize,
   });
 
   final AccordSpace space;
@@ -342,7 +471,8 @@ class _SpaceIconImage extends StatelessWidget {
         _initials,
         style: Theme.of(context).textTheme.titleSmall!.copyWith(
           color: Colors.white,
-          fontSize: size < 48 ? size / 2 : null,
+          fontSize: size < _kRailTileSize ? size / 2 : 15,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -363,92 +493,62 @@ class _SpaceIconImage extends StatelessWidget {
   }
 }
 
-/// A 48×48 circular utility tile for the rail (Discord-style "home"-row
-/// button): a dark round background with a single icon and a tooltip. Backs
-/// the DM, add-server and hidden-servers affordances below, which differ only
-/// in tooltip, icon, icon size and icon color.
+/// A utility tile of the rail (home, add a server, discover, download): a
+/// translucent grey circle with one icon at rest, a tinted rounded square once
+/// hovered, with the tile name in a tooltip to its right. Backs the DM,
+/// add-server, discover, download and hidden-servers affordances below.
 class _RailIconTile extends StatelessWidget {
   const _RailIconTile({
+    super.key,
     required this.tooltip,
     required this.icon,
     required this.onTap,
-    this.iconSize,
-    this.iconColor,
+    this.iconSize = 20,
+    this.selected = false,
     this.hasUnread = false,
     this.mentionCount = 0,
+    this.activeColor,
   });
 
   final String tooltip;
   final IconData icon;
   final VoidCallback onTap;
-  final double? iconSize;
-
-  /// Icon tint; defaults to the theme's `dirtyWhite`.
-  final Color? iconColor;
+  final double iconSize;
+  final bool selected;
   final bool hasUnread;
   final int mentionCount;
+
+  /// Hover / selection fill; defaults to the accent.
+  final Color? activeColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    return Center(
-      child: Tooltip(
-        message: tooltip,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: colors.darkGray,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  icon,
-                  size: iconSize,
-                  color: iconColor ?? colors.dirtyWhite,
-                ),
-              ),
-              if (mentionCount > 0)
-                Positioned(
-                  right: -4,
-                  top: -2,
-                  child: _MentionBadge(count: mentionCount),
-                )
-              else if (hasUnread)
-                Positioned(
-                  left: -4,
-                  top: 18,
-                  child: Container(
-                    width: 8,
-                    height: 12,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.horizontal(
-                        right: Radius.circular(4),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+    return RailTooltip(
+      message: tooltip,
+      child: _RailTile(
+        selected: selected,
+        unread: hasUnread,
+        mentions: mentionCount,
+        onTap: onTap,
+        activeColor: activeColor ?? colors.primary,
+        restColor: colors.interactive.withValues(alpha: 0.12),
+        foregroundColor: colors.dirtyWhite,
+        activeForegroundColor: Colors.white,
+        builder: (_) => Icon(icon, size: iconSize),
       ),
     );
   }
 }
 
 /// The Direct Messages affordance pinned at the top of the rail, styled as a
-/// space-icon tile (Discord-style "home" button) rather than a small footer
-/// icon. Opens the DM/friends modal.
+/// space-icon tile (the "home" button of other chat apps). Opens the
+/// DM/friends view; selected while no space is.
 class _DirectMessagesButton extends ConsumerWidget {
-  const _DirectMessagesButton({required this.onTap});
+  const _DirectMessagesButton({required this.onTap, required this.selected});
 
   final VoidCallback onTap;
+  final bool selected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -485,9 +585,11 @@ class _DirectMessagesButton extends ConsumerWidget {
       mentions += summary.mentions;
     }
     return _RailIconTile(
-      tooltip: 'Direct messages',
-      icon: Icons.chat_bubble_outline,
-      iconSize: 22,
+      key: const Key('rail-direct-messages'),
+      tooltip: 'Direct Messages',
+      icon: AppIcons.chatBubble,
+      iconSize: 24,
+      selected: selected,
       hasUnread: hasUnread,
       mentionCount: mentions,
       onTap: onTap,
@@ -503,10 +605,45 @@ class _AddServerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _RailIconTile(
-    tooltip: 'Add a server',
-    icon: Icons.add,
-    iconColor: const Color(0xFF43B581),
+    key: const Key('rail-add-server'),
+    tooltip: 'Add a Server',
+    icon: AppIcons.add,
+    activeColor: BonfireThemeExtension.of(context).green,
     onTap: onTap,
+  );
+}
+
+/// The "Discover" (compass) affordance, below "+".
+class _ExploreButton extends StatelessWidget {
+  const _ExploreButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => _RailIconTile(
+    key: const Key('rail-explore'),
+    tooltip: 'Discover',
+    icon: AppIcons.explore,
+    activeColor: BonfireThemeExtension.of(context).green,
+    onTap: onTap,
+  );
+}
+
+/// The "Download Apps" affordance, below "Discover": opens the releases page
+/// of this build's distribution.
+class _DownloadAppsButton extends StatelessWidget {
+  const _DownloadAppsButton();
+
+  @override
+  Widget build(BuildContext context) => _RailIconTile(
+    key: const Key('rail-download-apps'),
+    tooltip: 'Download Apps',
+    icon: AppIcons.download,
+    activeColor: BonfireThemeExtension.of(context).green,
+    onTap: () => launchUrl(
+      Uri.parse('https://github.com/$kUpdateRepo/releases'),
+      mode: LaunchMode.externalApplication,
+    ),
   );
 }
 
@@ -521,8 +658,7 @@ class _HiddenServersButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _RailIconTile(
     tooltip: '$count hidden ${count == 1 ? 'server' : 'servers'}',
-    icon: Icons.visibility_off_outlined,
-    iconSize: 20,
+    icon: AppIcons.visibilityOffOutlined,
     onTap: onTap,
   );
 }

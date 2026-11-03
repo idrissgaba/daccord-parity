@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/messaging/utils/poll_display.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -65,7 +66,7 @@ class _PollViewState extends State<PollView> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.poll_outlined, size: 18, color: colors.primary),
+              Icon(AppIcons.pollOutlined, size: 18, color: colors.primary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(poll.question, style: theme.textTheme.titleSmall),
@@ -141,8 +142,8 @@ class _AnswerRow extends StatelessWidget {
     final theme = Theme.of(context);
     final picked = answer.me == true;
     final IconData icon = multiselect
-        ? (picked ? Icons.check_box : Icons.check_box_outline_blank)
-        : (picked ? Icons.radio_button_checked : Icons.radio_button_unchecked);
+        ? (picked ? AppIcons.checkBox : AppIcons.checkBoxOutlineBlank)
+        : (picked ? AppIcons.radioButtonChecked : AppIcons.radioButtonUnchecked);
     return Material(
       color: colors.foreground,
       borderRadius: BorderRadius.circular(6),
@@ -330,7 +331,7 @@ class _CreatePollDialogState extends State<_CreatePollDialog> {
                         onPressed: () => setState(() {
                           _answers.removeAt(i).dispose();
                         }),
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: const Icon(AppIcons.close, size: 18),
                       ),
                   ],
                 ),
@@ -341,7 +342,7 @@ class _CreatePollDialogState extends State<_CreatePollDialog> {
                     key: const Key('poll-add-answer'),
                     onPressed: () =>
                         setState(() => _answers.add(TextEditingController())),
-                    icon: const Icon(Icons.add, size: 18),
+                    icon: const Icon(AppIcons.add, size: 18),
                     label: const Text('Add answer'),
                   ),
                 ),

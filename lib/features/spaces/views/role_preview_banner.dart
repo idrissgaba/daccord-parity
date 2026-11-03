@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/spaces/controllers/role_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +24,7 @@ class RolePreviewBanner extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
             children: [
-              const Icon(Icons.visibility, size: 16, color: Colors.white),
+              const Icon(AppIcons.visibility, size: 16, color: Colors.white),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

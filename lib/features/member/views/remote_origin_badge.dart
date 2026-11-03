@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:flutter/material.dart';
 
 import 'package:bonfire/theme/theme.dart';
@@ -34,7 +35,7 @@ class RemoteOriginBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.public, size: 12, color: colors.gray),
+          Icon(AppIcons.public, size: 12, color: colors.gray),
           if (showDomain) ...[
             const SizedBox(width: 3),
             Text(

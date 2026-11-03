@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
@@ -256,7 +257,7 @@ class _ScreenShareDialogState extends State<ScreenShareDialog>
           child: IconButton(
             tooltip: 'Close',
             onPressed: _cancel,
-            icon: Icon(Icons.close, color: colors.gray),
+            icon: Icon(AppIcons.close, color: colors.gray),
           ),
         ),
       ],
@@ -367,8 +368,8 @@ class _ScreenShareDialogState extends State<ScreenShareDialog>
                 _Field(
                   colors: colors,
                   icon: isScreen
-                      ? Icons.desktop_windows_outlined
-                      : Icons.web_asset_outlined,
+                      ? AppIcons.desktopWindowsOutlined
+                      : AppIcons.webAssetOutlined,
                   text: source.name,
                   trailing: TextButton(
                     key: const Key('share-change-source'),
@@ -384,7 +385,7 @@ class _ScreenShareDialogState extends State<ScreenShareDialog>
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(Icons.info_outline, size: 16, color: colors.gray),
+                    Icon(AppIcons.infoOutline, size: 16, color: colors.gray),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -408,7 +409,7 @@ class _ScreenShareDialogState extends State<ScreenShareDialog>
                   const SizedBox(height: 8),
                   _Field(
                     colors: colors,
-                    icon: Icons.volume_up,
+                    icon: AppIcons.volumeUp,
                     text: widget.channelName!,
                   ),
                 ],

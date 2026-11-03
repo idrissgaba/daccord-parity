@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/muted_channels.dart';
 import 'package:bonfire/features/channels/controllers/read_state.dart';
@@ -12,19 +13,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 IconData _glyphFor(String? type) {
   switch (type) {
     case 'voice':
-      return Icons.volume_up;
+      return AppIcons.volumeUp;
     case 'stage':
-      return Icons.podcasts;
+      return AppIcons.podcasts;
     case 'forum':
-      return Icons.forum;
+      return AppIcons.forum;
     case 'announcement':
-      return Icons.campaign;
+      return AppIcons.campaign;
     case 'arcade':
-      return Icons.sports_esports_outlined;
+      return AppIcons.sportsEsportsOutlined;
     case 'category':
-      return Icons.folder;
+      return AppIcons.folder;
     default:
-      return Icons.tag;
+      return AppIcons.tag;
   }
 }
 
@@ -71,14 +72,14 @@ Future<void> showChannelContextMenu(
     if (unread)
       AccordMenuEntry(
         label: 'Mark as read',
-        icon: Icons.mark_chat_read_outlined,
+        icon: AppIcons.markChatReadOutlined,
         onSelected: markRead,
       ),
     AccordMenuEntry(
       label: muted ? 'Unmute channel' : 'Mute channel',
       icon: muted
-          ? Icons.notifications_active_outlined
-          : Icons.notifications_off_outlined,
+          ? AppIcons.notificationsActiveOutlined
+          : AppIcons.notificationsOffOutlined,
       onSelected: client == null
           ? null
           : () {
@@ -97,7 +98,7 @@ Future<void> showChannelContextMenu(
       const AccordMenuEntry.divider(),
       AccordMenuEntry(
         label: 'Edit channel',
-        icon: Icons.settings_outlined,
+        icon: AppIcons.settingsOutlined,
         onSelected: () => showEditChannelDialog(
           hostContext,
           spaceId: spaceId,
@@ -106,7 +107,7 @@ Future<void> showChannelContextMenu(
       ),
       AccordMenuEntry(
         label: 'Delete channel',
-        icon: Icons.delete_outline,
+        icon: AppIcons.deleteOutline,
         destructive: true,
         onSelected: () => confirmAndDeleteChannel(
           hostContext,
@@ -144,14 +145,14 @@ Future<void> showCategoryContextMenu(
   final entries = <AccordMenuEntry>[
     AccordMenuEntry(
       label: collapsed ? 'Expand category' : 'Collapse category',
-      icon: collapsed ? Icons.expand_more : Icons.expand_less,
+      icon: collapsed ? AppIcons.expandMore : AppIcons.expandLess,
       onSelected: onToggle,
     ),
     if (canManageChannels) ...[
       const AccordMenuEntry.divider(),
       AccordMenuEntry(
         label: 'Create channel here',
-        icon: Icons.add,
+        icon: AppIcons.add,
         onSelected: () => showCreateChannelDialog(
           hostContext,
           spaceId: spaceId,
@@ -160,7 +161,7 @@ Future<void> showCategoryContextMenu(
       ),
       AccordMenuEntry(
         label: 'Edit category',
-        icon: Icons.settings_outlined,
+        icon: AppIcons.settingsOutlined,
         onSelected: () => showEditChannelDialog(
           hostContext,
           spaceId: spaceId,
@@ -169,7 +170,7 @@ Future<void> showCategoryContextMenu(
       ),
       AccordMenuEntry(
         label: 'Delete category',
-        icon: Icons.delete_outline,
+        icon: AppIcons.deleteOutline,
         destructive: true,
         onSelected: () => confirmAndDeleteChannel(
           hostContext,
@@ -186,6 +187,6 @@ Future<void> showCategoryContextMenu(
     entries: entries,
     globalPosition: globalPosition,
     title: (category.name ?? category.id).toUpperCase(),
-    titleIcon: Icons.folder,
+    titleIcon: AppIcons.folder,
   );
 }

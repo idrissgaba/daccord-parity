@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/experiences/views/arcade_game_artwork.dart';
 import 'package:flutter/material.dart';
@@ -41,7 +42,7 @@ class _ArcadeGamePickerState extends State<ArcadeGamePicker> {
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(AppIcons.close),
                     tooltip: 'Close',
                   ),
                 ],
@@ -56,7 +57,7 @@ class _ArcadeGamePickerState extends State<ArcadeGamePicker> {
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                 child: TextField(
                   decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: Icon(AppIcons.search),
                     hintText: 'Find a game',
                     border: OutlineInputBorder(),
                   ),
@@ -135,7 +136,7 @@ class _GameCard extends StatelessWidget {
                           style: theme.textTheme.titleLarge,
                         ),
                       ),
-                      Icon(Icons.arrow_forward_rounded, color: color, size: 20),
+                      Icon(AppIcons.arrowForwardRounded, color: color, size: 20),
                     ],
                   ),
                   const SizedBox(height: 6),

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/spaces/views/rail_draggable.dart';
 import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -58,7 +59,7 @@ class _RailState extends State<_Rail> {
         entries: [
           AccordMenuEntry(
             label: 'Mute server',
-            icon: Icons.notifications_off_outlined,
+            icon: AppIcons.notificationsOffOutlined,
             onSelected: () => widget.log.add('mute:$name'),
           ),
         ],

@@ -60,7 +60,7 @@ class _ControlBar extends ConsumerWidget {
                 if (canPopOutStream && _popOutTrack(notifier.session) != null)
                   _ControlButton(
                     key: const Key('voice-pop-out'),
-                    icon: Icons.open_in_new,
+                    icon: AppIcons.openInNew,
                     tooltip: 'Pop Out',
                     active: false,
                     activeColor: colors.primary,
@@ -71,7 +71,7 @@ class _ControlBar extends ConsumerWidget {
                   valueListenable: voiceViewExpanded,
                   builder: (context, expanded, _) => _ControlButton(
                     key: const Key('voice-full-screen'),
-                    icon: expanded ? Icons.fullscreen_exit : Icons.fullscreen,
+                    icon: expanded ? AppIcons.fullscreenExit : AppIcons.fullscreen,
                     tooltip: expanded
                         ? 'Exit full screen (Esc)'
                         : 'Full screen',
@@ -88,8 +88,8 @@ class _ControlBar extends ConsumerWidget {
             children: [
               _ControlButton(
                 icon: voice.selfMute || !voice.canSpeak
-                    ? Icons.mic_off
-                    : Icons.mic,
+                    ? AppIcons.micOff
+                    : AppIcons.mic,
                 tooltip: blockedReason ?? (voice.selfMute ? 'Unmute' : 'Mute'),
                 active: voice.selfMute || !voice.canSpeak,
                 activeColor: colors.red,
@@ -97,8 +97,8 @@ class _ControlBar extends ConsumerWidget {
               ),
               _ControlButton(
                 icon: voice.selfDeaf || voice.serverDeaf
-                    ? Icons.headset_off
-                    : Icons.headset,
+                    ? AppIcons.headsetOff
+                    : AppIcons.headset,
                 tooltip: voice.serverDeaf
                     ? 'A moderator has deafened you.'
                     : (voice.selfDeaf ? 'Undeafen' : 'Deafen'),
@@ -110,10 +110,10 @@ class _ControlBar extends ConsumerWidget {
                 _ControlButton(
                   key: const Key('stage-action'),
                   icon: switch (stageAction) {
-                    StageAction.raiseHand => Icons.back_hand_outlined,
-                    StageAction.lowerHand => Icons.back_hand,
-                    StageAction.speak => Icons.mic_external_on,
-                    StageAction.leaveStage => Icons.group,
+                    StageAction.raiseHand => AppIcons.backHandOutlined,
+                    StageAction.lowerHand => AppIcons.backHand,
+                    StageAction.speak => AppIcons.micExternalOn,
+                    StageAction.leaveStage => AppIcons.group,
                   },
                   tooltip: switch (stageAction) {
                     StageAction.raiseHand => 'Raise hand to speak',
@@ -138,7 +138,7 @@ class _ControlBar extends ConsumerWidget {
                 ),
               if (!inAudience)
                 _ControlButton(
-                  icon: voice.selfVideo ? Icons.videocam_off : Icons.videocam,
+                  icon: voice.selfVideo ? AppIcons.videocamOff : AppIcons.videocam,
                   tooltip: voice.selfVideo ? 'Stop camera' : 'Camera',
                   active: voice.selfVideo,
                   activeColor: colors.green,
@@ -147,8 +147,8 @@ class _ControlBar extends ConsumerWidget {
               if (canShareScreen && !inAudience) ...[
                 _ControlButton(
                   icon: voice.selfStream
-                      ? Icons.stop_screen_share
-                      : Icons.screen_share,
+                      ? AppIcons.stopScreenShare
+                      : AppIcons.screenShare,
                   tooltip: voice.selfStream
                       ? 'Stop Streaming'
                       : 'Share Your Screen',
@@ -162,7 +162,7 @@ class _ControlBar extends ConsumerWidget {
                   Builder(
                     builder: (context) => _ControlButton(
                       key: const Key('stream-menu-chevron'),
-                      icon: Icons.keyboard_arrow_down,
+                      icon: AppIcons.keyboardArrowDown,
                       tooltip: 'Stream options',
                       active: true,
                       activeColor: colors.green,
@@ -177,14 +177,14 @@ class _ControlBar extends ConsumerWidget {
                   ),
               ],
               _ControlButton(
-                icon: Icons.settings,
+                icon: AppIcons.settings,
                 tooltip: 'Voice settings',
                 active: false,
                 activeColor: colors.primary,
                 onPressed: () => showVoiceSettings(context),
               ),
               _ControlButton(
-                icon: Icons.call_end,
+                icon: AppIcons.callEnd,
                 tooltip: 'Disconnect',
                 active: true,
                 activeColor: colors.red,

@@ -1,3 +1,4 @@
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/onboarding/models/onboarding_step.dart';
 import 'package:bonfire/features/onboarding/views/onboarding_anchors.dart';
 import 'package:bonfire/features/onboarding/views/onboarding_overlay.dart';
@@ -22,20 +23,20 @@ const _steps = <OnboardingStep>[
     id: 'one',
     title: 'Step one',
     body: 'The first thing.',
-    icon: Icons.looks_one,
+    icon: AppIcons.looksOne,
   ),
   OnboardingStep(
     id: 'two',
     title: 'Step two',
     body: 'The second thing.',
-    icon: Icons.looks_two,
+    icon: AppIcons.looksTwo,
     anchors: <OnboardingAnchorId>[OnboardingAnchorId.spaceRail],
   ),
   OnboardingStep(
     id: 'three',
     title: 'Step three',
     body: 'The last thing.',
-    icon: Icons.looks_3,
+    icon: AppIcons.looks3,
   ),
 ];
 
@@ -157,7 +158,7 @@ void main() {
               id: 'only',
               title: 'Only',
               body: 'One card.',
-              icon: Icons.info,
+              icon: AppIcons.info,
             ),
           ],
           onFinish: (c) => completed = c,
