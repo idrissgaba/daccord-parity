@@ -36,6 +36,16 @@ void main() {
       expect(uri.endsWith(base64Encode(bytes)), isTrue);
     });
 
+    test('buildDataUri infers audio mime for soundboard uploads', () {
+      final bytes = Uint8List.fromList([1, 2, 3]);
+      expect(AccordCDN.buildDataUri(bytes, 'horn.OGG'),
+          startsWith('data:audio/ogg;base64,'));
+      expect(AccordCDN.buildDataUri(bytes, 'horn.mp3'),
+          startsWith('data:audio/mpeg;base64,'));
+      expect(AccordCDN.buildDataUri(bytes, 'horn.wav'),
+          startsWith('data:audio/wav;base64,'));
+    });
+
     test('emoji', () {
       expect(AccordCDN.emoji('9', cdnUrl: 'https://cdn'),
           'https://cdn/emojis/9.png');

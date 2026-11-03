@@ -3,6 +3,7 @@ import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/dialog_title_bar.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/shared/utils/responsive_dialog.dart';
+import 'package:bonfire/shared/utils/rest_result_ext.dart';
 import 'package:bonfire/shared/utils/self_loading_list.dart';
 import 'package:bonfire/shared/utils/text_prompt_dialog.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -90,7 +91,7 @@ class _SoundboardDialogState extends ConsumerState<_SoundboardDialog>
     if (result.ok) {
       await load();
     } else {
-      setState(() => error = 'Failed to add sound');
+      setState(() => error = result.errorOr('Failed to add sound'));
     }
   }
 

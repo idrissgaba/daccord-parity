@@ -62,7 +62,8 @@ class AccordCDN {
   }
 
   /// Builds a `data:` URI from raw file [bytes], inferring the MIME type from
-  /// [filePath]'s extension. Suitable for avatar/icon/banner upload fields.
+  /// [filePath]'s extension. Suitable for avatar/icon/banner upload fields and
+  /// soundboard audio (ogg, mp3, wav).
   static String buildDataUri(Uint8List bytes, String filePath) {
     final dotIndex = filePath.lastIndexOf('.');
     final ext =
@@ -78,6 +79,17 @@ class AccordCDN {
         break;
       case 'gif':
         mime = 'image/gif';
+        break;
+      case 'ogg':
+      case 'oga':
+      case 'opus':
+        mime = 'audio/ogg';
+        break;
+      case 'mp3':
+        mime = 'audio/mpeg';
+        break;
+      case 'wav':
+        mime = 'audio/wav';
         break;
       default:
         mime = 'image/png';
