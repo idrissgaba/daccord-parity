@@ -119,3 +119,12 @@ Constat : l'envoi était déjà à 96 kbps Opus pleine bande, sans DTX, avec red
 Ajouté : un bouton **Connection info** dans la carte « Voice Connected » (codec, débit, pertes, gigue, aller-retour pour le micro ; débit, pertes, gigue, dissimulation par participant ; verdict de qualité du serveur), rafraîchi toutes les 2 s. Si les pertes ou la dissimulation dépassent 1 % le son se dégrade, au-delà de 5 % des mots sautent : c'est alors le réseau (UDP 7882 via la Freebox), pas le micro.
 
 Ce qui reste hors de portée sans composant externe : la suppression de bruit par apprentissage (Krisp chez Discord) ; les réglages Voice & Video permettent de couper la suppression de bruit / l'AGC WebRTC si ce sont eux qui dénaturent la voix. La qualité entendue dépend aussi du client de l'émetteur (Godot, web, Windows).
+
+## 9. Soundboard (builds 18 et 19, 3 novembre)
+
+- **Build 18 (déployé)** : l'ajout de sons OGG échouait (« Failed to add sound ») parce que `AccordCDN.buildDataUri` ne connaissait que les images et envoyait `data:image/png` ; le serveur n'accepte que `audio/ogg`, `audio/mpeg`, `audio/wav` (2 Mo max). Les types audio sont corrigés et l'app affiche désormais le message d'erreur du serveur.
+- **Build 19 (compilé, pas encore déployé — le propriétaire a une autre modification à faire avant)** : « play » ne faisait rien. Le serveur ne joue pas le son : il diffuse `soundboard.play` à l'espace, filtré par l'intent `soundboard`, que le client ne demandait pas, et personne n'écoutait l'événement. Le client demande maintenant l'intent et joue le son lui-même (via media_kit, qui lit l'OGG même sur Windows LTSC) quand il est dans le salon vocal de l'émetteur, sans sourdine casque, émetteur non coupé localement. Fenêtre façon Discord : tuiles compactes, bouton d'aperçu privé, tuiles grisées hors vocal, délai de 1,5 s par son, curseur « Soundboard volume » enregistré.
+- Tests : `test/features/voice/soundboard_player_test.dart` (règles d'écoute, volume) ; tests events/auth/voice/spaces au vert (505).
+- À valider à la main une fois déployé : ajouter un `.ogg`, le jouer en vocal à deux (les deux clients en build 19), aperçu hors vocal, curseur de volume.
+- Les autres clients (Godot, anciens builds) n'entendront pas les sons tant qu'ils n'écoutent pas `soundboard.play`.
+
