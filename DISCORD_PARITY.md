@@ -165,7 +165,7 @@ Colonnes : Élément Discord attendu | État actuel dans l'app | Écart précis 
 
 ### A. Disposition générale
 
-Lot livré le 2026-11-03 (commits du lot, voir §6). « réf » = capture Discord ; « app » = capture
+Lot livré le 2026-11-03 (commit `a66c1ef9`, voir §6). « réf » = capture Discord ; « app » = capture
 de l'app (`docs/discord-ref/app-*.png`, build web local, 1920×927 réduit à 1568). Les menus
 (en-tête serveur, clic droit) restent au lot F, le composeur et l'accueil DM au lot B.
 
@@ -339,5 +339,5 @@ de l'app (`docs/discord-ref/app-*.jpg`, build web local, même viewport 1568×71
 |---|---|---|---|---|---|
 | 2026-11-03 | Étape 0 — audit | (ce fichier) | — | tout | voir §1.1 |
 | 2026-11-03 | Lot D — partage d'écran / Live | `a8c987b6` (serveur `ecdfa2c`) | `desktop-stream-*` (11) / `app-stream-*` (8) | sélecteur desktop (capture Discord desktop à fournir), stream distant (second compte requis : spectateurs, Watch Stream, 2 streams) | §1.1 points 2, 4 (autre streamer), 5, 6 |
-| 2026-11-03 | Lot A — disposition générale | (commit du lot A, id dans l'entrée suivante) | `desktop-resized-*`, `desktop-category-collapsed-unread`, `official-folder-*` (14) / `app-layout-server-text`, `app-rail-hover-tooltip`, `app-channel-list-hover-voice`, `app-voice-connected-sidebar`, `app-members-hidden`, `app-resized-1100/900`, `app-folder-open/closed` (9) | catégories (aucune dans les espaces du compte), pastille mention, état muet du panneau, bannière, Windows sans cadre (non vu), bulle de tooltip sur base sombre, dossiers vs Discord 2025 | §1.1 : 1, 5, 6 ; catégories et dossiers à capturer quand possible |
+| 2026-11-03 | Lot A — disposition générale | `a66c1ef9` | `desktop-resized-*`, `desktop-category-collapsed-unread`, `official-folder-*` (14) / `app-layout-server-text`, `app-rail-hover-tooltip`, `app-channel-list-hover-voice`, `app-voice-connected-sidebar`, `app-members-hidden`, `app-resized-1100/900`, `app-folder-open/closed` (9) | catégories (aucune dans les espaces du compte), pastille mention, état muet du panneau, bannière, Windows sans cadre (non vu), bulle de tooltip sur base sombre, dossiers vs Discord 2025 | §1.1 : 1, 5, 6 ; catégories et dossiers à capturer quand possible |
 | 2026-11-03 | Lot D — complément d'après les images officielles Discord | `5d18cec4` | `official-*` (8), `desktop-stream-others-channel-list` | sélecteur desktop aligné sur les deux étapes officielles (tests widget, pas de capture app Windows), menu du stream regardé = Stop Watching / Mute / Stream Volume, carte PROTIP + double-clic ; reste : tuile « Watch Stream » et compteur côté app (second compte), capture visuelle du sélecteur sur Windows | §1.1 points 5, 6 |
