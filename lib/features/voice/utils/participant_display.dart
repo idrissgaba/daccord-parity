@@ -2,9 +2,15 @@ import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:flutter/material.dart';
 
-/// How a voice participant is presented: display name, avatar image URL, and
-/// the imageless-avatar background color.
-typedef ParticipantDisplay = ({String name, String? avatarUrl, Color color});
+/// How a voice participant is presented: display name, avatar image URL, the
+/// imageless-avatar background color, and the profile accent colour they
+/// chose (null when they chose none), which their call tile wears.
+typedef ParticipantDisplay = ({
+  String name,
+  String? avatarUrl,
+  Color color,
+  Color? accent,
+});
 
 /// Resolves [userId]'s display identity for the voice surfaces, preferring the
 /// space's member entry (nickname + per-space avatar override) over the bare
@@ -30,5 +36,6 @@ ParticipantDisplay participantDisplay(
     avatarUrl:
         accordMemberAvatarUrl(member, cdnUrl) ?? accordAvatarUrl(user, cdnUrl),
     color: accordAvatarColor(user, userId),
+    accent: accordAccentColor(user),
   );
 }

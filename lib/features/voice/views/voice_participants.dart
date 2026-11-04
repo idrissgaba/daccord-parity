@@ -11,7 +11,7 @@ import 'package:bonfire/features/user/controllers/accord_users.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
 import 'package:bonfire/features/voice/utils/participant_display.dart';
-import 'package:bonfire/features/voice/views/user_volume_menu.dart';
+import 'package:bonfire/features/voice/views/voice_participant_menu.dart';
 import 'package:bonfire/features/voice/views/voice_moderation_menu.dart';
 import 'package:bonfire/features/voice/views/voice_view.dart' show LiveBadge;
 import 'package:bonfire/shared/utils/platform.dart';
@@ -176,21 +176,19 @@ class VoiceParticipantList extends ConsumerWidget {
               onWatchStream: row.voiceState.selfStream
                   ? () => watchStream(row.voiceState.userId)
                   : null,
-              // Our own volume isn't adjustable; everyone else's is, for us only.
-              // Moderators also get the voice moderation actions, on any row.
-              onOpenVolume:
-                  serverKey == null ||
-                      (row.voiceState.userId == selfUserId && !moderation.any)
+              // The one participant menu (profile, mention, mute, volume,
+              // moderation, copy id), on every row including our own.
+              onOpenVolume: serverKey == null
                   ? null
-                  : (position) => showUserVolumeMenu(
+                  : (position) => showVoiceParticipantMenu(
                       context,
+                      ref,
                       serverKey: serverKey,
                       userId: row.voiceState.userId,
                       name: row.display.name,
                       globalPosition: position,
                       spaceId: spaceId,
                       channelId: channelId,
-                      showVolume: row.voiceState.userId != selfUserId,
                     ),
             ),
             row.voiceState.userId,

@@ -263,12 +263,16 @@ Color accordOnColor(Color background) =>
 /// `accent_color` when set, otherwise the deterministic [accordIdColor] derived
 /// from [fallbackId]. "Transparent" in the picker means no `accent_color`, which
 /// falls through to the auto color — never a blank swatch.
-Color accordAvatarColor(AccordUser? user, String fallbackId) {
+Color accordAvatarColor(AccordUser? user, String fallbackId) =>
+    accordAccentColor(user) ?? accordIdColor(fallbackId);
+
+/// The profile accent colour [user] chose, or null for none.
+Color? accordAccentColor(AccordUser? user) {
   final accent = user?.accentColor;
   if (accent is int && accent > 0) {
     return Color(0xFF000000 | (accent & 0xFFFFFF));
   }
-  return accordIdColor(fallbackId);
+  return null;
 }
 
 /// The dot color for a presence status, or null for offline/unknown (callers

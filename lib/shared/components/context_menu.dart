@@ -1,4 +1,5 @@
 import 'package:bonfire/shared/utils/platform.dart';
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 
@@ -20,23 +21,48 @@ const _kSheetExitDuration = Duration(milliseconds: 133);
 class AccordMenuEntry {
   const AccordMenuEntry({
     required this.label,
+    this.key,
     this.icon,
     this.subtitle,
     this.onSelected,
     this.destructive = false,
     this.enabled = true,
-  }) : isDivider = false;
+    this.checked,
+  }) : isDivider = false,
+       child = null,
+       height = 40;
 
   const AccordMenuEntry.divider()
     : label = '',
+      key = null,
       icon = null,
       subtitle = null,
       onSelected = null,
       destructive = false,
       enabled = false,
-      isDivider = true;
+      checked = null,
+      isDivider = true,
+      child = null,
+      height = 1;
+
+  /// A row holding an arbitrary live widget (a slider, say) of [height]
+  /// pixels in the anchored menu. It is never "selected": the widget handles
+  /// its own interaction and the menu stays open.
+  const AccordMenuEntry.widget({required Widget this.child, this.height = 56})
+    : label = '',
+      key = null,
+      icon = null,
+      subtitle = null,
+      onSelected = null,
+      destructive = false,
+      enabled = true,
+      checked = null,
+      isDivider = false;
 
   final String label;
+
+  /// Identifies the row in the tree (tests).
+  final Key? key;
   final IconData? icon;
 
   /// Secondary line shown under [label] in the bottom-sheet form only (anchored
@@ -51,7 +77,67 @@ class AccordMenuEntry {
   final bool enabled;
   final bool isDivider;
 
-  bool get _interactive => isDivider ? false : enabled && onSelected != null;
+  /// A checkbox at the row's right edge, as the menus of other chat apps draw
+  /// their toggles (Mute, Deafen, …). Selecting the row calls [onSelected].
+  final bool? checked;
+
+  /// See [AccordMenuEntry.widget].
+  final Widget? child;
+  final double height;
+
+  bool get isWidget => child != null;
+
+  bool get _interactive =>
+      isDivider || isWidget ? false : enabled && onSelected != null;
+}
+
+/// The right-aligned checkbox of a toggling menu row: a 20 px rounded square,
+/// filled with the accent colour and a tick when on.
+class _MenuCheck extends StatelessWidget {
+  const _MenuCheck({required this.checked, this.destructive = false});
+
+  final bool checked;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final on = destructive ? colors.red : colors.primary;
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        color: checked ? on : Colors.transparent,
+        borderRadius: BorderRadius.circular(4),
+        border: checked ? null : Border.all(color: colors.gray, width: 1.5),
+      ),
+      child: checked
+          ? const Icon(AppIcons.check, size: 16, color: Colors.white)
+          : null,
+    );
+  }
+}
+
+/// Hosts a live widget inside an anchored menu, which otherwise only offers
+/// selectable rows.
+class _WidgetMenuEntry extends PopupMenuEntry<int> {
+  const _WidgetMenuEntry({super.key, required this.height, required this.child});
+
+  final Widget child;
+
+  @override
+  final double height;
+
+  @override
+  bool represents(int? value) => false;
+
+  @override
+  State<_WidgetMenuEntry> createState() => _WidgetMenuEntryState();
+}
+
+class _WidgetMenuEntryState extends State<_WidgetMenuEntry> {
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Shows a context menu for [entries]. On desktop layouts it opens an anchored
@@ -65,21 +151,43 @@ Future<void> showAccordContextMenu(
   Offset? globalPosition,
   String? title,
   IconData? titleIcon,
+  bool preferAbove = false,
 }) {
   if (shouldUseDesktopLayout(context) && globalPosition != null) {
-    return _showAnchored(context, entries, globalPosition);
+    return _showAnchored(context, entries, globalPosition, preferAbove);
   }
   return _showSheet(context, entries, title, titleIcon);
+}
+
+/// The height an anchored menu of [entries] takes (rows, dividers and the
+/// menu's own padding), for placing it above its anchor.
+double _anchoredHeight(List<AccordMenuEntry> entries) {
+  var height = 16.0;
+  for (final e in entries) {
+    height += e.isDivider ? 16 : e.height;
+  }
+  return height;
 }
 
 Future<void> _showAnchored(
   BuildContext context,
   List<AccordMenuEntry> entries,
   Offset position,
+  bool preferAbove,
 ) async {
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
   if (overlay == null) return;
   final colors = BonfireThemeExtension.of(context);
+  // Opened from a button in a bottom bar, the menu stands above the button
+  // (8 px clear of it) rather than spilling below.
+  final anchor = preferAbove
+      ? Rect.fromLTWH(
+          (position.dx - 90).clamp(8.0, overlay.size.width - 8),
+          (position.dy - 8 - _anchoredHeight(entries)).clamp(0.0, position.dy),
+          0,
+          0,
+        )
+      : position & const Size(40, 40);
   final items = <PopupMenuEntry<int>>[];
   for (var i = 0; i < entries.length; i++) {
     final entry = entries[i];
@@ -87,9 +195,16 @@ Future<void> _showAnchored(
       items.add(const PopupMenuDivider());
       continue;
     }
+    if (entry.isWidget) {
+      items.add(
+        _WidgetMenuEntry(key: entry.key, height: entry.height, child: entry.child!),
+      );
+      continue;
+    }
     final color = entry.destructive ? colors.red : colors.dirtyWhite;
     items.add(
       PopupMenuItem<int>(
+        key: entry.key,
         value: i,
         enabled: entry._interactive,
         height: 40,
@@ -103,10 +218,23 @@ Future<void> _showAnchored(
               child: Text(
                 entry.label,
                 style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                  color: entry.destructive ? colors.red : null,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: entry.destructive
+                      ? colors.red
+                      : entry._interactive
+                      ? colors.dirtyWhite
+                      : colors.gray,
                 ),
               ),
             ),
+            if (entry.checked != null) ...[
+              const SizedBox(width: 16),
+              _MenuCheck(
+                checked: entry.checked!,
+                destructive: entry.destructive,
+              ),
+            ],
           ],
         ),
       ),
@@ -115,10 +243,7 @@ Future<void> _showAnchored(
   final selected = await showMenu<int>(
     context: context,
     color: colors.foreground,
-    position: RelativeRect.fromRect(
-      position & const Size(40, 40),
-      Offset.zero & overlay.size,
-    ),
+    position: RelativeRect.fromRect(anchor, Offset.zero & overlay.size),
     items: items,
     popUpAnimationStyle: AnimationStyle(duration: _kAnchoredMenuDuration),
   );
@@ -164,8 +289,17 @@ Future<void> _showSheet(
               for (final entry in entries)
                 if (entry.isDivider)
                   const Divider(height: 1)
+                else if (entry.isWidget)
+                  KeyedSubtree(key: entry.key, child: entry.child!)
                 else
                   ListTile(
+                    key: entry.key,
+                    trailing: entry.checked == null
+                        ? null
+                        : _MenuCheck(
+                            checked: entry.checked!,
+                            destructive: entry.destructive,
+                          ),
                     leading: entry.icon == null
                         ? null
                         : Icon(

@@ -228,9 +228,14 @@ class SoundManager {
   /// where a one-shot would break the call's audio session
   /// ([allowsOneShotInCall]).
   Future<void> play(String name) async {
+    debugPlayed.add(name);
     if (disabledSounds.contains(name)) return;
     return preview(name);
   }
+
+  /// Every name [play] was asked for, whether or not it sounded (tests).
+  @visibleForTesting
+  final debugPlayed = <String>[];
 
   /// Plays [name] regardless of [disabledSounds] — the Settings page's
   /// "listen" button.

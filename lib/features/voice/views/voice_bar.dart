@@ -243,6 +243,7 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
                             context,
                             ref,
                             globalPosition: menuAnchorOf(context),
+                            preferAbove: true,
                           )
                         : () => toggleScreenShareWithPicker(context, ref),
                   ),

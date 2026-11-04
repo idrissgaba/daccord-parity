@@ -365,17 +365,33 @@ class VoiceController extends _$VoiceController with _VoiceAfk, _PushToTalk {
   @override
   void toggleDeafen() => setDeafen(!state.selfDeaf);
 
+  /// Whether the mic was already off when we deafened: undeafening then
+  /// leaves it off, where a mute the deafen caused is lifted with it.
+  bool _mutedBeforeDeafen = false;
+
+  /// Deafening also mutes the mic, and undeafening unmutes it unless it was
+  /// muted beforehand, as in other voice chat apps.
   void setDeafen(bool deafened) {
     _afkMonitor?.markActivity();
+    if (deafened == state.selfDeaf) return;
+    if (deafened) {
+      _mutedBeforeDeafen = state.selfMute;
+    }
+    final mute = deafened ? true : (_mutedBeforeDeafen ? state.selfMute : false);
+    final micChanged = mute != state.selfMute;
     if (!state.isConnected) {
-      state = state.copyWith(selfDeaf: deafened);
+      state = state.copyWith(selfDeaf: deafened, selfMute: mute);
       soundManager.play(deafened ? 'deafen' : 'undeafen');
       return;
     }
     _session?.setDeafened(deafened);
-    state = state.copyWith(selfDeaf: deafened);
+    state = state.copyWith(selfDeaf: deafened, selfMute: mute);
     soundManager.play(deafened ? 'deafen' : 'undeafen');
     _sendVoiceStateUpdate();
+    final session = _session;
+    if (session != null && micChanged && (mute || state.canSpeak)) {
+      unawaited(_applyMic(session, enabled: !mute));
+    }
   }
 
   Future<void> toggleVideo() async {
@@ -588,6 +604,9 @@ class VoiceController extends _$VoiceController with _VoiceAfk, _PushToTalk {
     if (leftChannel != null && state.channelId != leftChannel) return;
     _reconnectAttempted = false;
     await _session?.disconnect();
+    // Being pulled out of voice sounds like leaving it, as in other chat
+    // apps; it used to go silently.
+    soundManager.play('voice_leave');
     soundManager.voiceSessionActive = false;
     state = const VoiceConnection();
     _syncAfk();

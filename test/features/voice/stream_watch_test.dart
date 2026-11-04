@@ -124,7 +124,9 @@ void main() {
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: Offset.zero);
     addTearDown(gesture.removePointer);
-    await gesture.moveTo(tester.getCenter(find.text('LIVE')));
+    await gesture.moveTo(
+      tester.getCenter(find.byKey(const Key('voice-tile-u2:screen'))),
+    );
     await tester.pump();
     expect(tile, findsOneWidget);
     await tester.tap(tile);

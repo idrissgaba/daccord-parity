@@ -102,6 +102,22 @@ class _ComposerState extends ConsumerState<_Composer>
     // EditableText's own paste only handles inline text), and Shift+Enter to
     // insert a newline instead of sending.
     _focusNode.onKeyEvent = _onComposerKey;
+    // A "Mention" asked for elsewhere (the voice participant menu) lands
+    // here, now or when this composer mounts.
+    composerInsertRequest.addListener(_takeInsertRequest);
+    final pending = takeComposerInsert();
+    if (pending != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _insertAtCursor('$pending ');
+      });
+    }
+  }
+
+  void _takeInsertRequest() {
+    final text = composerInsertRequest.value;
+    if (text == null || !mounted) return;
+    composerInsertRequest.value = null;
+    _insertAtCursor('$text ');
   }
 
   KeyEventResult _onComposerKey(FocusNode node, KeyEvent event) {
@@ -411,6 +427,7 @@ class _ComposerState extends ConsumerState<_Composer>
 
   @override
   void dispose() {
+    composerInsertRequest.removeListener(_takeInsertRequest);
     _cooldownTicker?.cancel();
     _saveDraft(widget.channelId, _controller.text);
     _controller.dispose();

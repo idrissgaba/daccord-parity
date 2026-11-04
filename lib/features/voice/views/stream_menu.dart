@@ -17,11 +17,13 @@ Future<void> showStreamMenu(
   WidgetRef ref, {
   Offset? globalPosition,
   VideoTrack? popOutTrack,
+  bool preferAbove = false,
 }) {
   final voice = ref.read(voiceControllerProvider.notifier);
   return showAccordContextMenu(
     context,
     globalPosition: globalPosition,
+    preferAbove: preferAbove,
     title: 'Stream',
     entries: [
       AccordMenuEntry(

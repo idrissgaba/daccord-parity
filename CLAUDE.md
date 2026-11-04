@@ -235,6 +235,16 @@ share's source and quality change live via `VoiceSession.changeScreenShareSource
 mechanism, `voiceViewExpanded` (in place); DM calls render inside the
 conversation through `MessagePane.topPanel`. Pop-out exists only on the web
 (native Picture-in-Picture, `voice/services/stream_popout.dart`).
+Call view (lot C): the view sits on black; the control bar (`voice_view/control_bar.dart`:
+[mic ▾][camera ▾] · share · Arcade · soundboard · "…" · hang-up, invite at the
+left, pop-out/full screen at the right, no deafen or settings) only shows while
+the pointer is on the view on desktop, and tiles name themselves on the same
+cue. One participant menu, `voice_participant_menu.dart`, serves tiles and the
+channel rows (profile, mention via `composer_insert.dart`, mute/deafen or local
+mute + volume, moderation, copy id); `showWatchedStreamMenu` is the watched
+stream's. `AccordMenuEntry` supports `checked`, `.widget` rows and
+`preferAbove`. Deafening also mutes; undeafening restores the mic unless it
+was muted beforehand. A forced disconnect plays `voice_leave`.
 
 MCP's optional `space_management` group provides create/update space and
 create/update/delete/reorder channel tools. Its schemas and validated handlers

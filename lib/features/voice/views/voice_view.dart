@@ -3,7 +3,7 @@ import 'dart:async' show unawaited;
 import 'dart:math' as math;
 
 import 'package:accordkit/accordkit.dart'
-    show AccordMember, AccordUser, AccordVoiceState;
+    show AccordMember, AccordPermission, AccordUser, AccordVoiceState;
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
@@ -15,7 +15,14 @@ import 'package:bonfire/features/voice/services/voice_session.dart'
     show VoiceSession;
 import 'package:bonfire/features/voice/utils/participant_display.dart';
 import 'package:bonfire/features/voice/utils/audio_output_support.dart';
-import 'package:bonfire/features/voice/views/user_volume_menu.dart';
+import 'package:bonfire/features/voice/views/voice_participant_menu.dart';
+import 'package:bonfire/features/experiences/views/arcade.dart';
+import 'package:bonfire/features/member/utils/permissions.dart';
+import 'package:bonfire/features/spaces/controllers/spaces.dart';
+import 'package:bonfire/features/spaces/views/accord_invites.dart';
+import 'package:bonfire/features/spaces/views/accord_soundboard.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
+import 'package:collection/collection.dart';
 import 'package:bonfire/features/voice/views/voice_moderation_menu.dart';
 import 'package:bonfire/features/voice/views/stage_view.dart';
 import 'package:bonfire/features/voice/utils/stage_logic.dart';
@@ -132,6 +139,14 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
   /// body in full screen.
   bool _stripHidden = false;
 
+  /// "Show Non-Video Participants" (tile menu): whether avatar-only tiles
+  /// stay once someone has video.
+  bool _showNonVideo = true;
+
+  /// Whether the pointer rests on the view: on desktop the control bar only
+  /// shows then, as in other chat apps (touch layouts keep it).
+  bool _pointerInside = false;
+
   /// Whether the voice text-chat panel is open. Defaults open in the lobby
   /// and closed for a call already in progress; the header toggle then wins
   /// until the view switches to another channel. Never in an embedded view,
@@ -166,6 +181,7 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
     // per-channel view state has to be re-derived rather than carried over.
     if (oldWidget.channelId != widget.channelId) {
       _spotlightUserId = null;
+      _showNonVideo = true;
       _chatOpen = _defaultChatOpen();
     }
   }
@@ -190,16 +206,63 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
           ),
         );
 
-    return Container(
-      color: colors.background,
-      child: Column(
-        children: [
-          if (!widget.embedded) _header(context, colors),
-          if (ringing) _RingingBanner(name: widget.channelName),
-          Expanded(child: _body(connectedHere)),
-          if (connectedHere)
-            _ControlBar(channelId: widget.channelId, spaceId: widget.spaceId),
-        ],
+    // The bar stays in the tree while hidden: a pointer can only click it
+    // after entering the view, which shows it, and keyboard users keep it.
+    final barVisible = _pointerInside || !shouldUseDesktopLayout(context);
+    final bar = connectedHere
+        ? AnimatedOpacity(
+            key: const Key('voice-control-bar'),
+            opacity: barVisible ? 1 : 0,
+            duration: const Duration(milliseconds: 150),
+            child: _ControlBar(
+              channelId: widget.channelId,
+              spaceId: widget.spaceId,
+            ),
+          )
+        : null;
+    // With the strip folded away the spotlighted tile takes the whole view:
+    // header and controls float over it on a shade.
+    final overlay = connectedHere && _stripHidden && !_chatOpen;
+
+    // The call view sits on black, header to controls, as in other chat
+    // apps; the colour of the surrounding chrome stops at its edge.
+    return MouseRegion(
+      onEnter: (_) => setState(() => _pointerInside = true),
+      onExit: (_) => setState(() => _pointerInside = false),
+      child: Container(
+        color: Colors.black,
+        child: overlay
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  _body(connectedHere),
+                  if (!widget.embedded)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: _Shade(
+                        down: true,
+                        child: _header(context, colors),
+                      ),
+                    ),
+                  if (bar != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _Shade(down: false, child: bar),
+                    ),
+                ],
+              )
+            : Column(
+                children: [
+                  if (!widget.embedded) _header(context, colors),
+                  if (ringing) _RingingBanner(name: widget.channelName),
+                  Expanded(child: _body(connectedHere)),
+                  if (bar != null) bar,
+                ],
+              ),
       ),
     );
   }
@@ -222,6 +285,9 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
               ),
               stripHidden: _stripHidden,
               onToggleStrip: () => setState(() => _stripHidden = !_stripHidden),
+              showNonVideo: _showNonVideo,
+              onShowNonVideo: (v) => setState(() => _showNonVideo = v),
+              revealNames: _pointerInside,
             ),
           )
         : VoiceLobbyBody(
@@ -289,36 +355,38 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
     final stream = streamUserId == null || !connectedHere
         ? null
         : _focusedStream(streamUserId);
+    final titleStyle = Theme.of(context).textTheme.titleSmall!.copyWith(
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+      color: colors.dirtyWhite,
+    );
     return Container(
-      height: 48,
+      height: 49,
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.only(left: 16, right: 4),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: colors.foreground, width: 1)),
-      ),
+      padding: const EdgeInsets.only(left: 16, right: 10),
       child: Row(
         children: [
           Icon(
             watchIsStage(ref, widget.spaceId, widget.channelId)
                 ? AppIcons.podcasts
                 : AppIcons.volumeUp,
-            size: 18,
-            color: colors.dirtyWhite,
+            size: 20,
+            color: colors.gray,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           if (stream == null)
             Expanded(
               child: Text(
                 widget.channelName ?? '',
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
+                style: titleStyle,
               ),
             )
           else ...[
             Text(
               widget.channelName ?? '',
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall,
+              style: titleStyle,
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -337,7 +405,7 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
                 "${stream.display.name}'s Screen",
                 key: const Key('voice-header-stream'),
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
+                style: titleStyle,
               ),
             ),
             _StreamQualityPill(quality: stream.quality),
@@ -347,13 +415,36 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
             tooltip: _chatOpen ? 'Hide chat' : 'Show chat',
             onPressed: () => setState(() => _chatOpen = !_chatOpen),
             icon: Icon(
-              _chatOpen ? AppIcons.chatBubble : AppIcons.chatBubbleOutline,
-              size: 18,
-              color: _chatOpen ? colors.primary : colors.dirtyWhite,
+              AppIcons.chatBubble,
+              size: 20,
+              color: _chatOpen ? colors.dirtyWhite : colors.gray,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A vertical black shade behind the header (fading [down]) or the controls
+/// (fading up) when they float over the spotlighted tile.
+class _Shade extends StatelessWidget {
+  const _Shade({required this.down, required this.child});
+
+  final bool down;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: down ? Alignment.topCenter : Alignment.bottomCenter,
+          end: down ? Alignment.bottomCenter : Alignment.topCenter,
+          colors: const [Color(0xB3000000), Color(0x00000000)],
+        ),
+      ),
+      child: child,
     );
   }
 }

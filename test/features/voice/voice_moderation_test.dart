@@ -536,6 +536,7 @@ void main() {
             '',
           ).overrideWith(() => _States({'c1': states})),
           activePresencesProvider.overrideWithValue(const PresenceMap()),
+          settingsControllerProvider.overrideWith(_MenuSettings.new),
         ],
         child: MaterialApp(
           theme: buildAppTheme(AppThemePreset.dark),
@@ -543,12 +544,6 @@ void main() {
             body: Column(
               children: [
                 VoiceParticipantList(channelId: 'c1', spaceId: 's1'),
-                VoiceModerationPanel(
-                  serverKey: '',
-                  spaceId: 's1',
-                  channelId: 'c1',
-                  userId: 'u-other',
-                ),
                 if (type == 'stage')
                   StageAudiencePanel(channelId: 'c1', spaceId: 's1'),
               ],
@@ -592,19 +587,37 @@ void main() {
       );
       await tester.pump();
 
-      await tester.tap(find.byKey(const Key('voice-mod-mute')));
+      // The participant menu opens from a long-press on the row (a sheet in
+      // this touch-sized test window).
+      Future<void> openMenu() async {
+        await tester.longPress(find.text('u-other'));
+        await tester.pumpAndSettle();
+      }
+
+      // The sheet is taller than the test window: scroll each row in.
+      Future<void> tapRow(Finder row) async {
+        await tester.ensureVisible(row);
+        await tester.pumpAndSettle();
+        await tester.tap(row);
+      }
+
+      await openMenu();
+      expect(find.byKey(const Key('voice-menu-profile')), findsOneWidget);
+      await tapRow(find.byKey(const Key('voice-mod-mute')));
       await tester.pumpAndSettle();
       expect(requests.last.method, 'PATCH');
       expect(requests.last.url.path, endsWith('/spaces/s1/members/u-other'));
       expect(jsonDecode(requests.last.body), {'mute': true});
 
-      await tester.tap(find.byKey(const Key('voice-mod-move')));
+      await openMenu();
+      await tapRow(find.byKey(const Key('voice-mod-move')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Games').last);
       await tester.pumpAndSettle();
       expect(jsonDecode(requests.last.body), {'channel_id': 'c2'});
 
-      await tester.tap(find.byKey(const Key('voice-mod-disconnect')));
+      await openMenu();
+      await tapRow(find.byKey(const Key('voice-mod-disconnect')));
       await tester.pumpAndSettle();
       expect(jsonDecode(requests.last.body), {'channel_id': null});
     });
@@ -627,6 +640,10 @@ void main() {
       expect(find.text('AUDIENCE — 1'), findsOneWidget);
       expect(find.byIcon(AppIcons.backHand), findsOneWidget);
 
+      await tester.longPress(find.text('u-other').first);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Invite to Speak'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Invite to Speak'));
       await tester.pumpAndSettle();
       expect(requests.last.method, 'PATCH');
@@ -694,4 +711,9 @@ class _States extends VoiceStatesController {
   final Map<String, Map<String, AccordVoiceState>> states;
   @override
   Map<String, Map<String, AccordVoiceState>> build(String serverKey) => states;
+}
+
+class _MenuSettings extends SettingsController {
+  @override
+  AccordSettings build() => const AccordSettings();
 }

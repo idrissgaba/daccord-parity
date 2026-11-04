@@ -36,6 +36,8 @@ abstract final class AppIcons {
   static const IconData bugReportOutlined = PhosphorIconsFill.bug;
   static const IconData call = PhosphorIconsFill.phone;
   static const IconData callEnd = PhosphorIconsFill.phoneDisconnect;
+  /// The "ID" glyph beside "Copy User ID" in context menus.
+  static const IconData badge = PhosphorIconsBold.identificationCard;
   static const IconData callMissed = PhosphorIconsFill.phoneX;
   static const IconData cameraAlt = PhosphorIconsFill.camera;
   static const IconData campaign = PhosphorIconsFill.megaphone;
@@ -106,6 +108,8 @@ abstract final class AppIcons {
   static const IconData forumOutlined = PhosphorIconsFill.chatsCircle;
   static const IconData fullscreen = PhosphorIconsBold.cornersOut;
   static const IconData fullscreenExit = PhosphorIconsBold.cornersIn;
+  /// The trophy of the "you're alone in voice" activities panel.
+  static const IconData emojiEvents = PhosphorIconsFill.trophy;
   static const IconData gavel = PhosphorIconsFill.gavel;
   static const IconData gavelOutlined = PhosphorIconsFill.gavel;
   static const IconData graphicEq = PhosphorIconsFill.waveform;
