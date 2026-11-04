@@ -502,6 +502,22 @@ class SettingsController extends _$SettingsController {
     _update(state.copyWith(recentEmoji: next));
   }
 
+  /// Stars or un-stars a GIF link in the picker's Favourites.
+  void toggleFavoriteGif(String url) {
+    if (url.isEmpty) return;
+    final current = state.favoriteGifs;
+    _update(
+      state.copyWith(
+        favoriteGifs: current.contains(url)
+            ? [
+                for (final u in current)
+                  if (u != url) u,
+              ]
+            : [url, ...current],
+      ),
+    );
+  }
+
   void markWelcomeSeen(String serverKey, String spaceId) {
     final key = ServerEntityKey(serverKey, spaceId).encoded;
     if (state.seenWelcomeScreens.contains(key)) return;

@@ -85,6 +85,10 @@ mixin _MessageRowEditing on ConsumerState<_MessageRow> {
     return KeyEventResult.ignored;
   }
 
+  /// What an emptied editor does on Enter; the handlers mixin deletes with
+  /// confirmation.
+  void _onEmptyEdit(String messageId);
+
   Future<void> _saveEdit() async {
     final client = _client;
     final raw = _editController?.text ?? '';
@@ -97,7 +101,14 @@ mixin _MessageRowEditing on ConsumerState<_MessageRow> {
     // Commit against the message the editor was opened on, captured before the
     // round-trip.
     final messageId = _editingMessageId ?? _message.id;
-    if (client == null || text.trim().isEmpty || _busy) return;
+    if (client == null || _busy) return;
+    if (text.trim().isEmpty) {
+      // Enter on an emptied editor: the reference client asks whether to
+      // delete the message instead of saving nothing.
+      _cancelEdit();
+      _onEmptyEdit(messageId);
+      return;
+    }
     setState(() => _busy = true);
     final ok = await ref
         .read(
@@ -112,46 +123,97 @@ mixin _MessageRowEditing on ConsumerState<_MessageRow> {
     if (ok) _cancelEdit();
   }
 
+  /// The reference client's inline editor: the message text in a composer
+  /// box (56 px, 16 px text, emoji button at the right) under the header, and
+  /// the "escape to cancel • enter to save" line beneath it.
   Widget _buildEditor(ThemeData theme, BonfireThemeExtension colors) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _editController,
-            focusNode: _editFocus,
-            autofocus: true,
-            enabled: !_busy,
-            minLines: 1,
-            maxLines: 6,
-            style: theme.textTheme.bodyLarge,
-            decoration: InputDecoration(
-              isDense: true,
-              filled: true,
-              fillColor: colors.darkGray,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            onSubmitted: (_) => _saveEdit(),
+    const link = Color(0xFF4D96EE);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.fromLTRB(16, 0, 4, 0),
+          decoration: BoxDecoration(
+            color: composerSurfaceColor(colors),
+            borderRadius: BorderRadius.circular(8),
           ),
-          const SizedBox(height: 4),
-          Row(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              TextButton(
-                onPressed: _busy ? null : _cancelEdit,
-                child: const Text('Cancel'),
+              Expanded(
+                child: TextField(
+                  key: const Key('inline-message-editor'),
+                  controller: _editController,
+                  focusNode: _editFocus,
+                  autofocus: true,
+                  enabled: !_busy,
+                  minLines: 1,
+                  maxLines: 12,
+                  style: const TextStyle(fontSize: 16, height: 22 / 16),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(vertical: 17),
+                  ),
+                  onSubmitted: (_) => _saveEdit(),
+                ),
               ),
-              TextButton(
-                onPressed: _busy ? null : _saveEdit,
-                child: const Text('Save'),
+              IconButton(
+                tooltip: 'Emoji',
+                onPressed: _busy ? null : _pickEditorEmoji,
+                icon: Icon(
+                  AppIcons.emojiEmotionsOutlined,
+                  size: 24,
+                  color: colors.interactive,
+                ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Text.rich(
+            TextSpan(
+              style: TextStyle(
+                fontSize: 12,
+                height: 1,
+                color: colors.dirtyWhite,
+              ),
+              children: [
+                const TextSpan(text: 'escape to '),
+                TextSpan(
+                  text: 'cancel',
+                  style: const TextStyle(color: link),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      if (!_busy) _cancelEdit();
+                    },
+                ),
+                const TextSpan(text: ' • enter to '),
+                TextSpan(
+                  text: 'save',
+                  style: const TextStyle(color: link),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      if (!_busy) _saveEdit();
+                    },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  /// Inserts an emoji at the editor's caret.
+  Future<void> _pickEditorEmoji() async {
+    final controller = _editController;
+    if (controller == null) return;
+    final pick = await showAccordEmojiPicker(context, spaceId: widget.spaceId);
+    if (pick == null || !mounted || _editController != controller) return;
+    controller.value = insertAtSelection(controller.value, pick.composerText);
+    _editFocus?.requestFocus();
   }
 }

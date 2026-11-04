@@ -23,18 +23,24 @@ double? _asDouble(Object? value) {
   return null;
 }
 
-/// The icon that stands for [preview] on a composer chip.
-IconData _attachmentIcon(AttachmentPreview preview, {required bool unknown}) {
-  switch (preview) {
-    case AttachmentPreview.image:
-      return AppIcons.imageOutlined;
-    case AttachmentPreview.video:
-      return AppIcons.movieOutlined;
-    case AttachmentPreview.audio:
-      return AppIcons.audiotrackOutlined;
-    case AttachmentPreview.none:
-      return unknown ? AppIcons.helpOutline : AppIcons.insertDriveFileOutlined;
+/// The file icon the reference client draws for [name]: a text page, an
+/// archive, an image, else a plain file.
+IconData fileKindIcon(String name, AttachmentPreview preview) {
+  final lower = name.toLowerCase();
+  if (RegExp(r'\.(zip|rar|7z|tar|gz|bz2|xz)$').hasMatch(lower)) {
+    return AppIcons.fileArchive;
   }
+  if (RegExp(
+    r'\.(txt|md|log|csv|json|ya?ml|xml|ini|cfg|dart|js|ts|py|rs|go|c|h|cpp|java|kt|swift|html|css)$',
+  ).hasMatch(lower)) {
+    return AppIcons.fileText;
+  }
+  return switch (preview) {
+    AttachmentPreview.image => AppIcons.imageOutlined,
+    AttachmentPreview.video => AppIcons.movieOutlined,
+    AttachmentPreview.audio => AppIcons.audiotrackOutlined,
+    AttachmentPreview.none => AppIcons.insertDriveFileOutlined,
+  };
 }
 
 /// Stands in for an attachment on a *sent* message that AutoMod hasn't
@@ -116,60 +122,210 @@ class _PendingAttachmentTile extends StatelessWidget {
   }
 }
 
-/// A removable chip representing one pending attachment in the composer.
-///
-/// Shows what the file resolved to rather than a uniform paperclip: the icon
-/// reflects how it will render once sent, and the tooltip names the MIME type
-/// and size. That's the audit's answer to the silent `application/octet-stream`
-/// fallback — an unidentified file is still attachable (the server accepts any
-/// type), but it no longer looks identical to a recognised one.
+/// One pending attachment in the composer, as the reference client's card:
+/// 218 px square on a lifted surface, the image (or a file icon) above the
+/// name, and Spoiler · Modify · Remove in a small bar at the top right.
 class _AttachmentChip extends StatelessWidget {
-  const _AttachmentChip({required this.attachment, this.onRemove});
+  const _AttachmentChip({
+    required this.attachment,
+    this.onRemove,
+    this.onRename,
+    this.onToggleSpoiler,
+  });
 
   final PendingAttachment attachment;
   final VoidCallback? onRemove;
+  final VoidCallback? onRename;
+  final VoidCallback? onToggleSpoiler;
 
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
     final unknown = attachment.isUnrecognised;
+    final bytes = attachment.bytes;
+    final isImage =
+        attachment.preview == AttachmentPreview.image && bytes != null;
+    final spoiler = attachment.isSpoiler;
+    Widget media;
+    if (isImage) {
+      media = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          bytes,
+          width: 200,
+          height: 125,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) =>
+              Icon(AppIcons.brokenImageOutlined, size: 48, color: colors.gray),
+        ),
+      );
+      if (spoiler) {
+        media = Stack(
+          alignment: Alignment.center,
+          children: [
+            ImageFiltered(
+              imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: media,
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'SPOILER',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+      media = Padding(
+        padding: const EdgeInsets.only(top: 25),
+        child: SizedBox(width: 200, height: 125, child: media),
+      );
+    } else {
+      media = SizedBox(
+        width: 200,
+        height: 144,
+        child: Icon(
+          fileKindIcon(attachment.name, attachment.preview),
+          size: 96,
+          color: const Color(0xFFC6CAF7),
+        ),
+      );
+    }
+    final name = spoiler
+        ? attachment.name.substring(kSpoilerPrefix.length)
+        : attachment.name;
     return Tooltip(
       message:
           '${attachment.name}\n'
           '${unknown ? 'Unrecognised type' : attachment.contentType} · '
           '${formatFileSize(attachment.size)}',
+      waitDuration: const Duration(milliseconds: 600),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+        key: Key('attachment-chip-${attachment.name}'),
+        width: 218,
+        height: 218,
         decoration: BoxDecoration(
-          color: colors.foreground.withValues(alpha: 0.08),
+          color: popoverSurfaceColor(colors),
           borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.selection),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            Icon(
-              _attachmentIcon(attachment.preview, unknown: unknown),
-              size: 16,
-              color: unknown ? colors.gray : colors.dirtyWhite,
-            ),
-            const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 160),
-              child: Text(
-                attachment.name,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall!.copyWith(color: colors.dirtyWhite),
+            Positioned(
+              left: 9,
+              top: 9,
+              width: 200,
+              height: 200,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  media,
+                  const Spacer(),
+                  SizedBox(
+                    height: 26,
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          height: 18 / 14,
+                          color: colors.dirtyWhite,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: onRemove,
-              borderRadius: BorderRadius.circular(12),
-              child: Icon(AppIcons.close, size: 16, color: colors.gray),
+            Positioned(
+              right: -15,
+              top: 1,
+              child: Material(
+                color: Color.alphaBlend(
+                  colors.dirtyWhite.withValues(alpha: 0.08),
+                  colors.background,
+                ),
+                borderRadius: BorderRadius.circular(4),
+                elevation: 1,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _ChipAction(
+                      tooltip: 'Spoiler Attachment',
+                      icon: spoiler
+                          ? AppIcons.visibilityOff
+                          : AppIcons.visibility,
+                      onPressed: onToggleSpoiler,
+                    ),
+                    _ChipAction(
+                      tooltip: 'Modify Attachment',
+                      icon: AppIcons.edit,
+                      onPressed: onRename,
+                    ),
+                    _ChipAction(
+                      tooltip: 'Remove Attachment',
+                      icon: AppIcons.deleteOutline,
+                      color: const Color(0xFFF87E7A),
+                      onPressed: onRemove,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One 32 px button of the attachment card's action bar.
+class _ChipAction extends StatelessWidget {
+  const _ChipAction({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.color,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(4),
+        onTap: onPressed,
+        child: SizedBox(
+          width: 32,
+          height: 32,
+          child: Icon(
+            icon,
+            size: 20,
+            color: onPressed == null
+                ? colors.gray
+                : (color ?? colors.interactive),
+          ),
         ),
       ),
     );

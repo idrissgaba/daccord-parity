@@ -9,6 +9,8 @@ import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/features/automod/views/block_attachment_dialog.dart';
 
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 import 'package:bonfire/features/messaging/views/box/accord_markdown_box.dart'
     show MessageTextMenuScope;
 import 'package:bonfire/features/messaging/views/private_chat_security.dart';
@@ -80,14 +82,17 @@ import 'package:bonfire/features/spaces/views/accord_search.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
 import 'package:bonfire/features/voice/utils/stage_logic.dart';
 import 'package:bonfire/features/voice/views/voice_view.dart';
+import 'package:bonfire/shared/components/accord_dialog.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/shared/components/server_unreachable.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/shared/utils/confirm_dialog.dart';
+import 'package:bonfire/shared/utils/external_url.dart';
 import 'package:bonfire/shared/utils/in_app_links.dart';
 import 'package:bonfire/shared/utils/platform.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
+import 'package:bonfire/shared/utils/text_prompt_dialog.dart';
 import 'package:bonfire/shared/utils/restore_failed_send.dart';
 import 'package:bonfire/shared/utils/server_timestamp.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -98,6 +103,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart'
     show ValueListenable, ValueNotifier, kIsWeb, visibleForTesting;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
@@ -255,7 +261,12 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
   /// divider sits after it. Null when nothing was new.
   String? _unreadFrom;
 
+  /// "Mark as Read" on the unread bar: the divider stays (the reference client
+  /// keeps it until the channel is left) but the bar goes.
+  bool _unreadBarDismissed = false;
+
   void _captureUnreadFrom() {
+    _unreadBarDismissed = false;
     final key = ref.readActiveServerKey();
     final channelId = widget.channelId;
     _unreadFrom = key == null || channelId == null
@@ -268,6 +279,13 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
   /// Set to a message id to open that row's inline editor (↑ in the empty
   /// composer edits the current user's last message).
   final _editRequest = ValueNotifier<String?>(null);
+
+  /// The composer, so a file dropped anywhere on the pane lands in it.
+  final _composerKey = GlobalKey<_ComposerState>();
+
+  /// Shown while a file drag hovers the pane: the upload overlay over the
+  /// whole window, as the reference client does.
+  final _dropPortal = OverlayPortalController();
 
   /// Multi-select state for bulk message deletion (gated on `manage_messages`).
   /// Entered via long-press on a message; while active, tapping a row toggles
@@ -497,10 +515,16 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
   /// `reverse: true`, that means approaching [maxScrollExtent]) and pages in
   /// older messages. The controller dedupes concurrent calls so we can fire
   /// this aggressively on every scroll tick.
+  /// Whether the list is scrolled far enough from the newest message to
+  /// offer "Jump to present".
+  bool _awayFromPresent = false;
+
   void _onScroll() {
     final channelId = widget.channelId;
     if (channelId == null || !_scroll.hasClients) return;
     final position = _scroll.position;
+    final away = position.pixels > position.viewportDimension;
+    if (away != _awayFromPresent) setState(() => _awayFromPresent = away);
     if (position.maxScrollExtent - position.pixels > 240) return;
     final notifier = ref.read(
       accordMessagesControllerProvider(
@@ -516,6 +540,87 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
     );
     if (client == null) return;
     notifier.loadOlder(client);
+  }
+
+  /// Lays the two bars of the reference client over the list: at the top
+  /// "N new messages since HH:MM · Mark as Read" while the channel opened on
+  /// unread history, at the bottom "You're viewing older messages · Jump to
+  /// present" once the list is scrolled away from the newest message.
+  Widget _withMessageBars({
+    required String channelId,
+    required String? spaceId,
+    required List<AccordMessage> messages,
+    required Widget child,
+  }) {
+    final unreadFrom = _unreadFrom;
+    var unreadCount = 0;
+    AccordMessage? firstUnread;
+    if (unreadFrom != null && !_unreadBarDismissed) {
+      for (final m in messages) {
+        if (compareMessageIds(m.id, unreadFrom) > 0) {
+          firstUnread ??= m;
+          unreadCount++;
+        }
+      }
+    }
+    final since = firstUnread == null
+        ? ''
+        : messageClockFromIso(firstUnread.timestamp);
+    return Stack(
+      children: [
+        child,
+        if (unreadCount > 0)
+          Positioned(
+            top: 0,
+            left: 8,
+            right: 8,
+            child: _MessageBar(
+              key: const Key('new-messages-bar'),
+              atTop: true,
+              label:
+                  '$unreadCount new message${unreadCount == 1 ? '' : 's'} '
+                  'since $since',
+              action: 'Mark as Read',
+              actionIcon: AppIcons.markChatReadOutlined,
+              onAction: () {
+                setState(() => _unreadBarDismissed = true);
+                markChannelRead(
+                  ref,
+                  channelId,
+                  fallbackMessageId: messages.last.id,
+                );
+              },
+              onTap: firstUnread == null
+                  ? null
+                  : () => _jumpTo(firstUnread!.id),
+            ),
+          ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: _awayFromPresent ? 34 : 0,
+          child: _TypingIndicator(channelId: channelId, spaceId: spaceId),
+        ),
+        if (_awayFromPresent)
+          Positioned(
+            bottom: 0,
+            left: 8,
+            right: 8,
+            child: _MessageBar(
+              key: const Key('jump-to-present-bar'),
+              atTop: false,
+              label: "You're viewing older messages",
+              action: 'Jump to present',
+              actionIcon: AppIcons.scrollDown,
+              onAction: () => _scroll.animateTo(
+                0,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   /// What to show where the history would be while there is none.
@@ -921,7 +1026,13 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
     final canManageMessages =
         widget.canManageMessagesOverride ??
         accordHasPermission(perms, AccordPermission.manageMessages);
-    final canSend = accordHasPermission(perms, AccordPermission.sendMessages);
+    // A DM has no space permissions, and a space whose roles haven't arrived
+    // yet can't be judged: the server alone decides then, so the composer
+    // never flashes "no permission" while a space loads.
+    final canSend =
+        spaceId == null ||
+        roles.isEmpty ||
+        accordHasPermission(perms, AccordPermission.sendMessages);
     final canMentionEveryone = accordHasPermission(
       perms,
       AccordPermission.mentionEveryone,
@@ -998,278 +1109,347 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
       for (final m in loadedMessages ?? const <AccordMessage>[]) m.id: m,
     };
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.background,
-        // In panel mode the pane sits beside the video grid, so it needs a
-        // divider on its leading edge too.
-        border: panel
-            ? Border(left: BorderSide(color: colors.foreground, width: 1))
-            : null,
-      ),
-      child: Column(
-        children: [
-          Container(
-            height: panel ? 44 : 49,
-            alignment: Alignment.centerLeft,
-            padding: EdgeInsets.only(
-              left: panel ? 12 : 16,
-              right: panel ? 4 : 8,
+    return _wrapDrop(
+      channel: channel,
+      spaceId: spaceId,
+      canUpload: canSend || canManageMessages,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.background,
+          // In panel mode the pane sits beside the video grid, so it needs a
+          // divider on its leading edge too.
+          border: panel
+              ? Border(left: BorderSide(color: colors.foreground, width: 1))
+              : null,
+        ),
+        child: Column(
+          children: [
+            Container(
+              height: panel ? 44 : 49,
+              alignment: Alignment.centerLeft,
+              padding: EdgeInsets.only(
+                left: panel ? 12 : 16,
+                right: panel ? 4 : 8,
+              ),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: colors.hairline, width: 1),
+                ),
+              ),
+              child: _selecting
+                  ? Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Cancel',
+                          onPressed: _bulkDeleting ? null : _exitSelection,
+                          icon: Icon(
+                            AppIcons.close,
+                            size: 18,
+                            color: colors.dirtyWhite,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '${_selectedMessageIds.length} selected',
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed:
+                              _bulkDeleting || _selectedMessageIds.isEmpty
+                              ? null
+                              : _bulkDeleteSelected,
+                          icon: _bulkDeleting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  AppIcons.deleteOutline,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                          label: Text(
+                            'Delete',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : _buildHeaderRow(
+                      context,
+                      channel: channel,
+                      channelId: channelId,
+                      spaceId: spaceId,
+                      canManageMessages: canManageMessages,
+                    ),
             ),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: colors.hairline, width: 1),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        if (widget.topPanel != null)
+                          Flexible(flex: 11, child: widget.topPanel!),
+                        Flexible(
+                          flex: 9,
+                          child: messages == null
+                              ? _historyEmptyState(channelId)
+                              : messages.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'No messages yet',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                )
+                              : _withMessageBars(
+                                  channelId: channelId,
+                                  spaceId: spaceId,
+                                  messages: messages,
+                                  child: ListView.builder(
+                                    controller: _scroll,
+                                    reverse: true,
+                                    padding: EdgeInsets.fromLTRB(
+                                      0,
+                                      panel ? 8 : 12,
+                                      panel ? 4 : 16,
+                                      panel ? 8 : 12,
+                                    ),
+                                    // One extra slot at the top of history (rendered last
+                                    // under `reverse: true`) shows a spinner while older
+                                    // pages load and a "Beginning of channel" hint once we
+                                    // hit the start of history.
+                                    itemCount: messages.length + 1,
+                                    // Lets the sliver *move* a keyed row to its new index
+                                    // rather than tearing its element down and rebuilding
+                                    // it there. Without this the ValueKeys below only stop
+                                    // rows adopting each other's state — every row would
+                                    // still be recreated (losing an open editor, and
+                                    // unmounting a row mid-dialog) each time the list
+                                    // shifted. See #198.
+                                    findChildIndexCallback: (key) {
+                                      if (key is! MessageRowKey) return null;
+                                      return childIndexByMessageId[key
+                                          .messageId];
+                                    },
+                                    itemBuilder: (context, index) {
+                                      if (index == messages.length) {
+                                        return _OlderHistoryHeader(
+                                          channelId: channelId,
+                                        );
+                                      }
+                                      final messageIndex =
+                                          messages.length - 1 - index;
+                                      final message = messages[messageIndex];
+                                      // Group with the previous (older) message when it's
+                                      // from the same author, this message isn't a reply,
+                                      // and the two are close together in time. Grouped
+                                      // rows drop the repeated avatar/name/timestamp header.
+                                      final prev = messageIndex > 0
+                                          ? messages[messageIndex - 1]
+                                          : null;
+                                      final dividers = messageDividersFor(
+                                        previous: prev,
+                                        message: message,
+                                        unreadFrom: _unreadFrom,
+                                      );
+                                      final afterDivider =
+                                          dividers.newDay ||
+                                          dividers.firstUnread;
+                                      // A day change or the "new" line also breaks
+                                      // the group, as in the reference client.
+                                      final grouped =
+                                          !afterDivider &&
+                                          _isGrouped(
+                                            previous: prev,
+                                            current: message,
+                                          );
+                                      final author = members?[message.authorId];
+                                      // Members only loads the first page; backfill authors
+                                      // outside it from the on-demand user cache.
+                                      AccordUser? authorUser;
+                                      if (author == null) {
+                                        authorUser =
+                                            userCache[message.authorId];
+                                        if (authorUser == null) {
+                                          ref
+                                              .read(
+                                                accordUsersControllerProvider(
+                                                  ref.readActiveServerKey() ??
+                                                      '',
+                                                ).notifier,
+                                              )
+                                              .ensure(message.authorId);
+                                        }
+                                      }
+                                      final colorRole = author == null
+                                          ? null
+                                          : memberColorRole(author, roles);
+                                      final uid = currentUserId;
+                                      final isOwn =
+                                          uid != null &&
+                                          isSameUser(
+                                            message.authorId,
+                                            uid,
+                                            localDomain: homeDomain,
+                                          );
+                                      final mentionsMe =
+                                          !isOwn &&
+                                          uid != null &&
+                                          MessageNotificationGate.countsAsMention(
+                                            mentionsMe: _mentionsSelf(
+                                              message,
+                                              uid,
+                                              homeDomain,
+                                              myRoles,
+                                            ),
+                                            mentionEveryone:
+                                                message.mentionEveryone,
+                                            suppressEveryone: suppressEveryone,
+                                          );
+                                      final row = _MessageRow(
+                                        // Keyed by message id, not list position. Under
+                                        // `reverse: true` every index shifts when a message
+                                        // arrives, so without a key Flutter re-binds a live
+                                        // _MessageRowState to a *different* message — and
+                                        // any dialog it had open (delete confirm, emoji
+                                        // picker) would then act on the wrong one. See #198.
+                                        key: ValueKey(message.id),
+                                        message: message,
+                                        grouped: grouped,
+                                        afterDivider: afterDivider,
+                                        onJumpTo: _jumpTo,
+                                        narrow: panel,
+                                        editRequest: _editRequest,
+                                        rowRegistry: _rowContexts,
+                                        highlighted:
+                                            _highlightedMessageId == message.id,
+                                        author: author,
+                                        authorUser: authorUser,
+                                        nameColor: colorRole == null
+                                            ? null
+                                            : accordRoleColor(colorRole.color),
+                                        channelId: channelId,
+                                        spaceId: spaceId,
+                                        isOwn: isOwn,
+                                        mentionsMe: mentionsMe,
+                                        canManageMessages: canManageMessages,
+                                        onUserTap: widget.onUserTap,
+                                        onUserContextMenu:
+                                            widget.onUserContextMenu,
+                                        selecting: _selecting,
+                                        selected: _selectedMessageIds.contains(
+                                          message.id,
+                                        ),
+                                        onLongPressSelect: canManageMessages
+                                            ? () => _enterSelection(message.id)
+                                            : null,
+                                        onToggleSelected: () =>
+                                            _toggleSelected(message.id),
+                                        messagesById: messagesById,
+                                        onReply: () =>
+                                            setState(() => _replyTo = message),
+                                      );
+                                      return withMessageDividers(
+                                        row,
+                                        key: MessageRowKey(message.id),
+                                        previous: prev,
+                                        message: message,
+                                        unreadFrom: _unreadFrom,
+                                      );
+                                    },
+                                  ),
+                                ),
+                        ),
+                        OnboardingAnchor(
+                          anchor: OnboardingAnchorId.messageComposer,
+                          child: _Composer(
+                            key: _composerKey,
+                            canSend: canSend || canManageMessages,
+                            channelId: channelId,
+                            channelName: panel
+                                ? (widget.panelTitle ?? channel?.name)
+                                : (widget.composerTitle ?? channel?.name),
+                            spaceId: spaceId,
+                            canMentionEveryone: canMentionEveryone,
+                            slowmodeSeconds: slowmodeSeconds,
+                            replyingTo: _replyTo,
+                            replyName: _replyTo == null
+                                ? null
+                                : accordAuthorName(
+                                    _replyTo!.authorId,
+                                    members: members,
+                                    users: userCache,
+                                    ensure: ref
+                                        .read(
+                                          accordUsersControllerProvider(
+                                            ref.readActiveServerKey() ?? '',
+                                          ).notifier,
+                                        )
+                                        .ensure,
+                                  ),
+                            onCancelReply: () =>
+                                setState(() => _replyTo = null),
+                            onEditLastMessage: () => _editLastOwnMessage(
+                              loadedMessages,
+                              currentUserId,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (widget.sidePanel != null) widget.sidePanel!,
+                ],
               ),
             ),
-            child: _selecting
-                ? Row(
-                    children: [
-                      IconButton(
-                        tooltip: 'Cancel',
-                        onPressed: _bulkDeleting ? null : _exitSelection,
-                        icon: Icon(
-                          AppIcons.close,
-                          size: 18,
-                          color: colors.dirtyWhite,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '${_selectedMessageIds.length} selected',
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _bulkDeleting || _selectedMessageIds.isEmpty
-                            ? null
-                            : _bulkDeleteSelected,
-                        icon: _bulkDeleting
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Icon(
-                                AppIcons.deleteOutline,
-                                size: 18,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                        label: Text(
-                          'Delete',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                : _buildHeaderRow(
-                    context,
-                    channel: channel,
-                    channelId: channelId,
-                    spaceId: spaceId,
-                    canManageMessages: canManageMessages,
-                  ),
-          ),
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      if (widget.topPanel != null)
-                        Flexible(flex: 11, child: widget.topPanel!),
-                      Flexible(
-                        flex: 9,
-                        child: messages == null
-                            ? _historyEmptyState(channelId)
-                            : messages.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'No messages yet',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              )
-                            : ListView.builder(
-                                controller: _scroll,
-                                reverse: true,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: panel ? 10 : 16,
-                                  vertical: panel ? 8 : 12,
-                                ),
-                                // One extra slot at the top of history (rendered last
-                                // under `reverse: true`) shows a spinner while older
-                                // pages load and a "Beginning of channel" hint once we
-                                // hit the start of history.
-                                itemCount: messages.length + 1,
-                                // Lets the sliver *move* a keyed row to its new index
-                                // rather than tearing its element down and rebuilding
-                                // it there. Without this the ValueKeys below only stop
-                                // rows adopting each other's state — every row would
-                                // still be recreated (losing an open editor, and
-                                // unmounting a row mid-dialog) each time the list
-                                // shifted. See #198.
-                                findChildIndexCallback: (key) {
-                                  if (key is! MessageRowKey) return null;
-                                  return childIndexByMessageId[key.messageId];
-                                },
-                                itemBuilder: (context, index) {
-                                  if (index == messages.length) {
-                                    return _OlderHistoryHeader(
-                                      channelId: channelId,
-                                    );
-                                  }
-                                  final messageIndex =
-                                      messages.length - 1 - index;
-                                  final message = messages[messageIndex];
-                                  // Group with the previous (older) message when it's
-                                  // from the same author, this message isn't a reply,
-                                  // and the two are close together in time. Grouped
-                                  // rows drop the repeated avatar/name/timestamp header.
-                                  final prev = messageIndex > 0
-                                      ? messages[messageIndex - 1]
-                                      : null;
-                                  final grouped = _isGrouped(
-                                    previous: prev,
-                                    current: message,
-                                  );
-                                  final author = members?[message.authorId];
-                                  // Members only loads the first page; backfill authors
-                                  // outside it from the on-demand user cache.
-                                  AccordUser? authorUser;
-                                  if (author == null) {
-                                    authorUser = userCache[message.authorId];
-                                    if (authorUser == null) {
-                                      ref
-                                          .read(
-                                            accordUsersControllerProvider(
-                                              ref.readActiveServerKey() ?? '',
-                                            ).notifier,
-                                          )
-                                          .ensure(message.authorId);
-                                    }
-                                  }
-                                  final colorRole = author == null
-                                      ? null
-                                      : memberColorRole(author, roles);
-                                  final uid = currentUserId;
-                                  final isOwn =
-                                      uid != null &&
-                                      isSameUser(
-                                        message.authorId,
-                                        uid,
-                                        localDomain: homeDomain,
-                                      );
-                                  final mentionsMe =
-                                      !isOwn &&
-                                      uid != null &&
-                                      MessageNotificationGate.countsAsMention(
-                                        mentionsMe: _mentionsSelf(
-                                          message,
-                                          uid,
-                                          homeDomain,
-                                          myRoles,
-                                        ),
-                                        mentionEveryone:
-                                            message.mentionEveryone,
-                                        suppressEveryone: suppressEveryone,
-                                      );
-                                  final row = _MessageRow(
-                                    // Keyed by message id, not list position. Under
-                                    // `reverse: true` every index shifts when a message
-                                    // arrives, so without a key Flutter re-binds a live
-                                    // _MessageRowState to a *different* message — and
-                                    // any dialog it had open (delete confirm, emoji
-                                    // picker) would then act on the wrong one. See #198.
-                                    key: ValueKey(message.id),
-                                    message: message,
-                                    grouped: grouped,
-                                    narrow: panel,
-                                    editRequest: _editRequest,
-                                    rowRegistry: _rowContexts,
-                                    highlighted:
-                                        _highlightedMessageId == message.id,
-                                    author: author,
-                                    authorUser: authorUser,
-                                    nameColor: colorRole == null
-                                        ? null
-                                        : accordRoleColor(colorRole.color),
-                                    channelId: channelId,
-                                    spaceId: spaceId,
-                                    isOwn: isOwn,
-                                    mentionsMe: mentionsMe,
-                                    canManageMessages: canManageMessages,
-                                    onUserTap: widget.onUserTap,
-                                    onUserContextMenu: widget.onUserContextMenu,
-                                    selecting: _selecting,
-                                    selected: _selectedMessageIds.contains(
-                                      message.id,
-                                    ),
-                                    onLongPressSelect: canManageMessages
-                                        ? () => _enterSelection(message.id)
-                                        : null,
-                                    onToggleSelected: () =>
-                                        _toggleSelected(message.id),
-                                    messagesById: messagesById,
-                                    onReply: () =>
-                                        setState(() => _replyTo = message),
-                                  );
-                                  return withMessageDividers(
-                                    row,
-                                    key: MessageRowKey(message.id),
-                                    previous: prev,
-                                    message: message,
-                                    unreadFrom: _unreadFrom,
-                                  );
-                                },
-                              ),
-                      ),
-                      _TypingIndicator(channelId: channelId, spaceId: spaceId),
-                      OnboardingAnchor(
-                        anchor: OnboardingAnchorId.messageComposer,
-                        child: _Composer(
-                          channelId: channelId,
-                          channelName: panel
-                              ? (widget.panelTitle ?? channel?.name)
-                              : (widget.composerTitle ?? channel?.name),
-                          spaceId: spaceId,
-                          canMentionEveryone: canMentionEveryone,
-                          slowmodeSeconds: slowmodeSeconds,
-                          replyingTo: _replyTo,
-                          replyName: _replyTo == null
-                              ? null
-                              : accordAuthorName(
-                                  _replyTo!.authorId,
-                                  members: members,
-                                  users: userCache,
-                                  ensure: ref
-                                      .read(
-                                        accordUsersControllerProvider(
-                                          ref.readActiveServerKey() ?? '',
-                                        ).notifier,
-                                      )
-                                      .ensure,
-                                ),
-                          onCancelReply: () => setState(() => _replyTo = null),
-                          onEditLastMessage: () => _editLastOwnMessage(
-                            loadedMessages,
-                            currentUserId,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (widget.sidePanel != null) widget.sidePanel!,
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The whole pane is a drop target: a file dragged over it shows the
+  /// "Upload to #channel" overlay and, dropped, lands in the composer.
+  Widget _wrapDrop({
+    required AccordChannel? channel,
+    required String? spaceId,
+    required bool canUpload,
+    required Widget child,
+  }) {
+    // A DropTarget keeps receiving drags even when covered, so it's disabled
+    // while a dialog/sheet (emoji picker, lightbox, …) is on top of the pane.
+    final onTop = ModalRoute.of(context)?.isCurrent ?? true;
+    final name = channel?.name;
+    final dropLabel = name == null || name.isEmpty
+        ? '@${widget.composerTitle ?? widget.panelTitle ?? 'them'}'
+        : spaceId == null
+        ? '@$name'
+        : '#$name';
+    return DropTarget(
+      enable: onTop && canUpload,
+      onDragEntered: (_) => _dropPortal.show(),
+      onDragExited: (_) => _dropPortal.hide(),
+      onDragDone: (details) {
+        _dropPortal.hide();
+        _composerKey.currentState?._onDrop(details);
+      },
+      child: OverlayPortal(
+        controller: _dropPortal,
+        overlayChildBuilder: (_) =>
+            Positioned.fill(child: _UploadOverlay(channelLabel: dropLabel)),
+        child: child,
       ),
     );
   }
@@ -1308,8 +1488,91 @@ bool _isGrouped({
   return t1.difference(t0).abs() < _messageGroupWindow;
 }
 
-/// A thin "X is typing…" line above the composer, resolving typing user IDs to
-/// names via the space's member cache.
+/// The reference client's unread / jump bar: 34 px on the accent colour,
+/// rounded on the side facing the messages, the label at the left and the
+/// action (with its icon) at the right. Only built while it has something to
+/// say.
+class _MessageBar extends StatelessWidget {
+  const _MessageBar({
+    super.key,
+    required this.atTop,
+    required this.label,
+    required this.action,
+    required this.actionIcon,
+    required this.onAction,
+    this.onTap,
+  });
+
+  final bool atTop;
+  final String label;
+  final String action;
+  final IconData actionIcon;
+  final VoidCallback onAction;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final radius = atTop
+        ? const BorderRadius.vertical(bottom: Radius.circular(8))
+        : const BorderRadius.vertical(top: Radius.circular(8));
+    return Material(
+      color: colors.primary,
+      borderRadius: radius,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap ?? onAction,
+        child: Container(
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: colors.hairline),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 18 / 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: onAction,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      action,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 18 / 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(actionIcon, size: 16, color: Colors.white),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "**X** is typing…" under the composer: three bouncing dots then the names
+/// in bold — one, two or three of them, "Several people" beyond that — on a
+/// 24 px line that only takes room while someone types.
 class _TypingIndicator extends ConsumerWidget {
   const _TypingIndicator({required this.channelId, required this.spaceId});
 
@@ -1322,6 +1585,7 @@ class _TypingIndicator extends ConsumerWidget {
     final typing = ref.watch(
       typingControllerProvider(ref.readActiveServerKey() ?? '', channelId),
     );
+    if (typing.isEmpty) return const SizedBox.shrink();
     final members = spaceId == null
         ? null
         : ref.watch(
@@ -1349,31 +1613,111 @@ class _TypingIndicator extends ConsumerWidget {
       return 'Someone';
     }
 
-    String? label;
-    if (typing.length == 1) {
-      label = '${nameFor(typing.first)} is typing…';
-    } else if (typing.length == 2) {
-      label = '${nameFor(typing[0])} and ${nameFor(typing[1])} are typing…';
-    } else if (typing.length > 2) {
-      label = 'Several people are typing…';
+    final names = [for (final id in typing.take(3)) nameFor(id)];
+    final bold = TextStyle(
+      fontWeight: FontWeight.w600,
+      color: colors.dirtyWhite,
+    );
+    final spans = <InlineSpan>[];
+    if (typing.length > 3) {
+      spans.add(const TextSpan(text: 'Several people are typing…'));
+    } else {
+      for (var i = 0; i < names.length; i++) {
+        if (i > 0) {
+          spans.add(TextSpan(text: i == names.length - 1 ? ' and ' : ', '));
+        }
+        spans.add(TextSpan(text: names[i], style: bold));
+      }
+      spans.add(
+        TextSpan(text: names.length == 1 ? ' is typing…' : ' are typing…'),
+      );
     }
-
-    return SizedBox(
-      height: 20,
-      child: label == null
-          ? null
-          : Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium!.copyWith(color: colors.gray),
+    return Container(
+      key: const Key('typing-indicator'),
+      height: 24,
+      color: colors.background.withValues(alpha: 0.92),
+      child: Padding(
+        padding: const EdgeInsets.only(left: 16),
+        child: Row(
+          children: [
+            const _TypingDots(),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text.rich(
+                TextSpan(children: spans),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 18 / 14,
+                  color: colors.dirtyWhite,
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Three 6 px dots bouncing in turn.
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < 3; i++) ...[
+              if (i > 0) const SizedBox(width: 3),
+              Transform.translate(
+                offset: Offset(
+                  0,
+                  -3 *
+                      math.max(
+                        0.0,
+                        math.sin(
+                          (_controller.value * 2 * math.pi) - i * math.pi / 3,
+                        ),
+                      ),
+                ),
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: colors.dirtyWhite,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

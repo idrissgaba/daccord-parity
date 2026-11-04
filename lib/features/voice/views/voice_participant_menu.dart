@@ -136,8 +136,7 @@ Future<void> showVoiceParticipantMenu(
         key: const Key('voice-menu-non-video'),
         label: 'Show Non-Video Participants',
         checked: showNonVideoParticipants,
-        onSelected: () =>
-            onShowNonVideoParticipants(!showNonVideoParticipants),
+        onSelected: () => onShowNonVideoParticipants(!showNonVideoParticipants),
       ),
     ],
     if (spaceId != null && rights.any) ...[
@@ -148,9 +147,14 @@ Future<void> showVoiceParticipantMenu(
           label: 'Server Mute',
           destructive: true,
           checked: voiceState?.mute ?? false,
-          onSelected: () => _updateMember(context, ref, serverKey, spaceId, userId, {
-            'mute': !(voiceState?.mute ?? false),
-          }),
+          onSelected: () => _updateMember(
+            context,
+            ref,
+            serverKey,
+            spaceId,
+            userId,
+            {'mute': !(voiceState?.mute ?? false)},
+          ),
         ),
       // A stage moderator seats a raised hand on stage, or sends a speaker
       // back to the audience.
@@ -174,18 +178,28 @@ Future<void> showVoiceParticipantMenu(
           label: 'Server Deafen',
           destructive: true,
           checked: voiceState?.deaf ?? false,
-          onSelected: () => _updateMember(context, ref, serverKey, spaceId, userId, {
-            'deaf': !(voiceState?.deaf ?? false),
-          }),
+          onSelected: () => _updateMember(
+            context,
+            ref,
+            serverKey,
+            spaceId,
+            userId,
+            {'deaf': !(voiceState?.deaf ?? false)},
+          ),
         ),
       if (rights.move && !isSelf) ...[
         AccordMenuEntry(
           key: const Key('voice-mod-disconnect'),
           label: 'Disconnect',
           destructive: true,
-          onSelected: () => _updateMember(context, ref, serverKey, spaceId, userId, {
-            'channel_id': null,
-          }),
+          onSelected: () => _updateMember(
+            context,
+            ref,
+            serverKey,
+            spaceId,
+            userId,
+            {'channel_id': null},
+          ),
         ),
         AccordMenuEntry(
           key: const Key('voice-mod-move'),
@@ -345,7 +359,14 @@ class UserVolumeSlider extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(label, style: Theme.of(context).textTheme.bodyMedium),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
                 Text(
                   muted ? 'Muted' : '$shown%',
                   style: Theme.of(
@@ -453,9 +474,14 @@ Future<void> _showMoveMenu(
         AccordMenuEntry(
           label: channel.name ?? channel.id,
           icon: channel.type == 'stage' ? AppIcons.podcasts : AppIcons.volumeUp,
-          onSelected: () => _updateMember(context, ref, serverKey, spaceId, userId, {
-            'channel_id': channel.id,
-          }),
+          onSelected: () => _updateMember(
+            context,
+            ref,
+            serverKey,
+            spaceId,
+            userId,
+            {'channel_id': channel.id},
+          ),
         ),
     ],
   );

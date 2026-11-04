@@ -198,14 +198,18 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Open external link?'), findsOneWidget);
+      expect(find.text('Leaving Daccord'), findsOneWidget);
+      // The full address, its host set apart.
       expect(
-        find.textContaining('Destination: downloads.example.com'),
+        find.text(
+          'https://downloads.example.com/releases/latest?from=message',
+          findRichText: true,
+        ),
         findsOneWidget,
       );
       expect(launched, isEmpty);
 
-      await tester.tap(find.text('Open link'));
+      await tester.tap(find.text('Visit site'));
       await tester.pumpAndSettle();
 
       expect(launched, [

@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'dm_home_host.dart';
+
 /// Reaching Report and Block from a direct message (App Review 1.2, #290).
 ///
 /// A DM has no space, so the space-scoped member popout can't open there: a tap
@@ -81,7 +83,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      app((context) => () => showAccordUserProfile(context, _them)),
+      app(
+        (context) =>
+            () => showAccordUserProfile(context, _them),
+      ),
     );
     await tester.tap(find.text('open'));
     await _tick(tester);
@@ -100,7 +105,10 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      app((context) => () => showAccordUserProfile(context, _them)),
+      app(
+        (context) =>
+            () => showAccordUserProfile(context, _them),
+      ),
     );
     await tester.tap(find.text('open'));
     await _tick(tester);
@@ -115,33 +123,36 @@ void main() {
     );
   });
 
-  testWidgets('the 1:1 DM header has a visible menu carrying Report and Block', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      app(
-        (context) => () => showAccordDirectMessages(
-          context,
-          initialChannel: _dm,
+  testWidgets(
+    'the 1:1 DM header has a visible menu carrying Report and Block',
+    (tester) async {
+      resetDmHomeAfter();
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: buildAppTheme(AppThemePreset.dark),
+            home: DmHomeHost(initialChannel: _dm),
+          ),
         ),
-      ),
-    );
-    await tester.tap(find.text('open'));
-    await _tick(tester);
+      );
+      await tester.tap(find.text('open dms'));
+      await _tick(tester);
 
-    // The group menu is group-only; a 1:1 gets its own overflow button.
-    expect(find.byTooltip('Group options'), findsNothing);
-    expect(find.byTooltip('Conversation options'), findsOneWidget);
+      // The group menu is group-only; a 1:1 gets its own overflow button.
+      expect(find.byTooltip('Group options'), findsNothing);
+      expect(find.byTooltip('Conversation options'), findsOneWidget);
 
-    await tester.tap(find.byTooltip('Conversation options'));
-    await _tick(tester);
+      await tester.tap(find.byTooltip('Conversation options'));
+      await _tick(tester);
 
-    expect(find.text('Report user'), findsOneWidget);
-    expect(find.text('Block'), findsOneWidget);
+      expect(find.text('Report user'), findsOneWidget);
+      expect(find.text('Block'), findsOneWidget);
 
-    await tester.tap(find.text('Report user'));
-    await _tick(tester);
+      await tester.tap(find.text('Report user'));
+      await _tick(tester);
 
-    expect(find.text('Report bob'), findsOneWidget);
-  });
+      expect(find.text('Report bob'), findsOneWidget);
+    },
+  );
 }

@@ -1,7 +1,5 @@
-import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/dm_channels.dart';
-import 'package:bonfire/features/user/views/accord_direct_messages.dart';
 import 'package:bonfire/features/voice/controllers/missed_calls.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
@@ -9,6 +7,8 @@ import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'dm_home_host.dart';
 
 /// A [DmChannelsController] exposing a fixed conversation list, so the DM
 /// dialog renders without a server.
@@ -36,19 +36,13 @@ void main() {
   late ProviderContainer container;
 
   Future<void> openDialog(WidgetTester tester) async {
+    resetDmHomeAfter();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
           theme: buildAppTheme(AppThemePreset.dark),
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showAccordDirectMessages(context),
-                child: const Text('open dms'),
-              ),
-            ),
-          ),
+          home: const DmHomeHost(),
         ),
       ),
     );
@@ -73,7 +67,6 @@ void main() {
     await openDialog(tester);
     expect(find.text('bob'), findsOneWidget);
     expect(find.text('Missed call'), findsNothing);
-    expect(find.byIcon(AppIcons.callMissed), findsNothing);
   });
 
   testWidgets('a missed call labels the conversation in the DM list', (
@@ -86,12 +79,9 @@ void main() {
     await openDialog(tester);
 
     expect(find.text('Missed call'), findsOneWidget);
-    expect(find.byIcon(AppIcons.callMissed), findsOneWidget);
   });
 
-  testWidgets('repeat misses show the count, video misses use the video icon', (
-    tester,
-  ) async {
+  testWidgets('repeat misses show the count', (tester) async {
     final missed = container.read(missedCallsControllerProvider.notifier);
     missed.record(channelId: 'dm1', callerId: 'u2', video: true);
     missed.record(channelId: 'dm1', callerId: 'u2', video: true);
@@ -99,8 +89,6 @@ void main() {
     await openDialog(tester);
 
     expect(find.text('Missed call (2)'), findsOneWidget);
-    expect(find.byIcon(AppIcons.missedVideoCall), findsOneWidget);
-    expect(find.byIcon(AppIcons.callMissed), findsNothing);
   });
 
   testWidgets('opening the conversation clears the indicator', (tester) async {
@@ -111,15 +99,15 @@ void main() {
     await openDialog(tester);
     expect(find.text('Missed call'), findsOneWidget);
 
-    // Open the conversation, then go back to the list. There is no client in
-    // this harness, so the shared message pane remains in its loading state;
-    // pump explicit frames rather than waiting for it to settle.
-    await tester.tap(find.text('bob'));
+    // Open the conversation, then go back to the Friends page. There is no
+    // client in this harness, so the shared message pane remains in its
+    // loading state; pump explicit frames rather than waiting for it to settle.
+    await tester.tap(find.text('bob').first);
     await tester.pump();
     await tester.pump();
     expect(container.read(missedCallsControllerProvider), isEmpty);
 
-    await tester.tap(find.byTooltip('Back'));
+    await tester.tap(find.byKey(const Key('dm-home-friends')));
     await tester.pump();
 
     expect(find.text('bob'), findsOneWidget);
@@ -144,8 +132,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.byTooltip('Emoji'), findsOneWidget);
-    expect(find.byTooltip('Start voice call'), findsOneWidget);
-    expect(find.byTooltip('Start video call'), findsOneWidget);
+    expect(find.byTooltip('Start Voice Call'), findsOneWidget);
+    expect(find.byTooltip('Start Video Call'), findsOneWidget);
   });
 
   testWidgets('long-pressing a DM user opens their context menu', (
@@ -158,7 +146,7 @@ void main() {
 
     expect(find.text('View profile'), findsOneWidget);
     expect(find.text('Copy user ID'), findsOneWidget);
-    expect(find.text('Close direct message'), findsOneWidget);
+    expect(find.text('Close DM'), findsOneWidget);
   });
 
   testWidgets('opening a different conversation keeps the indicator', (
@@ -178,7 +166,7 @@ void main() {
     await tester.tap(find.text('carol'));
     await tester.pump();
     await tester.pump();
-    await tester.tap(find.byTooltip('Back'));
+    await tester.tap(find.byKey(const Key('dm-home-friends')));
     await tester.pump();
 
     expect(container.read(missedCallsControllerProvider).keys, ['dm1']);

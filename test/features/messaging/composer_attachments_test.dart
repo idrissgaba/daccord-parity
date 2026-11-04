@@ -200,11 +200,30 @@ Future<_Harness> _pump(
   return harness;
 }
 
-/// Taps the composer's attach button.
+/// Opens the composer's "+" menu and picks "Upload a File".
 Future<void> _tapAttach(WidgetTester tester) async {
-  await tester.tap(find.byIcon(AppIcons.addCircleOutline));
+  await tester.tap(find.byKey(const Key('composer-attach')));
+  await _tick(tester);
+  await tester.tap(find.text('Upload a File'));
   await _tick(tester);
 }
+
+/// The tap handler of a composer icon button (an [InkWell] under a tooltip).
+VoidCallback? _onTap(WidgetTester tester, Finder button) =>
+    tester.widget<InkWell>(button).onTap;
+
+/// The tooltip text over a composer icon button.
+String _tooltipOf(WidgetTester tester, Finder button) => tester
+    .widget<Tooltip>(
+      find.ancestor(of: button, matching: find.byType(Tooltip)).first,
+    )
+    .message!;
+
+final _attachButton = find.byKey(const Key('composer-attach'));
+
+Finder get _sendButton => find
+    .ancestor(of: find.byIcon(AppIcons.send), matching: find.byType(InkWell))
+    .first;
 
 /// Every visible text in the tree containing [needle] — the composer's error is
 /// rendered by `InlineError`, so this asserts what the user can actually read.
@@ -329,14 +348,11 @@ void main() {
     await _pump(tester, settings: const {'max_attachments_per_message': 1});
     await _tapAttach(tester);
 
-    final button = tester.widget<IconButton>(
-      find.ancestor(
-        of: find.byIcon(AppIcons.addCircleOutline),
-        matching: find.byType(IconButton),
-      ),
+    expect(_onTap(tester, _attachButton), isNull);
+    expect(
+      _tooltipOf(tester, _attachButton),
+      contains('Attachment limit reached'),
     );
-    expect(button.onPressed, isNull);
-    expect(button.tooltip, contains('Attachment limit reached'));
   });
 
   testWidgets('a failed upload shows the server error and keeps the file', (
@@ -349,7 +365,7 @@ void main() {
     await _tapAttach(tester);
     expect(_visibleText('song.mp3'), findsOneWidget);
 
-    await tester.tap(find.byIcon(AppIcons.send));
+    await tester.tap(_sendButton);
     await _tick(tester);
 
     expect(_visibleText('Payload too large'), findsOneWidget);
@@ -388,7 +404,7 @@ void main() {
       await _tapAttach(tester);
       expect(_visibleText('song.mp3'), findsOneWidget);
 
-      await tester.tap(find.byIcon(AppIcons.send));
+      await tester.tap(_sendButton);
       await _tick(tester);
 
       expect(
@@ -402,14 +418,8 @@ void main() {
       expect(_visibleText('rate limited, retry after'), findsNothing);
       expect(_visibleText('song.mp3'), findsOneWidget);
 
-      IconButton sendButton() => tester.widget<IconButton>(
-        find.ancestor(
-          of: find.byIcon(AppIcons.send),
-          matching: find.byType(IconButton),
-        ),
-      );
-      expect(sendButton().onPressed, isNull);
-      expect(sendButton().tooltip, contains('Rate limited'));
+      expect(_onTap(tester, _sendButton), isNull);
+      expect(_tooltipOf(tester, _sendButton), contains('Rate limited'));
 
       // Nothing is resent in the background while the countdown runs.
       await tester.pump(const Duration(seconds: 5));
@@ -421,16 +431,16 @@ void main() {
       // Dropping the file frees text sends: this channel has no slowmode, so
       // only uploads were ever held back. With nothing typed the slot offers a
       // voice message, which is an upload too and stays held back.
-      await tester.tap(find.byIcon(AppIcons.close).last);
+      await tester.tap(find.byTooltip('Remove Attachment'));
       await _tick(tester);
       expect(_visibleText('song.mp3'), findsNothing);
-      final record = tester.widget<IconButton>(
-        find.byKey(const Key('voice-message-record')),
+      expect(
+        _onTap(tester, find.byKey(const Key('voice-message-record'))),
+        isNull,
       );
-      expect(record.onPressed, isNull);
       await tester.enterText(find.byType(TextField).last, 'text still flows');
       await tester.pump();
-      expect(sendButton().onPressed, isNotNull);
+      expect(_onTap(tester, _sendButton), isNotNull);
     },
   );
 
@@ -447,15 +457,10 @@ void main() {
         'upload_bytes_per_minute': 52428800,
       },
     );
-    final button = tester.widget<IconButton>(
-      find.ancestor(
-        of: find.byIcon(AppIcons.addCircleOutline),
-        matching: find.byType(IconButton),
-      ),
-    );
-    expect(button.tooltip, contains('up to 8.0 MB each, 4 per message'));
+    final tooltip = _tooltipOf(tester, _attachButton);
+    expect(tooltip, contains('up to 8.0 MB each, 4 per message'));
     expect(
-      button.tooltip,
+      tooltip,
       contains('Uploads are limited to 6 uploads and 50 MB per minute.'),
     );
   });
@@ -465,13 +470,7 @@ void main() {
   ) async {
     FilePicker.platform = _FakeFilePicker(() async => null);
     await _pump(tester, settings: const {'max_attachment_size': 1024});
-    final button = tester.widget<IconButton>(
-      find.ancestor(
-        of: find.byIcon(AppIcons.addCircleOutline),
-        matching: find.byType(IconButton),
-      ),
-    );
-    expect(button.tooltip, isNot(contains('per minute')));
+    expect(_tooltipOf(tester, _attachButton), isNot(contains('per minute')));
   });
 
   testWidgets('falls back to the compiled-in limits when /settings 403s', (

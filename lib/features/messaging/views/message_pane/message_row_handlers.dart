@@ -4,6 +4,8 @@ part of 'message_pane.dart';
 mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
   String get _authorName;
   String get _fullTime;
+  String get _time;
+  String? get _avatarUrl;
   AccordMessagesController? get _channelMessages;
 
   /// Whether the row's "⋯" actions menu is open. Only meaningful when [narrow],
@@ -73,22 +75,64 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
     if (error != null && mounted) showInfoSnack(context, error);
   }
 
-  Future<void> _openSuperReactionPicker(String messageId) async {
-    final pick = await showAccordEmojiPicker(context, spaceId: widget.spaceId);
-    if (pick == null || !mounted) return;
-    final token = pick.id == null ? pick.char : '${pick.name}:${pick.id}';
-    await _toggleSuperReaction(messageId, token);
-  }
-
+  /// The reaction picker; with its Super Reaction toggle on, the pick is
+  /// sent as a super reaction.
   Future<void> _openReactionPicker(String messageId) async {
-    final pick = await showAccordEmojiPicker(context, spaceId: widget.spaceId);
+    final pick = await showAccordEmojiPicker(
+      context,
+      spaceId: widget.spaceId,
+      reaction: true,
+    );
     if (pick == null || !mounted) return;
-    await _toggleReaction(messageId, pick.reactionName, emojiId: pick.id);
+    if (pick.superReaction) {
+      await _toggleSuperReaction(messageId, pick.superToken);
+    } else {
+      await _toggleReaction(messageId, pick.reactionName, emojiId: pick.id);
+    }
   }
 
   Future<void> _togglePin(String messageId, {required bool pinned}) async {
     final client = _client;
     if (client == null) return;
+    final message = _message;
+    final channelName = widget.spaceId == null
+        ? null
+        : ref
+              .read(
+                accordChannelsControllerProvider(
+                  ref.readActiveServerKey() ?? '',
+                  widget.spaceId!,
+                ),
+              )
+              ?.firstWhereOrNull((c) => c.id == widget.channelId)
+              ?.name;
+    final confirmed =
+        HardwareKeyboard.instance.isShiftPressed ||
+        await showDialog<bool>(
+              context: context,
+              builder: (_) => AccordDialog(
+                title: pinned ? 'Unpin Message' : 'Pin It. Pin It Good.',
+                subtitle: pinned
+                    ? 'You sure you want to remove this pinned message?'
+                    : 'Hey, just double-checking that you want to pin this '
+                          'message to ${channelName == null ? 'this conversation' : '#$channelName'} '
+                          'for posterity and greatness?',
+                primaryLabel: pinned ? 'Remove it please!' : 'Oh yeah. Pin it',
+                tone: pinned
+                    ? AccordDialogTone.danger
+                    : AccordDialogTone.primary,
+                body: _MessagePreviewCard(
+                  message: message,
+                  authorName: _authorName,
+                  when: _time,
+                  avatarUrl: _avatarUrl,
+                  replyName: _replyContext(message)?.$1,
+                  replyText: _replyContext(message)?.$2,
+                ),
+              ),
+            ) ==
+            true;
+    if (!confirmed || !mounted) return;
     final controller = ref.read(
       accordMessagesControllerProvider(
         ref.readActiveServerKey() ?? '',
@@ -116,6 +160,35 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
     setState(() => _menuOpen = open);
   }
 
+  @override
+  void _onEmptyEdit(String messageId) => _delete(messageId);
+
+  /// The replied-to author and a one-line preview, for the dialogs' card.
+  (String, String)? _replyContext(AccordMessage message) {
+    final target = widget.messagesById[message.replyTo];
+    if (target == null) return null;
+    final members = widget.spaceId == null
+        ? null
+        : ref.read(
+            accordMembersControllerProvider(
+              ref.readActiveServerKey() ?? '',
+              widget.spaceId!,
+            ),
+          );
+    final users = ref.read(
+      accordUsersControllerProvider(ref.readActiveServerKey() ?? ''),
+    );
+    final name = accordAuthorName(
+      target.authorId,
+      members: members,
+      users: users,
+    );
+    return (
+      name,
+      plainMessagePreview(accordMessageText(target, authorName: name)),
+    );
+  }
+
   Future<void> _delete(String messageId) async {
     final client = _client;
     if (client == null || _busy) return;
@@ -141,96 +214,66 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
     if (!ok) showInfoSnack(context, 'Failed to delete message');
   }
 
-  /// "Delete Message?" with a preview of what goes, and the Shift tip.
+  /// "Delete Message" with a preview of what goes, and the Shift tip.
   Future<bool?> _confirmDelete(
     AccordMessage message,
     String authorName,
     String when,
   ) {
     final colors = BonfireThemeExtension.of(context);
-    final preview = plainMessagePreview(
-      accordMessageText(message, authorName: authorName),
-    );
     return showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Message'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Are you sure you want to delete this message?'),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: colors.background,
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black26, blurRadius: 6),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            authorName,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(ctx).textTheme.titleSmall,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            when,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(ctx).textTheme.labelSmall!.copyWith(
-                              color: colors.gray,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      preview.isEmpty
-                          ? (message.attachments.isNotEmpty
-                                ? '(attachment)'
-                                : '(no text)')
-                          : preview,
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+      builder: (ctx) => AccordDialog(
+        title: 'Delete Message',
+        subtitle: 'Are you sure you want to delete this message?',
+        primaryLabel: 'Delete',
+        tone: AccordDialogTone.danger,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _MessagePreviewCard(
+              message: message,
+              authorName: authorName,
+              when: _time,
+              avatarUrl: _avatarUrl,
+              replyName: _replyContext(message)?.$1,
+              replyText: _replyContext(message)?.$2,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Protip:',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 18 / 14,
+                color: Color(0xFF5EB479),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Protip: hold Shift while clicking Delete to skip this '
-                'confirmation.',
-                style: Theme.of(
-                  ctx,
-                ).textTheme.labelSmall!.copyWith(color: colors.gray),
+            ),
+            Text.rich(
+              TextSpan(
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 18 / 14,
+                  color: colors.dirtyWhite,
+                ),
+                children: const [
+                  TextSpan(
+                    text: 'You can hold down shift when clicking ',
+                    style: TextStyle(fontWeight: FontWeight.w400),
+                  ),
+                  TextSpan(
+                    text: 'delete message',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  TextSpan(
+                    text: ' to bypass this confirmation entirely.',
+                    style: TextStyle(fontWeight: FontWeight.w400),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
       ),
     );
   }
@@ -346,21 +389,40 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
     );
   }
 
-  /// The long-press (mobile) / right-click (desktop) message menu. Bulk-select
-  /// lives here as one entry rather than being the long-press itself, so the
+  /// The long-press (mobile) / right-click (desktop) message menu, in the
+  /// reference client's order: a row of quick reactions, Add Reaction (and
+  /// View Reactions once there are any); Edit, Reply, Forward, Create Thread;
+  /// Copy Text, Pin, Mark Unread, Copy Message Link; the red Delete (or
+  /// Report); Copy Message ID. Accord's own entries (End poll, Block files,
+  /// Select messages) slot into the group they belong with. Bulk-select lives
+  /// here as one entry rather than being the long-press itself, so the
   /// per-message actions stay reachable on touch.
   ///
   /// [message] is captured when the menu opens: the entries' callbacks only run
   /// once the menu has closed (an await), by which point the row may already be
-  /// bound to a different message.
-  void _showActionsMenu(
+  /// bound to a different message. Completes when the menu closes.
+  Future<void> _showActionsMenu(
     AccordMessage message, [
     Offset? position,
     VoidCallback? copySelection,
-  ]) {
+  ]) async {
     if (_editing) return;
     final canDelete = widget.isOwn || widget.canManageMessages;
     final canReport = !widget.isOwn;
+    final desktop = shouldUseDesktopLayout(context);
+    final system = isSystemMessage(message);
+    final content = system
+        ? ''
+        : accordMessageText(message, authorName: _authorName);
+    final hasReactions =
+        (message.reactions ?? const []).isNotEmpty ||
+        message.superReactions.isNotEmpty;
+    final quickPicks = desktop
+        ? quickReactionPicks(
+            ref.read(settingsControllerProvider).recentEmoji,
+            count: 4,
+          )
+        : const <EmojiPick>[];
     final entries = <AccordMenuEntry>[
       if (copySelection != null)
         AccordMenuEntry(
@@ -368,39 +430,77 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
           icon: AppIcons.contentCopy,
           onSelected: copySelection,
         ),
+      if (quickPicks.isNotEmpty)
+        AccordMenuEntry.widget(
+          height: 52,
+          child: _QuickReactionRow(
+            picks: quickPicks,
+            onPick: (pick) {
+              Navigator.of(context).pop();
+              _toggleReaction(message.id, pick.reactionName, emojiId: pick.id);
+            },
+          ),
+        ),
       AccordMenuEntry(
-        label: 'Add reaction',
+        label: 'Add Reaction',
         icon: AppIcons.addReactionOutlined,
+        trailingChevron: true,
         onSelected: () => _openReactionPicker(message.id),
       ),
-      AccordMenuEntry(
-        label: 'Super reaction',
-        icon: AppIcons.autoAwesome,
-        onSelected: () => _openSuperReactionPicker(message.id),
-      ),
+      if (hasReactions)
+        AccordMenuEntry(
+          label: 'View Reactions',
+          icon: AppIcons.emojiEmotionsOutlined,
+          onSelected: () => _showReactors(
+            message.id,
+            (message.reactions ?? const <AccordReaction>[]).firstOrNull ??
+                AccordReaction(),
+          ),
+        ),
+      const AccordMenuEntry.divider(),
+      if (widget.isOwn && !system)
+        AccordMenuEntry(
+          label: 'Edit Message',
+          icon: AppIcons.edit,
+          onSelected: () => _startEdit(message),
+        ),
       AccordMenuEntry(
         label: 'Reply',
         icon: AppIcons.reply,
         onSelected: widget.onReply,
       ),
       AccordMenuEntry(
-        label: 'Thread',
-        icon: AppIcons.forumOutlined,
-        onSelected: () => _openThread(message),
-      ),
-      AccordMenuEntry(
         label: 'Forward',
-        icon: AppIcons.shortcut,
+        icon: AppIcons.forward,
         onSelected: () => _forward(message),
       ),
+      if (widget.spaceId != null)
+        AccordMenuEntry(
+          label: 'Create Thread',
+          icon: AppIcons.forumOutlined,
+          onSelected: () => _openThread(message),
+        ),
+      const AccordMenuEntry.divider(),
+      if (content.isNotEmpty)
+        AccordMenuEntry(
+          label: 'Copy Text',
+          icon: AppIcons.copyOutlined,
+          onSelected: () => Clipboard.setData(ClipboardData(text: content)),
+        ),
+      if (widget.canManageMessages)
+        AccordMenuEntry(
+          label: message.pinned ? 'Unpin Message' : 'Pin Message',
+          icon: AppIcons.pushPin,
+          onSelected: () => _togglePin(message.id, pinned: message.pinned),
+        ),
       AccordMenuEntry(
-        label: 'Mark unread',
+        label: 'Mark Unread',
         icon: AppIcons.markChatUnreadOutlined,
         onSelected: () => _markUnread(message),
       ),
       if (widget.spaceId case final spaceId?)
         AccordMenuEntry(
-          label: 'Copy message link',
+          label: 'Copy Message Link',
           icon: AppIcons.link,
           onSelected: () {
             Clipboard.setData(
@@ -415,61 +515,217 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
             showInfoSnack(context, 'Message link copied');
           },
         ),
+      const AccordMenuEntry.divider(),
       if (message.poll case final poll?
           when !poll.closed && (widget.isOwn || widget.canManageMessages))
         AccordMenuEntry(
-          label: 'End poll',
+          label: 'End Poll',
           icon: AppIcons.stopCircleOutlined,
+          destructive: true,
           onSelected: () => _endPoll(message.id),
         ),
-      ...buildMessageActionEntries(
-        content: accordMessageText(message, authorName: _authorName),
-        canEdit: widget.isOwn,
-        canDelete: canDelete,
-        onEdit: () => _startEdit(message),
-        onDelete: () => _delete(message.id),
-        // Pin sits between Edit and Delete in this menu; it's site-specific
-        // (the thread view has no pinning) so it slots in via [beforeDelete].
-        beforeDelete: [
-          if ((widget.canManageMessages || ref.readIsAdmin()) &&
-              message.attachments.isNotEmpty &&
-              (message.spaceId != null || ref.readIsAdmin()))
-            AccordMenuEntry(
-              label: 'Block files and delete',
-              icon: AppIcons.block,
-              onSelected: () => _blockFiles(message),
-            ),
-          if (widget.canManageMessages)
-            AccordMenuEntry(
-              label: message.pinned ? 'Unpin' : 'Pin',
-              icon: message.pinned
-                  ? AppIcons.pushPinOutlined
-                  : AppIcons.pushPin,
-              onSelected: () => _togglePin(message.id, pinned: message.pinned),
-            ),
-        ],
-      ),
+      if ((widget.canManageMessages || ref.readIsAdmin()) &&
+          message.attachments.isNotEmpty &&
+          (message.spaceId != null || ref.readIsAdmin()))
+        AccordMenuEntry(
+          label: 'Block Files and Delete',
+          icon: AppIcons.block,
+          destructive: true,
+          onSelected: () => _blockFiles(message),
+        ),
+      if (canDelete)
+        AccordMenuEntry(
+          label: 'Delete Message',
+          icon: AppIcons.deleteOutline,
+          destructive: true,
+          onSelected: () => _delete(message.id),
+        ),
       if (canReport)
         AccordMenuEntry(
-          label: 'Report',
+          label: 'Report Message',
           icon: AppIcons.flagOutlined,
+          destructive: true,
           onSelected: () => _report(message),
         ),
-      if (widget.onLongPressSelect != null) ...[
-        const AccordMenuEntry.divider(),
+      if (widget.onLongPressSelect != null)
         AccordMenuEntry(
-          label: 'Select messages',
+          label: 'Select Messages',
           icon: AppIcons.checklist,
           onSelected: widget.onLongPressSelect,
         ),
-      ],
+      const AccordMenuEntry.divider(),
+      AccordMenuEntry(
+        label: 'Copy Message ID',
+        icon: AppIcons.idCard,
+        onSelected: () => Clipboard.setData(ClipboardData(text: message.id)),
+      ),
     ];
 
-    showAccordContextMenu(
+    await showAccordContextMenu(
       context,
       entries: entries,
       globalPosition: position,
       title: _authorName,
+    );
+  }
+}
+
+/// The four quick-reaction emoji at the head of the message menu: 44 px
+/// buttons on a 48 px pitch, as the reference client lays them out.
+class _QuickReactionRow extends StatelessWidget {
+  const _QuickReactionRow({required this.picks, required this.onPick});
+
+  final List<EmojiPick> picks;
+  final ValueChanged<EmojiPick> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (final pick in picks)
+            Tooltip(
+              message: pick.name,
+              waitDuration: const Duration(milliseconds: 400),
+              child: Material(
+                color: colors.background,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  hoverColor: colors.hover,
+                  onTap: () => onPick(pick),
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: Text(
+                        pick.char,
+                        style: const TextStyle(fontSize: 24),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The message as the confirmation dialogs show it: a raised card with the
+/// author's avatar, name and time over the text (or "(attachment)").
+class _MessagePreviewCard extends StatelessWidget {
+  const _MessagePreviewCard({
+    required this.message,
+    required this.authorName,
+    required this.when,
+    required this.avatarUrl,
+    this.replyName,
+    this.replyText,
+  });
+
+  /// The message this one answers, as its reply context shows it.
+  final String? replyName;
+  final String? replyText;
+
+  final AccordMessage message;
+  final String authorName;
+  final String when;
+  final String? avatarUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final preview = plainMessagePreview(
+      accordMessageText(message, authorName: authorName),
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.raised,
+        borderRadius: BorderRadius.circular(3),
+        boxShadow: [
+          const BoxShadow(color: Color(0x991E1F22), spreadRadius: 1),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(width: 16),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: AccordMemberAvatar(
+              avatarUrl: avatarUrl,
+              initial: accordInitial(authorName),
+              radius: 20,
+              backgroundColor: accordAvatarColor(null, message.authorId),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (replyName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$replyName ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w500,
+                              color: colors.dirtyWhite,
+                            ),
+                          ),
+                          TextSpan(text: replyText ?? ''),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: colors.interactive,
+                      ),
+                    ),
+                  ),
+                MessageAuthorHeader(
+                  name: authorName,
+                  time: when,
+                  ellipsizeName: true,
+                ),
+                Text(
+                  preview.isEmpty
+                      ? (message.attachments.isNotEmpty
+                            ? '(attachment)'
+                            : '(no text)')
+                      : preview,
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    height: 22 / 16,
+                    color: colors.dirtyWhite,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
     );
   }
 }

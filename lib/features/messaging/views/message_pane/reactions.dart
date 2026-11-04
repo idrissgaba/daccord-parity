@@ -1,27 +1,15 @@
 part of 'message_pane.dart';
 
-/// Opens the full emoji picker to add a reaction to the message.
-class _ReactButton extends StatelessWidget {
-  const _ReactButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = BonfireThemeExtension.of(context);
-    return IconButton(
-      tooltip: 'Add reaction',
-      onPressed: onPressed,
-      icon: Icon(AppIcons.addReactionOutlined, size: 18, color: colors.gray),
-    );
-  }
-}
-
-class _ReactionPill extends StatelessWidget {
+/// One reaction as the reference client draws it: a 30 px pill (emoji 20,
+/// count 16/600) with an 8 px radius; yours is washed and outlined in the
+/// accent. Hovering it names who reacted, in a raised tooltip with the emoji
+/// at 48 px.
+class _ReactionPill extends StatefulWidget {
   const _ReactionPill({
     required this.reaction,
     required this.onTap,
     required this.onShowReactors,
+    this.reactorNames,
     this.imageUrl,
     this.trustedMediaBaseUrl,
     this.superReaction = false,
@@ -36,14 +24,57 @@ class _ReactionPill extends StatelessWidget {
   /// Long-press / right-click: reveal who reacted.
   final VoidCallback onShowReactors;
 
+  /// Loads the reactors' names for the hover tooltip; null shows no tooltip.
+  final Future<List<String>> Function()? reactorNames;
+
   /// Resolved image URL for a custom-emoji reaction; null for unicode.
   final String? imageUrl;
   final String? trustedMediaBaseUrl;
 
   @override
+  State<_ReactionPill> createState() => _ReactionPillState();
+}
+
+class _ReactionPillState extends State<_ReactionPill> {
+  List<String>? _names;
+  bool _loading = false;
+
+  void _loadNames() {
+    final load = widget.reactorNames;
+    if (load == null || _loading) return;
+    _loading = true;
+    load().then((names) {
+      if (!mounted) return;
+      setState(() {
+        _names = names;
+        _loading = false;
+      });
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ReactionPill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reaction.count != widget.reaction.count) {
+      _names = null;
+      _loading = false;
+    }
+  }
+
+  /// "A, B and C" — the reference client's wording, capped at three names.
+  static String _joinNames(List<String> names) {
+    if (names.isEmpty) return '';
+    if (names.length == 1) return names.first;
+    if (names.length == 2) return '${names[0]} and ${names[1]}';
+    if (names.length == 3) return '${names[0]}, ${names[1]} and ${names[2]}';
+    return '${names[0]}, ${names[1]}, ${names[2]} and ${names.length - 3} '
+        'other${names.length - 3 == 1 ? '' : 's'}';
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
+    final reaction = widget.reaction;
     final rawName = reaction.emoji['name']?.toString() ?? '';
     final rawId = reaction.emoji['id']?.toString();
     // A custom emoji whose source didn't split it arrives as name=`name:id`,
@@ -52,80 +83,179 @@ class _ReactionPill extends StatelessWidget {
     final id = rawId ?? parsed.id;
     final name = rawId != null ? rawName : parsed.name;
     final mine = reaction.includesMe;
-    return Material(
-      color: mine ? colors.primary.withValues(alpha: 0.25) : colors.darkGray,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        onLongPress: onShowReactors,
-        onSecondaryTap: onShowReactors,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: superReaction
-                  ? superReactionColor(colors)
-                  : (mine ? colors.primary : Colors.transparent),
-              width: superReaction ? 1.5 : 1,
+    final superReaction = widget.superReaction;
+    final glyph = id == null ? resolveEmojiGlyph(name) : null;
+    Widget emoji(double size) => id != null && widget.imageUrl != null
+        ? MessageMediaGate(
+            source: widget.imageUrl,
+            trustedBaseUrl: widget.trustedMediaBaseUrl,
+            allowExternalConsent: false,
+            blockedPlaceholder: Text(
+              name,
+              style: TextStyle(fontSize: size * 0.7),
             ),
-            boxShadow: superReaction
-                ? [
-                    BoxShadow(
-                      color: superReactionColor(
-                        colors,
-                      ).withValues(alpha: mine ? 0.55 : 0.3),
-                      blurRadius: 8,
-                    ),
-                  ]
-                : null,
+            builder: (_, safeUrl) => CachedNetworkImage(
+              imageUrl: safeUrl,
+              width: size,
+              height: size,
+              fit: BoxFit.contain,
+              errorWidget: (_, _, _) =>
+                  Text(name, style: TextStyle(fontSize: size * 0.7)),
+            ),
+          )
+        // Unicode reaction: `name` is the shortcode (e.g. `hamburger`), not
+        // the glyph — resolve it to the actual emoji character.
+        : Text(
+            glyph ?? name,
+            style: TextStyle(fontSize: size * 0.8, height: 1),
+          );
+    final pill = Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: mine
+            ? colors.primary.withValues(alpha: 0.24)
+            : colors.selection.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: superReaction
+              ? superReactionColor(colors)
+              : (mine ? colors.primary : Colors.transparent),
+          width: superReaction ? 1.5 : 1,
+        ),
+        boxShadow: superReaction
+            ? [
+                BoxShadow(
+                  color: superReactionColor(
+                    colors,
+                  ).withValues(alpha: mine ? 0.55 : 0.3),
+                  blurRadius: 8,
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (superReaction) ...[
+            Icon(
+              AppIcons.autoAwesome,
+              size: 12,
+              color: superReactionColor(colors),
+              semanticLabel: 'Super reaction',
+            ),
+            const SizedBox(width: 3),
+          ],
+          SizedBox(width: 20, height: 20, child: Center(child: emoji(20))),
+          const SizedBox(width: 6),
+          Text(
+            '${reaction.count}',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              height: 1,
+              color: mine ? const Color(0xFFB9C8FF) : colors.dirtyWhite,
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (superReaction) ...[
-                Icon(
-                  AppIcons.autoAwesome,
-                  size: 12,
-                  color: superReactionColor(colors),
-                  semanticLabel: 'Super reaction',
-                ),
-                const SizedBox(width: 3),
-              ],
-              if (id != null && imageUrl != null)
-                MessageMediaGate(
-                  source: imageUrl,
-                  trustedBaseUrl: trustedMediaBaseUrl,
-                  allowExternalConsent: false,
-                  blockedPlaceholder: Text(
-                    name,
-                    style: const TextStyle(fontSize: 14),
+        ],
+      ),
+    );
+    final label = id == null ? ':${emojiShortName(name)}:' : ':$name:';
+    final names = _names;
+    final who = names == null
+        ? '…'
+        : names.isEmpty
+        ? '${reaction.count} ${reaction.count == 1 ? 'person' : 'people'}'
+        : _joinNames(names);
+    return MouseRegion(
+      onEnter: (_) => _loadNames(),
+      child: Tooltip(
+        waitDuration: const Duration(milliseconds: 300),
+        richMessage: widget.reactorNames == null
+            ? null
+            : TextSpan(
+                children: [
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: Center(child: emoji(48)),
+                      ),
+                    ),
                   ),
-                  builder: (_, safeUrl) => CachedNetworkImage(
-                    imageUrl: safeUrl,
-                    width: 16,
-                    height: 16,
-                    fit: BoxFit.contain,
-                    errorWidget: (_, _, _) =>
-                        Text(name, style: const TextStyle(fontSize: 14)),
-                  ),
-                )
-              else
-                // Unicode reaction: `name` is the shortcode (e.g. `hamburger`),
-                // not the glyph — resolve it to the actual emoji character.
-                Text(
-                  resolveEmojiGlyph(name),
-                  style: const TextStyle(fontSize: 16),
-                ),
-              const SizedBox(width: 4),
-              Text(
-                '${reaction.count}',
-                style: theme.textTheme.labelMedium!.copyWith(
-                  color: colors.dirtyWhite,
-                ),
+                  TextSpan(text: '$label reacted by $who'),
+                ],
               ),
-            ],
+        message: widget.reactorNames == null ? '' : null,
+        padding: const EdgeInsets.all(16),
+        verticalOffset: 24,
+        preferBelow: false,
+        decoration: BoxDecoration(
+          color: popoverSurfaceColor(colors),
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.08),
+              spreadRadius: 1,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.24),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        textStyle: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: colors.dirtyWhite,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: widget.onTap,
+            onLongPress: widget.onShowReactors,
+            onSecondaryTap: widget.onShowReactors,
+            child: pill,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The "add another reaction" pill shown after the reactions while the
+/// message is hovered: 34×30, the smiley at 18 px.
+class _AddReactionPill extends StatelessWidget {
+  const _AddReactionPill({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Tooltip(
+      message: 'Add Reaction',
+      waitDuration: const Duration(milliseconds: 400),
+      child: Material(
+        color: colors.selection.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          key: const Key('add-reaction-pill'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: SizedBox(
+            width: 34,
+            height: 30,
+            child: Icon(
+              AppIcons.addReactionOutlined,
+              size: 18,
+              color: colors.interactive,
+            ),
           ),
         ),
       ),

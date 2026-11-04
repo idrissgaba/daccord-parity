@@ -11,6 +11,7 @@ import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
 import 'package:bonfire/features/user/controllers/blocked_users.dart';
 import 'package:bonfire/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -171,19 +172,14 @@ void main() {
     await _tick(tester);
 
     expect(_body('from them'), findsOneWidget);
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('m2')),
-        matching: find.byTooltip('Message actions'),
-      ),
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('m2'))),
+      buttons: kSecondaryMouseButton,
     );
     await _tick(tester);
-    expect(
-      find.widgetWithText(PopupMenuItem<String>, 'Report'),
-      findsOneWidget,
-    );
+    expect(find.text('Report Message'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(PopupMenuItem<String>, 'Report'));
+    await tester.tap(find.text('Report Message'));
     await _tick(tester);
 
     expect(find.text('Report message'), findsOneWidget);
@@ -203,14 +199,13 @@ void main() {
     await tester.pumpWidget(harness.app);
     await _tick(tester);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('m1')),
-        matching: find.byTooltip('Message actions'),
-      ),
+    await tester.tapAt(
+      tester.getCenter(find.byKey(const ValueKey('m1'))),
+      buttons: kSecondaryMouseButton,
     );
     await _tick(tester);
-    expect(find.widgetWithText(PopupMenuItem<String>, 'Report'), findsNothing);
+    expect(find.text('Copy Message ID'), findsOneWidget);
+    expect(find.text('Report Message'), findsNothing);
   });
 
   testWidgets('a reported message is gone from the reporter\'s view', (

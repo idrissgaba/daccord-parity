@@ -128,9 +128,9 @@ void main() {
       expect(find.text('first', findRichText: true), findsOneWidget);
       expect(find.text('fourth', findRichText: true), findsOneWidget);
       // Three days of history: 10, 11 and 12 January.
-      expect(find.text('January 10, 2026'), findsOneWidget);
-      expect(find.text('January 11, 2026'), findsOneWidget);
-      expect(find.text('January 12, 2026'), findsOneWidget);
+      expect(find.text('10 January 2026'), findsOneWidget);
+      expect(find.text('11 January 2026'), findsOneWidget);
+      expect(find.text('12 January 2026'), findsOneWidget);
       // One NEW line, above "third" (the first message after 20).
       final newLine = find.byKey(const Key('new-messages-divider'));
       expect(newLine, findsOneWidget);
@@ -159,10 +159,8 @@ void main() {
     expect(reads.readBefore('c'), isNull);
   });
 
-  test('messageDayLabel names today, yesterday and older days', () {
-    final now = DateTime(2026, 10, 30, 15);
-    expect(messageDayLabel(DateTime(2026, 10, 30, 1), now: now), 'Today');
-    expect(messageDayLabel(DateTime(2026, 10, 29, 23), now: now), 'Yesterday');
-    expect(messageDayLabel(DateTime(2026, 10, 1), now: now), 'October 1, 2026');
+  test('messageDayLabel dates every day, today included', () {
+    expect(messageDayLabel(DateTime(2026, 10, 30, 1)), '30 October 2026');
+    expect(messageDayLabel(DateTime(2026, 10, 1)), '1 October 2026');
   });
 }

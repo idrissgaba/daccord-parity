@@ -104,7 +104,7 @@ class _SpaceRail extends ConsumerWidget {
     final railItems = <Widget>[
       _DirectMessagesButton(
         selected: selectedSpaceId == null,
-        onTap: () => showAccordDirectMessages(context),
+        onTap: () => dmHome.open(dmHome.channel),
       ),
       // 8 px, the 1 px separator (32 wide), 8 px.
       Padding(

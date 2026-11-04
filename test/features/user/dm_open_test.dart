@@ -17,6 +17,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'dm_home_host.dart';
+
 class _Auth extends AccordAuth {
   _Auth(this.auth);
   final AccordAuthLoggedIn auth;
@@ -40,7 +42,6 @@ void main() {
           : 'opening an uncached qualified local user sends the normalized ID',
       (tester) async {
         final creates = <Map<String, dynamic>>[];
-        final messageChannels = <String>[];
         final server = AccordServer.fromBaseUrl('https://a.example');
         final client = AccordClient(
           baseUrl: server.baseUrl,
@@ -60,9 +61,6 @@ void main() {
                 }),
                 200,
               );
-            }
-            if (request.url.path.endsWith('/messages')) {
-              messageChannels.add(request.url.path);
             }
             return http.Response('{"data":[]}', 200);
           }),
@@ -104,6 +102,7 @@ void main() {
                     ]
                   : [],
             );
+        resetDmHomeAfter();
         await tester.pumpWidget(
           UncontrolledProviderScope(
             container: container,
@@ -140,12 +139,9 @@ void main() {
                   },
                 ],
         );
-        expect(
-          messageChannels,
-          contains(
-            '/api/v1/channels/${cached ? 'existing' : 'created'}/messages',
-          ),
-        );
+        // The DM home opens on that conversation.
+        expect(dmHome.active, isTrue);
+        expect(dmHome.channel?.id, cached ? 'existing' : 'created');
         await tester.pumpWidget(const SizedBox());
       },
     );

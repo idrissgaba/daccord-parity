@@ -111,6 +111,7 @@ class AccordSettings {
     this.pushToTalkKeyLabel = defaultPushToTalkKeyLabel,
     this.screenShareAudio = true,
     this.recentEmoji = const [],
+    this.favoriteGifs = const [],
     this.masterServerUrl = defaultMasterServerUrl,
     this.channelNotifications = const <String, String>{},
     this.userVolumes = const <String, int>{},
@@ -282,6 +283,9 @@ class AccordSettings {
   /// Most-recently-used emoji tokens (unicode chars or `name:id` custom refs),
   /// most-recent first.
   final List<String> recentEmoji;
+
+  /// GIF links starred in the picker's GIF tab, most-recent first.
+  final List<String> favoriteGifs;
 
   /// Master-server directory URL used to browse public spaces (unauthenticated).
   final String masterServerUrl;
@@ -463,6 +467,7 @@ class AccordSettings {
     String? pushToTalkKeyLabel,
     bool? screenShareAudio,
     List<String>? recentEmoji,
+    List<String>? favoriteGifs,
     String? masterServerUrl,
     Map<String, String>? channelNotifications,
     Map<String, int>? userVolumes,
@@ -539,6 +544,7 @@ class AccordSettings {
       pushToTalkKeyLabel: pushToTalkKeyLabel ?? this.pushToTalkKeyLabel,
       screenShareAudio: screenShareAudio ?? this.screenShareAudio,
       recentEmoji: recentEmoji ?? this.recentEmoji,
+      favoriteGifs: favoriteGifs ?? this.favoriteGifs,
       masterServerUrl: masterServerUrl ?? this.masterServerUrl,
       channelNotifications: channelNotifications ?? this.channelNotifications,
       userVolumes: userVolumes ?? this.userVolumes,
@@ -760,6 +766,7 @@ class AccordSettings {
     'pushToTalkKeyLabel': pushToTalkKeyLabel,
     'screenShareAudio': screenShareAudio,
     'recentEmoji': recentEmoji,
+    'favoriteGifs': favoriteGifs,
     'masterServerUrl': masterServerUrl,
     'channelNotifications': channelNotifications,
     'userVolumes': userVolumes,
@@ -846,6 +853,10 @@ class AccordSettings {
       screenShareAudio: json['screenShareAudio'] as bool? ?? true,
       recentEmoji: [
         for (final e in (json['recentEmoji'] as List? ?? const []))
+          e.toString(),
+      ],
+      favoriteGifs: [
+        for (final e in (json['favoriteGifs'] as List? ?? const []))
           e.toString(),
       ],
       masterServerUrl: (master == null || master.isEmpty)

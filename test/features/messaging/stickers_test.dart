@@ -3,6 +3,7 @@ import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/models/accord_session.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/messaging/controllers/space_stickers.dart';
+import 'package:bonfire/features/messaging/views/emoji_picker.dart';
 import 'package:bonfire/features/messaging/views/stickers.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
@@ -81,9 +82,8 @@ void main() {
     );
   });
 
-  testWidgets('the picker offers each space and returns the tapped sticker', (
-    tester,
-  ) async {
+  testWidgets('the Stickers tab offers each space and returns the tapped '
+      'sticker', (tester) async {
     final server = AccordServer.fromBaseUrl('https://chat.example');
     final client = AccordClient(token: 't', baseUrl: server.baseUrl);
     addTearDown(client.dispose);
@@ -119,8 +119,11 @@ void main() {
           theme: buildAppTheme(AppThemePreset.dark),
           home: Builder(
             builder: (context) => TextButton(
-              onPressed: () async =>
-                  picked = await showStickerPicker(context, spaceId: 's1'),
+              onPressed: () async => picked = (await showExpressionPicker(
+                context,
+                spaceId: 's1',
+                initialTab: ExpressionTab.stickers,
+              ))?.sticker,
               child: const Text('open'),
             ),
           ),
@@ -129,9 +132,16 @@ void main() {
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
-    // The current space comes first.
-    final tabs = tester.widgetList<Tab>(find.byType(Tab)).map((t) => t.text);
-    expect(tabs, ['Home', 'Other']);
+    // The current space's pack comes first in the rail.
+    final rail = tester
+        .widgetList<Tooltip>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Tooltip && (w.message == 'Home' || w.message == 'Other'),
+          ),
+        )
+        .map((t) => t.message);
+    expect(rail, ['Home', 'Other']);
     await tester.tap(find.byKey(const ValueKey('sticker-a')));
     await tester.pumpAndSettle();
     expect(picked?.id, 'a');

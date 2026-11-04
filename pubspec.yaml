@@ -228,3 +228,13 @@ flutter:
           weight: 600
         - asset: assets/fonts/NotoSans-Bold.ttf
           weight: 700
+    # Code (inline and blocks): the reference client's monospace stand-in
+    # (Apache 2.0, see assets/fonts/LICENSE-RobotoMono.txt).
+    - family: RobotoMono
+      fonts:
+        - asset: assets/fonts/RobotoMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/RobotoMono-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/RobotoMono-Bold.ttf
+          weight: 700

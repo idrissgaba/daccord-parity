@@ -28,9 +28,10 @@ class AccordMenuEntry {
     this.destructive = false,
     this.enabled = true,
     this.checked,
+    this.trailingChevron = false,
   }) : isDivider = false,
        child = null,
-       height = 40;
+       height = 36;
 
   const AccordMenuEntry.divider()
     : label = '',
@@ -41,6 +42,7 @@ class AccordMenuEntry {
       destructive = false,
       enabled = false,
       checked = null,
+      trailingChevron = false,
       isDivider = true,
       child = null,
       height = 1;
@@ -57,6 +59,7 @@ class AccordMenuEntry {
       destructive = false,
       enabled = true,
       checked = null,
+      trailingChevron = false,
       isDivider = false;
 
   final String label;
@@ -80,6 +83,10 @@ class AccordMenuEntry {
   /// A checkbox at the row's right edge, as the menus of other chat apps draw
   /// their toggles (Mute, Deafen, …). Selecting the row calls [onSelected].
   final bool? checked;
+
+  /// A "›" at the row's right edge: the entry opens something further (a
+  /// picker, a second menu) rather than acting at once.
+  final bool trailingChevron;
 
   /// See [AccordMenuEntry.widget].
   final Widget? child;
@@ -121,7 +128,11 @@ class _MenuCheck extends StatelessWidget {
 /// Hosts a live widget inside an anchored menu, which otherwise only offers
 /// selectable rows.
 class _WidgetMenuEntry extends PopupMenuEntry<int> {
-  const _WidgetMenuEntry({super.key, required this.height, required this.child});
+  const _WidgetMenuEntry({
+    super.key,
+    required this.height,
+    required this.child,
+  });
 
   final Widget child;
 
@@ -152,9 +163,18 @@ Future<void> showAccordContextMenu(
   String? title,
   IconData? titleIcon,
   bool preferAbove = false,
+  bool anchorLeft = false,
+  double? width,
 }) {
   if (shouldUseDesktopLayout(context) && globalPosition != null) {
-    return _showAnchored(context, entries, globalPosition, preferAbove);
+    return _showAnchored(
+      context,
+      entries,
+      globalPosition,
+      preferAbove,
+      anchorLeft: anchorLeft,
+      width: width,
+    );
   }
   return _showSheet(context, entries, title, titleIcon);
 }
@@ -164,70 +184,126 @@ Future<void> showAccordContextMenu(
 double _anchoredHeight(List<AccordMenuEntry> entries) {
   var height = 16.0;
   for (final e in entries) {
-    height += e.isDivider ? 16 : e.height;
+    height += e.isDivider ? 17 : e.height;
   }
   return height;
 }
+
+/// The surface of an anchored menu: the pane background lifted by a touch of
+/// the text colour (`#28282D` on the Dark preset).
+Color menuSurfaceColor(BonfireThemeExtension colors) => Color.alphaBlend(
+  colors.dirtyWhite.withValues(alpha: 0.063),
+  colors.background,
+);
+
+/// Width of an anchored menu, as the reference client's.
+const double kAccordMenuWidth = 222;
+
+/// The widest an anchored menu grows for a row that needs the room.
+const double kAccordMenuMaxWidth = 320;
 
 Future<void> _showAnchored(
   BuildContext context,
   List<AccordMenuEntry> entries,
   Offset position,
-  bool preferAbove,
-) async {
+  bool preferAbove, {
+  bool anchorLeft = false,
+  double? width,
+}) async {
   final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
   if (overlay == null) return;
   final colors = BonfireThemeExtension.of(context);
   // Opened from a button in a bottom bar, the menu stands above the button
-  // (8 px clear of it) rather than spilling below.
+  // (8 px clear of it) rather than spilling below — centred on it, or with
+  // its left edge on the button's when [anchorLeft].
   final anchor = preferAbove
       ? Rect.fromLTWH(
-          (position.dx - 90).clamp(8.0, overlay.size.width - 8),
+          (position.dx - (anchorLeft ? 0 : 90)).clamp(
+            8.0,
+            overlay.size.width - 8,
+          ),
           (position.dy - 8 - _anchoredHeight(entries)).clamp(0.0, position.dy),
           0,
           0,
         )
       : position & const Size(40, 40);
   final items = <PopupMenuEntry<int>>[];
-  for (var i = 0; i < entries.length; i++) {
-    final entry = entries[i];
+  // Leading and trailing dividers, and runs of them, collapse: entries are
+  // often built with optional groups.
+  final visible = <AccordMenuEntry>[];
+  for (final entry in entries) {
     if (entry.isDivider) {
-      items.add(const PopupMenuDivider());
+      if (visible.isEmpty || visible.last.isDivider) continue;
+    }
+    visible.add(entry);
+  }
+  while (visible.isNotEmpty && visible.last.isDivider) {
+    visible.removeLast();
+  }
+  const destructiveColor = Color(0xFFF87E7A);
+  for (var i = 0; i < visible.length; i++) {
+    final entry = visible[i];
+    if (entry.isDivider) {
+      items.add(
+        PopupMenuDivider(
+          height: 17,
+          color: colors.hairline,
+          thickness: 1,
+          indent: 0,
+          endIndent: 0,
+        ),
+      );
       continue;
     }
     if (entry.isWidget) {
       items.add(
-        _WidgetMenuEntry(key: entry.key, height: entry.height, child: entry.child!),
+        _WidgetMenuEntry(
+          key: entry.key,
+          height: entry.height,
+          child: entry.child!,
+        ),
       );
       continue;
     }
-    final color = entry.destructive ? colors.red : colors.dirtyWhite;
+    final color = entry.destructive
+        ? destructiveColor
+        : entry._interactive
+        ? colors.dirtyWhite
+        : colors.gray;
+    final iconColor = entry.destructive
+        ? destructiveColor
+        : entry._interactive
+        ? colors.interactive
+        : colors.gray;
     items.add(
       PopupMenuItem<int>(
         key: entry.key,
         value: i,
         enabled: entry._interactive,
-        height: 40,
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
             if (entry.icon != null) ...[
-              Icon(entry.icon, size: 18, color: color),
-              const SizedBox(width: 12),
+              Icon(entry.icon, size: 20, color: iconColor),
+              const SizedBox(width: 8),
             ],
             Expanded(
               child: Text(
                 entry.label,
-                style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: entry.destructive
-                      ? colors.red
-                      : entry._interactive
-                      ? colors.dirtyWhite
-                      : colors.gray,
+                  height: 18 / 14,
+                  color: color,
                 ),
               ),
             ),
+            if (entry.trailingChevron) ...[
+              const SizedBox(width: 8),
+              Icon(AppIcons.chevronRight, size: 16, color: iconColor),
+            ],
             if (entry.checked != null) ...[
               const SizedBox(width: 16),
               _MenuCheck(
@@ -242,12 +318,25 @@ Future<void> _showAnchored(
   }
   final selected = await showMenu<int>(
     context: context,
-    color: colors.foreground,
+    color: menuSurfaceColor(colors),
+    elevation: 8,
+    shadowColor: Colors.black.withValues(alpha: 0.6),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+      side: BorderSide(color: colors.hairline),
+    ),
+    menuPadding: const EdgeInsets.all(8),
+    // The reference client's menus are 222 px unless a row needs more
+    // (a volume slider, a long label), up to 320.
+    constraints: BoxConstraints(
+      minWidth: width ?? kAccordMenuWidth,
+      maxWidth: width ?? kAccordMenuMaxWidth,
+    ),
     position: RelativeRect.fromRect(anchor, Offset.zero & overlay.size),
     items: items,
     popUpAnimationStyle: AnimationStyle(duration: _kAnchoredMenuDuration),
   );
-  if (selected != null) entries[selected].onSelected?.call();
+  if (selected != null) visible[selected].onSelected?.call();
 }
 
 Future<void> _showSheet(
@@ -294,12 +383,18 @@ Future<void> _showSheet(
                 else
                   ListTile(
                     key: entry.key,
-                    trailing: entry.checked == null
-                        ? null
-                        : _MenuCheck(
+                    trailing: entry.checked != null
+                        ? _MenuCheck(
                             checked: entry.checked!,
                             destructive: entry.destructive,
-                          ),
+                          )
+                        : entry.trailingChevron
+                        ? Icon(
+                            AppIcons.chevronRight,
+                            size: 18,
+                            color: colors.gray,
+                          )
+                        : null,
                     leading: entry.icon == null
                         ? null
                         : Icon(

@@ -3,77 +3,83 @@ import 'package:flutter/material.dart';
 import 'package:flutter_prism/flutter_prism.dart';
 import 'package:markdown_viewer/markdown_viewer.dart';
 
+/// The message text colour: the theme's text a shade toward the pane
+/// (`#EFEFF1` on the Dark preset's `#1A1A1E`).
+Color messageTextColor(BonfireThemeExtension palette) => Color.alphaBlend(
+  palette.dirtyWhite.withValues(alpha: 0.95),
+  palette.background,
+);
+
+/// The reference client's chat typography: 16 px text on 22 px lines, h1–h3
+/// at 24 / 20 / 16 bold, the link blue, strikethrough in the text colour,
+/// quotes behind a 4 px bar, code on the accent wash.
 MarkdownStyle getMarkdownStyleSheet(BuildContext context) {
   final palette = BonfireThemeExtension.of(context);
-  // Body text follows the theme's high-emphasis colour, like the rest of the
-  // app's typography. It was hard-coded to #EBEBEB, which is ~1:1 on the Light
-  // theme's background and left message text effectively invisible.
-  final textColor = palette.dirtyWhite;
+  final textColor = messageTextColor(palette);
+  final paragraph = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    height: 22 / 16,
+    color: textColor,
+  );
   final codeStyle = TextStyle(
-    fontFamily: 'monospace',
-    fontSize: 14.5,
-    fontWeight: FontWeight.w500,
+    fontFamily: 'RobotoMono',
+    fontSize: 14,
+    height: 18 / 14,
+    fontWeight: FontWeight.w400,
+    color: textColor,
+  );
+  TextStyle heading(double size, double lineHeight) => TextStyle(
+    fontSize: size,
+    fontWeight: FontWeight.w700,
+    height: lineHeight / size,
     color: palette.dirtyWhite,
   );
   return MarkdownStyle(
-    paragraph: TextStyle(
-      fontSize: 14.5,
-      fontWeight: FontWeight.w400,
-      color: textColor,
-    ),
-    codeBlock: codeStyle.copyWith(height: 1.5),
+    paragraph: paragraph,
+    paragraphPadding: EdgeInsets.zero,
+    blockSpacing: 0,
+    codeBlock: codeStyle,
+    codeblockPadding: const EdgeInsets.all(8),
     codeblockDecoration: BoxDecoration(
-      color: palette.foreground,
-      borderRadius: BorderRadius.circular(8),
+      color: Color.alphaBlend(
+        palette.primary.withValues(alpha: 0.05),
+        palette.background,
+      ),
+      borderRadius: BorderRadius.circular(4),
+      border: Border.all(color: palette.hairline),
     ),
-    // Darker than the message pane in every theme: on Dark the pane itself is
-    // `foreground`, so `foreground` made inline code invisible.
     codeSpan: codeStyle.copyWith(
-      backgroundColor: Color.alphaBlend(
-        const Color(0x47000000),
-        palette.foreground,
+      backgroundColor: palette.primary.withValues(alpha: 0.08),
+    ),
+    strikethrough: TextStyle(color: textColor, decorationColor: textColor),
+    link: const TextStyle(color: Color(0xFF4D96EE)),
+    blockquote: TextStyle(color: palette.interactive),
+    blockquoteDecoration: BoxDecoration(
+      border: Border(
+        left: BorderSide(
+          color: Color.alphaBlend(
+            palette.interactive.withValues(alpha: 0.3),
+            palette.background,
+          ),
+          width: 4,
+        ),
       ),
     ),
-    list: TextStyle(
-      fontSize: 14.5,
-      fontWeight: FontWeight.w500,
-      color: textColor,
-    ),
-    listItem: TextStyle(
-      fontSize: 14.5,
-      fontWeight: FontWeight.w500,
-      color: textColor,
-    ),
-    headline1: TextStyle(
-      fontSize: 30,
-      fontWeight: FontWeight.bold,
-      color: textColor,
-    ),
-    headline2: TextStyle(
-      fontSize: 24,
-      fontWeight: FontWeight.bold,
-      color: textColor,
-    ),
-    headline3: TextStyle(
-      fontSize: 20,
-      fontWeight: FontWeight.bold,
-      color: textColor,
-    ),
-    headline4: TextStyle(
-      fontSize: 18,
-      fontWeight: FontWeight.bold,
-      color: textColor,
-    ),
-    headline5: TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.bold,
-      color: textColor,
-    ),
-    headline6: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.bold,
-      color: textColor,
-    ),
+    blockquoteContentPadding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
+    list: paragraph,
+    listItem: paragraph,
+    listItemMarker: paragraph,
+    listItemMinIndent: 16,
+    headline1: heading(24, 33),
+    headline2: heading(20, 27.5),
+    headline3: heading(16, 22),
+    h1Padding: const EdgeInsets.only(top: 16, bottom: 8),
+    h2Padding: const EdgeInsets.only(top: 16, bottom: 8),
+    h3Padding: const EdgeInsets.only(top: 16, bottom: 8),
+    headline4: paragraph,
+    headline5: paragraph,
+    headline6: paragraph,
   );
 }
 

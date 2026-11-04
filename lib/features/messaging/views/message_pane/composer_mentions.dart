@@ -10,6 +10,10 @@ mixin _ComposerMentions on ConsumerState<_Composer> {
   /// handle replaces its `[start, end)` range of `_controller.text`.
   ({int start, int end, String query})? _mention;
 
+  /// The `#channel` reference being typed, or null. Same shape as [_mention];
+  /// the two never coexist (one trigger character precedes the caret).
+  ({int start, int end, String query})? _channelRef;
+
   /// The mention popup row ↑/↓ have moved to; back to the top on every new
   /// query.
   int _mentionIndex = 0;
@@ -26,7 +30,12 @@ mixin _ComposerMentions on ConsumerState<_Composer> {
     final isEscape = key == LogicalKeyboardKey.escape;
     if (!(isEnter || isTab || isUp || isDown || isEscape)) return null;
     if (isEscape) {
-      if (event is KeyDownEvent) setState(() => _mention = null);
+      if (event is KeyDownEvent) {
+        setState(() {
+          _mention = null;
+          _channelRef = null;
+        });
+      }
       return KeyEventResult.handled;
     }
     final entries = _mentionEntries();
@@ -47,8 +56,15 @@ mixin _ComposerMentions on ConsumerState<_Composer> {
   /// The popup's current candidates, in the order it shows them.
   List<_MentionEntry> _mentionEntries() {
     final spaceId = widget.spaceId;
+    if (spaceId == null) return const [];
+    if (_channelRef case final channelRef?) {
+      return _channelCandidates(
+        ref.read(accordChannelsControllerProvider(_serverKey, spaceId)),
+        channelRef.query,
+      );
+    }
     final mention = _mention;
-    if (spaceId == null || mention == null) return const [];
+    if (mention == null) return const [];
     final members = ref.read(
       accordMembersControllerProvider(_serverKey, spaceId),
     );
@@ -69,17 +85,30 @@ mixin _ComposerMentions on ConsumerState<_Composer> {
     final mention = widget.spaceId == null
         ? null
         : findMentionTrigger(text, _controller.value.selection);
-    if (mention == null && _mention == null) return;
+    final channelRef = widget.spaceId == null
+        ? null
+        : findChannelTrigger(text, _controller.value.selection);
+    if (mention == null &&
+        _mention == null &&
+        channelRef == null &&
+        _channelRef == null) {
+      return;
+    }
     setState(() {
-      if (mention?.query != _mention?.query) _mentionIndex = 0;
+      if (mention?.query != _mention?.query ||
+          channelRef?.query != _channelRef?.query) {
+        _mentionIndex = 0;
+      }
       _mention = mention;
+      _channelRef = channelRef;
     });
   }
 
   /// Replaces the active `@query` with `@handle ` and dismisses the popup.
   /// Mirrors the reference's `_on_mention_picked`.
   void _pickMention(String handle) {
-    final mention = _mention;
+    final channel = _channelRef;
+    final mention = channel ?? _mention;
     if (mention == null || mention.end > _controller.text.length) return;
     _controller.value = insertAtSelection(
       TextEditingValue(
@@ -89,9 +118,12 @@ mixin _ComposerMentions on ConsumerState<_Composer> {
           extentOffset: mention.end,
         ),
       ),
-      '@$handle ',
+      channel != null ? '#$handle ' : '@$handle ',
     );
-    setState(() => _mention = null);
+    setState(() {
+      _mention = null;
+      _channelRef = null;
+    });
     _focusNode.requestFocus();
   }
 }

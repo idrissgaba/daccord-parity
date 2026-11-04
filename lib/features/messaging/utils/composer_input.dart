@@ -90,12 +90,25 @@ bool isMentionWordChar(int code) =>
 ({int start, int end, String query})? findMentionTrigger(
   String text,
   TextSelection selection,
+) => _findTrigger(text, selection, '@');
+
+/// The `#channel` reference being typed at the caret, like
+/// [findMentionTrigger] for `#`.
+({int start, int end, String query})? findChannelTrigger(
+  String text,
+  TextSelection selection,
+) => _findTrigger(text, selection, '#');
+
+({int start, int end, String query})? _findTrigger(
+  String text,
+  TextSelection selection,
+  String trigger,
 ) {
   if (!selection.isValid || !selection.isCollapsed) return null;
   final caret = selection.baseOffset;
   for (var i = caret - 1; i >= 0; i--) {
     final ch = text[i];
-    if (ch == '@') {
+    if (ch == trigger) {
       if (i > 0 && isMentionWordChar(text.codeUnitAt(i - 1))) return null;
       return (
         start: i,

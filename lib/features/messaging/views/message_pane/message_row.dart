@@ -25,7 +25,16 @@ class _MessageRow extends ConsumerStatefulWidget {
     this.editRequest,
     this.rowRegistry,
     this.highlighted = false,
+    this.afterDivider = false,
+    this.onJumpTo,
   });
+
+  /// Whether a day / new-messages divider sits right above this row, which
+  /// shortens the gap a fresh author header keeps from what precedes it.
+  final bool afterDivider;
+
+  /// Scrolls to another message of this channel (a reply's target).
+  final ValueChanged<String>? onJumpTo;
 
   final AccordMessage message;
   final String channelId;
@@ -174,10 +183,20 @@ class _MessageRowState extends ConsumerState<_MessageRow>
   // a recent one: today shows just the time, yesterday is prefixed, earlier this
   // week shows the weekday, last week is explicitly prefixed, and older messages
   // get the calendar date. intl isn't a dependency, so this is formatted by hand.
+  @override
   String get _time => messageTimeFromIso(_message.timestamp);
 
   // Full timestamp shown in the tooltip, e.g. "Monday, 5 June 2026 at 14:30".
+  @override
   String get _fullTime => messageTimestampFromIso(_message.timestamp);
+
+  @override
+  String? get _avatarUrl {
+    final cdnUrl = ref.readCdnUrl();
+    return widget.author != null
+        ? accordMemberAvatarUrl(widget.author, cdnUrl)
+        : accordAvatarUrl(widget.authorUser, cdnUrl);
+  }
 
   /// Nickname → user display name → username → "Unknown". Falls back to the
   /// on-demand user cache when the author isn't in the loaded member page, and
@@ -217,20 +236,26 @@ class _MessageRowState extends ConsumerState<_MessageRow>
     // that was rendered, never whatever `widget.message` happens to be by the
     // time the callback runs.
     final message = _message;
+    final desktop = shouldUseDesktopLayout(context);
     // Compact density tightens vertical spacing and shrinks the avatar gutter.
     final compact = ref.watch(
       settingsControllerProvider.select((s) => s.compactMode),
     );
-    // Grouped rows sit on their line height alone, as in other chat apps; a
-    // fresh author header gets room above and below.
+    // Cosy rows: a fresh author header stands 17 px clear of the group above
+    // (8 px when a divider already separates them); every row keeps 2 px of
+    // padding above and below its 22 px lines, as in the reference client.
     final topGap = widget.grouped
-        ? (compact ? 0.0 : 1.0)
-        : (compact ? 3.0 : 6.0);
+        ? (compact ? 0.0 : 2.0)
+        : compact
+        ? 3.0
+        : (widget.afterDivider ? 10.0 : 19.0);
+    final system = isSystemMessage(message);
     final bottomGap = widget.grouped
         ? (compact ? 1.0 : 2.0)
-        : (compact ? 3.0 : 6.0);
-    final avatarRadius = compact ? 14.0 : 18.0;
-    final gutter = compact ? 8.0 : 12.0;
+        : (compact ? 3.0 : 2.0);
+    final avatarRadius = compact ? 14.0 : 20.0;
+    final gutter = compact ? 8.0 : 16.0;
+    final leftInset = widget.narrow ? 8.0 : 16.0;
     final cdnUrl = ref.watchCdnUrl();
     // Attachments AutoMod is holding back (or refused) on this message — ours
     // only; the tracker is fed by our own 202s and uploader-only events.
@@ -253,55 +278,49 @@ class _MessageRowState extends ConsumerState<_MessageRow>
         widget.onUserContextMenu != null &&
         (widget.author?.user != null || widget.authorUser != null);
     void openPopout() => _openPopout(message.authorId);
-    // Hover actions are mouse-driven and have no affordance on touch, where
-    // `Opacity` would still reserve their width and squeeze the message content
-    // into a narrow column. Omit them on mobile so the content uses the full
-    // row width. On desktop they render inline at the end of the row, or —
-    // when [narrow] — floated over it (see [_FloatingActionsOverlay]).
+    // The hover bar is mouse-driven and has no affordance on touch; it floats
+    // over the row's top-right corner while the pointer is on the row.
     final showHoverActions =
-        !(_editing || widget.selecting || !shouldUseDesktopLayout(context));
-    Widget hoverActionsFor(bool hovered) => _HoverActions(
-      // Floated (see below), the bar is only built while hovered, so it
-      // doesn't need to fade itself out.
-      visible: widget.narrow || hovered,
+        desktop &&
+        !(_editing || widget.selecting) &&
+        !isEphemeralMessage(message);
+    final quickPicks = showHoverActions
+        ? quickReactionPicks(
+            ref.watch(settingsControllerProvider.select((s) => s.recentEmoji)),
+          )
+        : const <EmojiPick>[];
+    Widget hoverBar() => _HoverActionBar(
+      quickPicks: quickPicks,
+      onQuickReact: (pick) =>
+          _toggleReaction(message.id, pick.reactionName, emojiId: pick.id),
       onReact: () => _openReactionPicker(message.id),
       onReply: widget.onReply,
-      onThread: () => _openThread(message),
-      canEdit: widget.isOwn,
-      canDelete: widget.isOwn || widget.canManageMessages,
-      canPin: widget.canManageMessages,
-      canReport: !widget.isOwn,
-      pinned: message.pinned,
+      onForward: () => _forward(message),
       onEdit: () => _startEdit(message),
-      onDelete: () => _delete(message.id),
-      onBlock:
-          (widget.canManageMessages || ref.readIsAdmin()) &&
-              message.attachments.isNotEmpty &&
-              (message.spaceId != null || ref.readIsAdmin())
-          ? () => _blockFiles(message)
-          : null,
-      onTogglePin: () => _togglePin(message.id, pinned: message.pinned),
-      onReport: () => _report(message),
-      onMenuStateChanged: _menuStateChanged,
+      onMore: (position) {
+        _menuStateChanged(true);
+        _showActionsMenu(
+          message,
+          position,
+        ).whenComplete(() => _menuStateChanged(false));
+      },
+      isOwn: widget.isOwn && !isSystemMessage(message),
     );
+    final hasReactions =
+        (message.reactions ?? const []).isNotEmpty ||
+        message.superReactions.isNotEmpty;
     return MouseRegion(
       onEnter: (_) => _hover.value = true,
       onExit: (_) => _hover.value = false,
       child: ValueListenableBuilder<bool>(
         valueListenable: _hover,
         builder: (context, hovered, content) => _FloatingActionsOverlay(
-          // In the voice chat panel an inline action bar would leave the message
-          // a few dozen pixels of width, so the bar floats over the row's
-          // top-right corner instead — and only while hovered, so it never covers
-          // the text or swallows a click. `_menuOpen` extends that past the
-          // hover: the actions menu's barrier ends the hover, and unmounting the
-          // button mid-menu loses the selection (see [_menuStateChanged]).
-          actions:
-              showHoverActions &&
-                  widget.narrow &&
-                  (hovered || _menuOpen) &&
-                  !isEphemeralMessage(message)
-              ? hoverActionsFor(hovered)
+          // Only while hovered, so it never covers the text or swallows a
+          // click. `_menuOpen` extends that past the hover: the actions
+          // menu's barrier ends the hover, and unmounting the button mid-menu
+          // loses the selection (see [_menuStateChanged]).
+          actions: showHoverActions && (hovered || _menuOpen)
+              ? hoverBar()
               : null,
           // A faint highlight under the hovered message. Only this box
           // repaints: the message itself is passed through untouched.
@@ -309,9 +328,12 @@ class _MessageRowState extends ConsumerState<_MessageRow>
             decoration: BoxDecoration(
               color: widget.highlighted
                   ? colors.primary.withValues(alpha: 0.16)
-                  : hovered && shouldUseDesktopLayout(context)
-                  ? Color.lerp(colors.background, colors.darkGray, 0.18)
+                  : hovered && desktop && !widget.mentionsMe
+                  ? colors.selection.withValues(alpha: 0.12)
                   : Colors.transparent,
+              borderRadius: const BorderRadius.horizontal(
+                right: Radius.circular(4),
+              ),
             ),
             child: content!,
           ),
@@ -336,16 +358,24 @@ class _MessageRowState extends ConsumerState<_MessageRow>
                 : (d) => _showActionsMenu(message, d.globalPosition),
             onTap: widget.selecting ? widget.onToggleSelected : null,
             child: Container(
-              padding: widget.mentionsMe
-                  ? EdgeInsets.fromLTRB(13, topGap, 6, bottomGap)
-                  : EdgeInsets.only(top: topGap, bottom: bottomGap),
+              padding: EdgeInsets.fromLTRB(
+                leftInset,
+                system && !widget.afterDivider ? 19.0 : topGap,
+                widget.narrow ? 8 : 24,
+                bottomGap,
+              ),
               decoration: widget.selected
                   ? BoxDecoration(color: colors.primary.withValues(alpha: 0.14))
                   : widget.mentionsMe
-                  ? BoxDecoration(
-                      color: colors.primary.withValues(alpha: 0.08),
+                  // The reference client's mention wash: a warm 8 % tint and
+                  // a 2 px bar on the left edge.
+                  ? const BoxDecoration(
+                      color: Color(0x14F2A600),
                       border: Border(
-                        left: BorderSide(color: colors.primary, width: 3),
+                        left: BorderSide(color: Color(0xFFEA9800), width: 2),
+                      ),
+                      borderRadius: BorderRadius.horizontal(
+                        right: Radius.circular(4),
                       ),
                     )
                   : null,
@@ -359,7 +389,21 @@ class _MessageRowState extends ConsumerState<_MessageRow>
                     ),
                     const SizedBox(width: 4),
                   ],
-                  if (widget.grouped)
+                  if (isSystemMessage(message))
+                    SizedBox(
+                      width: avatarRadius * 2,
+                      height: 22,
+                      child: Icon(
+                        message.type == 'pin'
+                            ? AppIcons.pushPin
+                            : AppIcons.arrowForwardRounded,
+                        size: message.type == 'pin' ? 16 : 18,
+                        color: message.type == 'pin'
+                            ? colors.gray
+                            : colors.green,
+                      ),
+                    )
+                  else if (widget.grouped)
                     ValueListenableBuilder<bool>(
                       valueListenable: _hover,
                       builder: (_, hovered, _) => _GutterTimestamp(
@@ -370,21 +414,24 @@ class _MessageRowState extends ConsumerState<_MessageRow>
                       ),
                     )
                   else
-                    _MaybeTappable(
-                      enabled: tappable,
-                      onTap: openPopout,
-                      onLongPressStart: userMenuEnabled
-                          ? (d) => _openUserMenu(d.globalPosition)
-                          : null,
-                      onSecondaryTapUp: userMenuEnabled
-                          ? (d) => _openUserMenu(d.globalPosition)
-                          : null,
-                      child: AccordMemberAvatar(
-                        avatarUrl: avatarUrl,
-                        initial: _initial,
-                        radius: avatarRadius,
-                        backgroundColor: avatarBg,
-                        initialStyle: theme.textTheme.titleSmall,
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: _MaybeTappable(
+                        enabled: tappable,
+                        onTap: openPopout,
+                        onLongPressStart: userMenuEnabled
+                            ? (d) => _openUserMenu(d.globalPosition)
+                            : null,
+                        onSecondaryTapUp: userMenuEnabled
+                            ? (d) => _openUserMenu(d.globalPosition)
+                            : null,
+                        child: AccordMemberAvatar(
+                          avatarUrl: avatarUrl,
+                          initial: _initial,
+                          radius: avatarRadius,
+                          backgroundColor: avatarBg,
+                          initialStyle: theme.textTheme.titleSmall,
+                        ),
                       ),
                     ),
                   SizedBox(width: gutter),
@@ -392,24 +439,37 @@ class _MessageRowState extends ConsumerState<_MessageRow>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (widget.spaceId == null && message.type == 'default')
-                          Text(
-                            message.isEncrypted
-                                ? (message.encryptionError == null
-                                      ? 'End-to-end encrypted'
-                                      : 'Encryption could not be verified')
-                                : 'Unencrypted history',
-                            style: theme.textTheme.labelSmall,
+                        if (isSystemMessage(message))
+                          _SystemLine(
+                            message: message,
+                            authorName: _authorName,
+                            time: _time,
+                            onOpenPinned: () => showPinnedMessages(
+                              context,
+                              channelId: widget.channelId,
+                              spaceId: widget.spaceId,
+                              canManage: widget.canManageMessages,
+                            ),
+                            onJump:
+                                message.replyTo == null ||
+                                    widget.onJumpTo == null
+                                ? null
+                                : () => widget.onJumpTo!(message.replyTo!),
                           ),
-                        if (message.replyTo != null)
-                          _buildReplyPreview(message, colors),
+                        if (message.replyTo != null &&
+                            !isSystemMessage(message))
+                          _buildReplyPreview(
+                            message,
+                            colors,
+                            spineLeft: gutter + avatarRadius,
+                          ),
                         if (message.interaction case final interaction?)
                           MessageInteractionHeader(
                             interaction: interaction,
                             serverKey: ref.readActiveServerKey() ?? '',
                             spaceId: widget.spaceId,
                           ),
-                        if (!widget.grouped)
+                        if (!widget.grouped && !isSystemMessage(message))
                           MessageAuthorHeader(
                             name: _authorName,
                             nameColor: widget.nameColor,
@@ -423,11 +483,9 @@ class _MessageRowState extends ConsumerState<_MessageRow>
                             onNameSecondaryTapUp: userMenuEnabled
                                 ? (d) => _openUserMenu(d.globalPosition)
                                 : null,
-                            pinned: message.pinned,
                             origin: _authorOrigin,
                             time: _time,
                             timeTooltip: _fullTime,
-                            edited: message.editedAt != null,
                             appBadge:
                                 message.webhookId != null ||
                                 (widget.author?.user?.bot ??
@@ -438,15 +496,17 @@ class _MessageRowState extends ConsumerState<_MessageRow>
                           _buildEditor(theme, colors)
                         else if (isLoadingMessage(message))
                           MessageThinking(botName: _authorName)
-                        else if (isSystemMessage(message) ||
+                        else if (!isSystemMessage(message) &&
                             message.content.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: MessageBody(
-                              message: message,
-                              authorName: _authorName,
-                              spaceId: widget.spaceId,
-                            ),
+                          MessageBody(
+                            message: message,
+                            authorName: _authorName,
+                            spaceId: widget.spaceId,
+                            editedTooltip: message.editedAt == null
+                                ? null
+                                : messageTimestampFromIso(
+                                    message.editedAt.toString(),
+                                  ),
                           ),
                         if (message.poll case final poll?)
                           PollView(
@@ -487,19 +547,22 @@ class _MessageRowState extends ConsumerState<_MessageRow>
                                 )
                                 .removeMessage(message.id),
                           ),
-                        if ((message.reactions ?? const []).isNotEmpty ||
-                            message.superReactions.isNotEmpty)
-                          _buildReactions(message, theme, colors, cdnUrl),
+                        if (hasReactions)
+                          ValueListenableBuilder<bool>(
+                            valueListenable: _hover,
+                            builder: (_, hovered, _) => _buildReactions(
+                              message,
+                              theme,
+                              colors,
+                              cdnUrl,
+                              showAdd: hovered && desktop,
+                            ),
+                          ),
                         if (message.replyCount > 0)
                           _buildThreadChip(message, theme, colors),
                       ],
                     ),
                   ),
-                  if (showHoverActions && !widget.narrow)
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _hover,
-                      builder: (_, hovered, _) => hoverActionsFor(hovered),
-                    ),
                 ],
               ),
             ),
@@ -515,6 +578,76 @@ class _MessageRowState extends ConsumerState<_MessageRow>
     if (serverKey == null) return null;
     return ref.read(
       accordMessagesControllerProvider(serverKey, widget.channelId).notifier,
+    );
+  }
+}
+
+/// A system message's sentence: "**name** pinned **a message** to this
+/// channel. See all **pinned messages**." (links: the pinned message, the
+/// pinned list), or "**name** joined the server.", then the time.
+class _SystemLine extends StatelessWidget {
+  const _SystemLine({
+    required this.message,
+    required this.authorName,
+    required this.time,
+    required this.onOpenPinned,
+    required this.onJump,
+  });
+
+  final AccordMessage message;
+  final String authorName;
+  final String time;
+  final VoidCallback onOpenPinned;
+  final VoidCallback? onJump;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final muted = TextStyle(
+      fontSize: 16,
+      height: 22 / 16,
+      color: colors.interactive,
+    );
+    final strong = TextStyle(
+      fontWeight: FontWeight.w500,
+      color: colors.dirtyWhite,
+    );
+    TextSpan link(String text, VoidCallback? onTap) => TextSpan(
+      text: text,
+      style: strong,
+      recognizer: onTap == null
+          ? null
+          : (TapGestureRecognizer()..onTap = onTap),
+      mouseCursor: onTap == null ? null : SystemMouseCursors.click,
+    );
+    final spans = message.type == 'pin'
+        ? <InlineSpan>[
+            TextSpan(text: authorName, style: strong),
+            const TextSpan(text: ' pinned '),
+            link('a message', onJump),
+            const TextSpan(text: ' to this channel. See all '),
+            link('pinned messages', onOpenPinned),
+            const TextSpan(text: '.'),
+          ]
+        : <InlineSpan>[
+            TextSpan(text: authorName, style: strong),
+            const TextSpan(text: ' joined the server.'),
+          ];
+    return Text.rich(
+      TextSpan(
+        style: muted,
+        children: [
+          ...spans,
+          TextSpan(
+            text: '  $time',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: colors.gray,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

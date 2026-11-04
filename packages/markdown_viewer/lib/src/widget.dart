@@ -22,6 +22,11 @@ class MarkdownViewer extends StatefulWidget {
     this.enableKbd = false,
     this.enableFootnote = false,
     this.enableAutolinkExtension = true,
+    this.enableHighlight = true,
+    this.enableTable = true,
+    this.enableSetextHeading = true,
+    this.enableThematicBreak = true,
+    this.enableIndentedCodeBlock = true,
     this.forceTightList = false,
     this.enableImageSize = false,
     this.elementBuilders = const [],
@@ -42,6 +47,14 @@ class MarkdownViewer extends StatefulWidget {
   final bool enableKbd;
   final bool enableFootnote;
   final bool enableAutolinkExtension;
+
+  /// `==text==` highlight, GFM tables, `===`/`---` underlined headings,
+  /// `---` rules and four-space code blocks. A chat dialect turns them off.
+  final bool enableHighlight;
+  final bool enableTable;
+  final bool enableSetextHeading;
+  final bool enableThematicBreak;
+  final bool enableIndentedCodeBlock;
   final bool forceTightList;
   final MarkdownImageBuilder? imageBuilder;
   final MarkdownStyle? styleSheet;
@@ -107,13 +120,22 @@ class _MarkdownViewerState extends State<MarkdownViewer> {
       widget.enableKbd != old.enableKbd ||
       widget.enableFootnote != old.enableFootnote ||
       widget.enableAutolinkExtension != old.enableAutolinkExtension ||
+      widget.enableHighlight != old.enableHighlight ||
+      widget.enableTable != old.enableTable ||
+      widget.enableSetextHeading != old.enableSetextHeading ||
+      widget.enableThematicBreak != old.enableThematicBreak ||
+      widget.enableIndentedCodeBlock != old.enableIndentedCodeBlock ||
       widget.forceTightList != old.forceTightList;
 
   List<md.Node> _parse() {
     final markdown = md.Markdown(
       enableHtmlBlock: false,
       enableRawHtml: false,
-      enableHighlight: true,
+      enableHighlight: widget.enableHighlight,
+      enableTable: widget.enableTable,
+      enableSetextHeading: widget.enableSetextHeading,
+      enableThematicBreak: widget.enableThematicBreak,
+      enableIndentedCodeBlock: widget.enableIndentedCodeBlock,
       enableStrikethrough: true,
       enableTaskList: widget.enableTaskList,
       enableSubscript: widget.enableSubscript,

@@ -5,6 +5,7 @@ import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/messaging/utils/composer_input.dart';
 import 'package:bonfire/features/messaging/utils/message_timestamp.dart';
 import 'package:bonfire/features/messaging/views/message_media_gate.dart';
+import 'package:bonfire/features/spaces/utils/message_time.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dart_markdown/dart_markdown.dart' as md;
@@ -47,6 +48,7 @@ List<md.Syntax> accordMarkupSyntaxes([
   AccordMarkupContext ctx = const AccordMarkupContext(),
 ]) => [
   const _SubtextSyntax(),
+  _EditedSyntax(),
   _TimestampSyntax(),
   _DeepLinkSyntax(),
   _SpoilerSyntax(),
@@ -63,6 +65,8 @@ List<MarkdownElementBuilder> accordMarkupBuilders({
   void Function(String userId)? onTapUser,
   void Function(String channelId)? onTapChannel,
 }) => [
+  _CodeSpanBuilder(),
+  _EditedBuilder(),
   _SubtextBuilder(),
   _TimestampBuilder(),
   _SpoilerBuilder(),
@@ -244,7 +248,7 @@ class _MentionSyntax extends md.InlineSyntax {
     final broadcast = match[1];
     if (broadcast != null) {
       label = '@$broadcast';
-      color = _broadcastColor;
+      color = _mentionColor;
     } else {
       final handle = match[2]!;
       final lower = handle.toLowerCase();
@@ -298,7 +302,7 @@ class _ChannelSyntax extends md.InlineSyntax {
       'accordChannel',
       markers: markers,
       attributes: {
-        'label': '#${channel.name}',
+        'label': '# ${channel.name}',
         'color': _encodeColor(_mentionColor),
         'channelId': channel.id,
       },
@@ -392,6 +396,120 @@ class _EmojiBuilder extends MarkdownElementBuilder {
   }
 }
 
+/// Private-use delimiters around the edit time appended to an edited
+/// message's text by [withEditedMarker]; never typed by a user.
+const String _kEditedOpen = '';
+const String _kEditedClose = '';
+
+/// Appends the edited marker to [content], so the "(edited)" tag renders at
+/// the end of the last line, as the reference client places it.
+String withEditedMarker(String content, String editedAt) =>
+    '$content $_kEditedOpen$editedAt$_kEditedClose';
+
+/// `<edit time>` → an `accordEdited` element.
+class _EditedSyntax extends md.InlineSyntax {
+  _EditedSyntax() : super(_pattern);
+
+  static final _pattern = RegExp(
+    '$_kEditedOpen([^$_kEditedClose]*)$_kEditedClose',
+  );
+
+  @override
+  md.InlineObject? parse(md.InlineParser parser, Match match) {
+    final markers = parser.consumeBy(match[0]!.length);
+    return md.InlineElement(
+      'accordEdited',
+      markers: markers,
+      attributes: {'at': match[1] ?? ''},
+      start: markers.first.start,
+      end: markers.last.end,
+    );
+  }
+}
+
+/// The small muted "(edited)" after the text, with the edit time on hover.
+class _EditedBuilder extends MarkdownElementBuilder {
+  @override
+  List<String> get matchTypes => const ['accordEdited'];
+
+  @override
+  bool isBlock(element) => false;
+
+  @override
+  Widget? buildWidget(element, parent) {
+    return _baselineWidget(
+      MessageEditedTag(at: element.attributes['at'] ?? ''),
+    );
+  }
+}
+
+/// The small muted "(edited)" with the edit time in its tooltip.
+class MessageEditedTag extends StatelessWidget {
+  const MessageEditedTag({super.key, required this.at});
+
+  final String at;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Tooltip(
+      message: at,
+      waitDuration: const Duration(milliseconds: 300),
+      child: Text(
+        '(edited)',
+        style: TextStyle(fontSize: 10, height: 1, color: colors.gray),
+      ),
+    );
+  }
+}
+
+/// Inline `code` as the reference client draws it: monospace on the accent
+/// wash, a 1 px border and 4 px corners.
+class _CodeSpanBuilder extends MarkdownElementBuilder {
+  @override
+  List<String> get matchTypes => const ['codeSpan'];
+
+  @override
+  bool isBlock(element) => false;
+
+  @override
+  Widget? buildWidget(element, parent) {
+    final text = element.children
+        .whereType<RichText>()
+        .map((r) => r.text.toPlainText())
+        .join();
+    return _baselineWidget(_InlineCode(text: text));
+  }
+}
+
+class _InlineCode extends StatelessWidget {
+  const _InlineCode({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2.7),
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: colors.selection.withValues(alpha: 0.2)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: 'RobotoMono',
+          fontSize: 13.6,
+          height: 18 / 13.6,
+          color: colors.dirtyWhite,
+        ),
+      ),
+    );
+  }
+}
+
 /// `-# subtext`: the paragraph style, shrunk and dimmed.
 class _SubtextBuilder extends MarkdownElementBuilder {
   @override
@@ -403,9 +521,11 @@ class _SubtextBuilder extends MarkdownElementBuilder {
   @override
   TextStyle? buildTextStyle(element, defaultStyle) {
     final base = defaultStyle.merge(parentStyle);
+    // The reference client's subtext: 14 px in the muted text colour.
     return base.copyWith(
-      fontSize: (base.fontSize ?? 16) * 0.8,
-      color: base.color?.withValues(alpha: 0.65),
+      fontSize: 14,
+      height: 19.25 / 14,
+      color: const Color(0xFFABACB2),
     );
   }
 }
@@ -467,7 +587,20 @@ Widget _inlineWidget(Widget child) => RichText(
   text: WidgetSpan(alignment: PlaceholderAlignment.middle, child: child),
 );
 
-class _Chip extends StatelessWidget {
+/// [_inlineWidget] for inline text (code, the edited tag): on the line's
+/// alphabetic baseline rather than centred.
+Widget _baselineWidget(Widget child) => RichText(
+  text: WidgetSpan(
+    alignment: PlaceholderAlignment.baseline,
+    baseline: TextBaseline.alphabetic,
+    child: child,
+  ),
+);
+
+/// A mention / channel pill: the accent wash with light-blue text, solid
+/// accent with white text under the pointer, as the reference client draws
+/// them. A coloured role mention takes its role's colour instead.
+class _Chip extends StatefulWidget {
   const _Chip({required this.label, required this.color, this.onTap});
 
   final String label;
@@ -475,25 +608,45 @@ class _Chip extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
+  State<_Chip> createState() => _ChipState();
+}
+
+class _ChipState extends State<_Chip> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
+    final accent = widget.color == _mentionColor;
+    final background = _hover && widget.onTap != null
+        ? widget.color
+        : widget.color.withValues(alpha: accent ? 0.24 : 0.1);
+    final foreground = _hover && widget.onTap != null
+        ? Colors.white
+        : accent
+        ? const Color(0xFFA9BBFF)
+        : widget.color;
     final chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(4),
+        color: background,
+        borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
+        widget.label,
+        style: TextStyle(
+          fontSize: 16,
+          height: 22 / 16,
+          fontWeight: FontWeight.w500,
+          color: foreground,
         ),
       ),
     );
-    if (onTap == null) return chip;
+    if (widget.onTap == null) return chip;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(onTap: onTap, child: chip),
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(onTap: widget.onTap, child: chip),
     );
   }
 }
@@ -610,9 +763,9 @@ class _TimestampState extends State<_Timestamp> {
         'T' => _time(l10n, use24h, seconds: true),
         'd' => l10n.formatCompactDate(widget.at),
         'D' => l10n.formatShortDate(widget.at),
-        'F' => '${l10n.formatFullDate(widget.at)} ${_time(l10n, use24h)}',
+        'F' => messageTimestampString(widget.at),
         'R' => relativeTimeLabel(widget.at, DateTime.now()),
-        _ => '${l10n.formatShortDate(widget.at)} ${_time(l10n, use24h)}',
+        _ => '${messageDayString(widget.at)} at ${_time(l10n, use24h)}',
       };
 
   @override
@@ -623,14 +776,14 @@ class _TimestampState extends State<_Timestamp> {
     return Tooltip(
       message: _format(l10n, use24h, 'F'),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         decoration: BoxDecoration(
-          color: colors.gray.withValues(alpha: 0.18),
+          color: colors.selection.withValues(alpha: 0.24),
           borderRadius: BorderRadius.circular(3),
         ),
         child: Text(
           _format(l10n, use24h, widget.style),
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: const TextStyle(fontSize: 16, height: 22 / 16),
         ),
       ),
     );
@@ -652,7 +805,7 @@ class _SpoilerState extends State<_Spoiler> {
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    final style = Theme.of(context).textTheme.bodyLarge;
+    const style = TextStyle(fontSize: 16, height: 22 / 16);
     return GestureDetector(
       onTap: _revealed ? null : () => setState(() => _revealed = true),
       child: MouseRegion(
@@ -663,15 +816,13 @@ class _SpoilerState extends State<_Spoiler> {
             // The pane is drawn in `background`, so a hidden spoiler needs a
             // shade of its own to be seen at all.
             color: _revealed
-                ? Colors.transparent
-                : Color.lerp(colors.background, colors.dirtyWhite, 0.2),
+                ? colors.hover
+                : Color.lerp(colors.background, colors.dirtyWhite, 0.32),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             widget.text,
-            style: (style ?? const TextStyle()).copyWith(
-              color: _revealed ? null : Colors.transparent,
-            ),
+            style: style.copyWith(color: _revealed ? null : Colors.transparent),
           ),
         ),
       ),
@@ -684,7 +835,6 @@ class _SpoilerState extends State<_Spoiler> {
 // ---------------------------------------------------------------------------
 
 const _mentionColor = Color(0xFF5865F2);
-const _broadcastColor = Color(0xFFFAA61A);
 
 String _encodeColor(Color color) => color.toARGB32().toString();
 

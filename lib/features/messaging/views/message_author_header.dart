@@ -80,12 +80,18 @@ class MessageAuthorHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
+    // The reference client's header line: name 16/500, time 12/500 muted,
+    // on a 22 px line.
     Widget nameWidget = Text(
       name,
       overflow: ellipsizeName ? TextOverflow.ellipsis : null,
-      style: theme.textTheme.titleSmall!.copyWith(color: nameColor),
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        height: 22 / 16,
+        color: nameColor ?? colors.dirtyWhite,
+      ),
     );
     if (onNameTap != null ||
         onNameLongPressStart != null ||
@@ -103,11 +109,12 @@ class MessageAuthorHeader extends StatelessWidget {
     if (ellipsizeName) nameWidget = Flexible(child: nameWidget);
     Widget timeWidget = Text(
       time,
-      style:
-          (smallTime
-                  ? theme.textTheme.labelSmall
-                  : theme.textTheme.labelMedium)!
-              .copyWith(color: colors.gray),
+      style: TextStyle(
+        fontSize: smallTime ? 11 : 12,
+        fontWeight: FontWeight.w500,
+        height: 22 / 12,
+        color: colors.gray,
+      ),
     );
     if (timeTooltip != null) {
       timeWidget = Tooltip(message: timeTooltip!, child: timeWidget);
@@ -128,10 +135,7 @@ class MessageAuthorHeader extends StatelessWidget {
         timeWidget,
         if (edited) ...[
           const SizedBox(width: 6),
-          Text(
-            '(edited)',
-            style: theme.textTheme.labelSmall!.copyWith(color: colors.gray),
-          ),
+          Text('(edited)', style: TextStyle(fontSize: 10, color: colors.gray)),
         ],
       ],
     );

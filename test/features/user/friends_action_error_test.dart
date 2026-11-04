@@ -8,13 +8,14 @@ import 'package:bonfire/features/channels/controllers/dm_channels.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
-import 'package:bonfire/features/user/views/accord_direct_messages.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import 'dm_home_host.dart';
 
 /// Accept / decline / remove / block on the Friends tab used to fail in
 /// complete silence: the row simply stayed as it was. The `_error` banner the
@@ -88,27 +89,24 @@ ProviderContainer _container({
   return container;
 }
 
-/// Opens the DM dialog and switches to the Friends tab.
-Future<void> _openFriends(WidgetTester tester, ProviderContainer container) async {
+/// Opens the DM home (the Friends page) on its Pending tab.
+Future<void> _openFriends(
+  WidgetTester tester,
+  ProviderContainer container,
+) async {
+  resetDmHomeAfter();
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
         theme: buildAppTheme(AppThemePreset.dark),
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showAccordDirectMessages(context),
-              child: const Text('open'),
-            ),
-          ),
-        ),
+        home: const DmHomeHost(),
       ),
     ),
   );
-  await tester.tap(find.text('open'));
+  await tester.tap(find.text('open dms'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Friends'));
+  await tester.tap(find.text('Pending').first);
   await tester.pumpAndSettle();
 }
 
@@ -130,14 +128,14 @@ void main() {
     );
   });
 
-  testWidgets('a rejected decline falls back to our own wording', (
+  testWidgets('a rejected ignore falls back to our own wording', (
     tester,
   ) async {
     // A failure the server gave no words for.
     final container = _container(mutationStatus: 500, mutationMessage: '');
     await _openFriends(tester, container);
 
-    await tester.tap(find.byTooltip('Decline'));
+    await tester.tap(find.byTooltip('Ignore'));
     await tester.pumpAndSettle();
 
     expect(find.text('Could not remove that relationship.'), findsOneWidget);

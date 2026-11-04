@@ -13,6 +13,7 @@ class _MentionPopup extends ConsumerWidget {
     required this.allowBroadcast,
     required this.onPick,
     this.highlighted = 0,
+    this.channels = false,
   });
 
   final String spaceId;
@@ -20,6 +21,9 @@ class _MentionPopup extends ConsumerWidget {
   final bool allowBroadcast;
   final ValueChanged<String> onPick;
   final int highlighted;
+
+  /// Lists the space's text channels (a `#` reference) instead of members.
+  final bool channels;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,12 +37,22 @@ class _MentionPopup extends ConsumerWidget {
       ),
     );
     final roles = space?.roles ?? const <AccordRole>[];
-    final entries = _mentionCandidates(
-      members,
-      roles,
-      query,
-      allowBroadcast: allowBroadcast,
-    );
+    final entries = channels
+        ? _channelCandidates(
+            ref.watch(
+              accordChannelsControllerProvider(
+                ref.readActiveServerKey() ?? '',
+                spaceId,
+              ),
+            ),
+            query,
+          )
+        : _mentionCandidates(
+            members,
+            roles,
+            query,
+            allowBroadcast: allowBroadcast,
+          );
     if (entries.isEmpty) return const SizedBox.shrink();
     final highlightedIndex = highlighted.clamp(0, entries.length - 1);
     return Container(
@@ -72,6 +86,7 @@ class _MentionPopup extends ConsumerWidget {
                             AppIcons.campaignOutlined,
                           _MentionEntryKind.member => AppIcons.person,
                           _MentionEntryKind.role => AppIcons.labelOutline,
+                          _MentionEntryKind.channel => AppIcons.tag,
                         },
                         size: 14,
                         color: entry.kind == _MentionEntryKind.broadcast
@@ -93,7 +108,9 @@ class _MentionPopup extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        "@${entry.handle}",
+                        entry.kind == _MentionEntryKind.channel
+                            ? '#${entry.handle}'
+                            : "@${entry.handle}",
                         style: Theme.of(context).textTheme.labelSmall!.copyWith(
                           color: entry.kind == _MentionEntryKind.broadcast
                               ? _composerBroadcastColor
@@ -199,7 +216,38 @@ class _MentionEntry {
   final _MentionEntryKind kind;
 }
 
-enum _MentionEntryKind { broadcast, member, role }
+enum _MentionEntryKind { broadcast, member, role, channel }
+
+/// The text channels of the space whose name matches [query] (prefix first,
+/// then substring), for the `#` popup.
+List<_MentionEntry> _channelCandidates(
+  List<AccordChannel>? channels,
+  String query,
+) {
+  final q = query.toLowerCase();
+  final prefix = <_MentionEntry>[];
+  final contains = <_MentionEntry>[];
+  for (final c in channels ?? const <AccordChannel>[]) {
+    final name = c.name;
+    if (name == null || name.isEmpty) continue;
+    if (c.type == 'category' || c.type == 'voice') continue;
+    final entry = _MentionEntry(
+      handle: name,
+      label: name,
+      kind: _MentionEntryKind.channel,
+    );
+    final lower = name.toLowerCase();
+    if (q.isEmpty || lower.startsWith(q)) {
+      prefix.add(entry);
+    } else if (lower.contains(q)) {
+      contains.add(entry);
+    }
+  }
+  final out = [...prefix, ...contains];
+  return out.length > _maxMentionResults
+      ? out.sublist(0, _maxMentionResults)
+      : out;
+}
 
 /// Matches the broadcast chip used by sent-message markup.
 const _composerBroadcastColor = Color(0xFFFAA61A);

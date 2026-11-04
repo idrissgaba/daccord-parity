@@ -35,8 +35,13 @@ class AccordMarkdownBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MarkdownViewer(
-      content,
-      enableTaskList: true,
+      chatMarkdown(content),
+      enableHighlight: false,
+      enableTable: false,
+      enableSetextHeading: false,
+      enableThematicBreak: false,
+      enableIndentedCodeBlock: false,
+      enableTaskList: false,
       enableSuperscript: false,
       enableSubscript: false,
       enableFootnote: false,
@@ -75,6 +80,82 @@ class AccordMarkdownBox extends StatelessWidget {
       },
     );
   }
+}
+
+/// Rewrites [content] into the CommonMark that renders it the way the
+/// reference client's chat markdown does:
+///
+/// * only `#`, `##` and `###` are headings — `####` and deeper stay text;
+/// * `>>> ` quotes the line and everything after it;
+/// * `> ` quotes its own line only (CommonMark would lazily pull the next
+///   line into the quote).
+///
+/// * every newline is a line break (CommonMark folds a soft break into a
+///   space).
+///
+/// Fenced code blocks are left untouched.
+String chatMarkdown(String content) {
+  if (!content.contains('\n')) return content;
+  final lines = content.split('\n');
+  final out = <String>[];
+  var inFence = false;
+  var quoteAll = false;
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    if (line.trimLeft().startsWith('```')) {
+      inFence = !inFence;
+      out.add(quoteAll ? '> $line' : line);
+      continue;
+    }
+    if (inFence) {
+      out.add(quoteAll ? '> $line' : line);
+      continue;
+    }
+    if (quoteAll) {
+      out.add('> $line');
+      continue;
+    }
+    if (line.startsWith('>>> ')) {
+      quoteAll = true;
+      out.add('> ${line.substring(4)}');
+      continue;
+    }
+    if (RegExp(r'^#{4,} ').hasMatch(line)) {
+      out.add('\\$line');
+      continue;
+    }
+    out.add(line);
+    final quoted = line.startsWith('> ') || line == '>';
+    if (quoted && i + 1 < lines.length) {
+      final next = lines[i + 1];
+      final nextQuoted =
+          next.startsWith('> ') || next == '>' || next.startsWith('>>> ');
+      if (!nextQuoted && next.trim().isNotEmpty) out.add('');
+    }
+  }
+  // Hard breaks: two trailing spaces on every line that continues a
+  // paragraph or quote, outside code fences.
+  final broken = <String>[];
+  var fence = false;
+  for (var i = 0; i < out.length; i++) {
+    final line = out[i];
+    final opensFence = line
+        .replaceFirst(RegExp(r'^> '), '')
+        .trimLeft()
+        .startsWith('```');
+    if (opensFence) fence = !fence;
+    final next = i + 1 < out.length ? out[i + 1] : null;
+    final continues =
+        !fence &&
+        !opensFence &&
+        next != null &&
+        next.trim().isNotEmpty &&
+        line.trim().isNotEmpty &&
+        line.trim() != '>' &&
+        !next.replaceFirst(RegExp(r'^> '), '').trimLeft().startsWith('```');
+    broken.add(continues ? '$line  ' : line);
+  }
+  return broken.join('\n');
 }
 
 /// Opens a message's own context menu when its text is right-clicked (or

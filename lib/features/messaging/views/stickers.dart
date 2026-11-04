@@ -1,7 +1,6 @@
 import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/messaging/controllers/space_stickers.dart';
-import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/shared/utils/confirm_dialog.dart';
@@ -47,107 +46,6 @@ class MessageSticker extends ConsumerWidget {
                 errorWidget: (_, _, _) => Text('🏷️ ${sticker.name}'),
               ),
       ),
-    );
-  }
-}
-
-/// Picks a sticker from the spaces the user belongs to, [spaceId]'s first.
-Future<AccordSticker?> showStickerPicker(
-  BuildContext context, {
-  required String spaceId,
-}) {
-  return showDialog<AccordSticker>(
-    context: context,
-    builder: (_) => StickerPickerDialog(spaceId: spaceId),
-  );
-}
-
-class StickerPickerDialog extends ConsumerWidget {
-  const StickerPickerDialog({super.key, required this.spaceId});
-
-  final String spaceId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final spaces = [...?ref.watch(spacesControllerProvider)]
-      ..sort((a, b) => a.id == spaceId ? -1 : (b.id == spaceId ? 1 : 0));
-    if (spaces.isEmpty) return const SizedBox.shrink();
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 520, maxHeight: 520),
-        child: DefaultTabController(
-          length: spaces.length,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TabBar(
-                isScrollable: true,
-                tabs: [for (final space in spaces) Tab(text: space.name)],
-              ),
-              Flexible(
-                child: SizedBox(
-                  height: 380,
-                  child: TabBarView(
-                    children: [
-                      for (final space in spaces)
-                        _StickerGrid(spaceId: space.id),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StickerGrid extends ConsumerWidget {
-  const _StickerGrid({required this.spaceId});
-
-  final String spaceId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final stickers = ref.watch(
-      spaceStickersControllerProvider(
-        ref.watchActiveServerKey() ?? '',
-        spaceId,
-      ),
-    );
-    final cdnUrl = ref.watchCdnUrl();
-    if (stickers == null) return const LoadingView();
-    if (stickers.isEmpty) {
-      return const Center(child: Text('No stickers in this space yet.'));
-    }
-    return GridView.count(
-      crossAxisCount: 4,
-      padding: const EdgeInsets.all(12),
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      children: [
-        for (final sticker in stickers)
-          Tooltip(
-            message: sticker.name,
-            child: InkWell(
-              key: ValueKey('sticker-${sticker.id}'),
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => Navigator.of(context).pop(sticker),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: stickerUrl(sticker, cdnUrl) == null
-                    ? Center(child: Text(sticker.name))
-                    : CachedNetworkImage(
-                        imageUrl: stickerUrl(sticker, cdnUrl)!,
-                        fit: BoxFit.contain,
-                        errorWidget: (_, _, _) =>
-                            Center(child: Text(sticker.name)),
-                      ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

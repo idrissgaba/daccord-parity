@@ -11,6 +11,11 @@ class _Settings extends SettingsController {
   final AccordSettings initial;
   @override
   AccordSettings build() => initial;
+
+  // The real one also writes the Hive box, which a widget test never opens.
+  @override
+  void addRecentEmoji(String token) =>
+      state = state.copyWith(recentEmoji: [token, ...state.recentEmoji]);
 }
 
 Widget _host(
@@ -40,10 +45,12 @@ void main() {
   ) async {
     await tester.pumpWidget(_host((_) {}));
     await tester.pump();
-    expect(find.text('SMILEYS'), findsOneWidget);
+    expect(find.text('Smileys'), findsOneWidget);
     expect(find.byTooltip('Smileys'), findsOneWidget);
     expect(find.byTooltip('Flags'), findsOneWidget);
-    expect(find.text('Pick an emoji'), findsOneWidget);
+    // The inspector names the first emoji until something is hovered.
+    await tester.pump();
+    expect(find.text(':grinning:'), findsOneWidget);
     expect(find.byKey(const Key('emoji-skin-tone')), findsOneWidget);
   });
 
@@ -59,7 +66,7 @@ void main() {
     );
     await tester.pump();
     expect(find.text('👍'), findsOneWidget);
-    expect(find.text('SMILEYS'), findsNothing);
+    expect(find.text('Smileys'), findsNothing);
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     expect(picked?.name, 'thumbsup');

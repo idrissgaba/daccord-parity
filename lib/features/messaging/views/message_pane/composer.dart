@@ -16,6 +16,7 @@ final _broadcastMention = RegExp(r'@(everyone|here)\b');
 
 class _Composer extends ConsumerStatefulWidget {
   const _Composer({
+    super.key,
     required this.channelId,
     this.channelName,
     this.spaceId,
@@ -25,7 +26,12 @@ class _Composer extends ConsumerStatefulWidget {
     this.replyName,
     this.onCancelReply,
     this.onEditLastMessage,
+    this.canSend = true,
   });
+
+  /// Whether the user may post here. Without it the box stays, disabled,
+  /// saying so — the reference client's "You do not have permission…".
+  final bool canSend;
 
   final String channelId;
   final String? channelName;
@@ -133,7 +139,7 @@ class _ComposerState extends ConsumerState<_Composer>
         !mods.isAltPressed;
     // While the mention popup has candidates it owns ↑/↓, Tab, Enter and
     // Escape; Enter used to send the half-typed `@idr` instead.
-    if (_mention != null && widget.spaceId != null) {
+    if ((_mention != null || _channelRef != null) && widget.spaceId != null) {
       final result = _onMentionKey(event, mods);
       if (result != null) return result;
     }
@@ -496,6 +502,7 @@ class _ComposerState extends ConsumerState<_Composer>
       _error = null;
       _attachments.clear();
       _mention = null;
+      _channelRef = null;
       _emojiSuggest = null;
     });
 

@@ -18,13 +18,11 @@ class MessageRowKey extends LocalKey {
   String toString() => '[MessageRowKey $messageId]';
 }
 
-/// Wraps [row] with the dividers that go above it: a dated line when
-/// [message] starts a new day (or the loaded history), and the red "NEW"
-/// line when it is the first message after [unreadFrom]. The list's keyed
-/// element is this wrapper, so the key moves here.
-Widget withMessageDividers(
-  Widget row, {
-  required Key key,
+/// Which dividers go above a message: a dated line when it starts a new day
+/// (or the loaded history), and the red "NEW" line when it is the first
+/// message after the read position. Both at once fold into one red, dated
+/// line, as in the reference client.
+({bool newDay, bool firstUnread, DateTime? day}) messageDividersFor({
   required AccordMessage? previous,
   required AccordMessage message,
   required String? unreadFrom,
@@ -43,110 +41,174 @@ Widget withMessageDividers(
       unreadFrom != null &&
       compareMessageIds(message.id, unreadFrom) > 0 &&
       (previous == null || compareMessageIds(previous.id, unreadFrom) <= 0);
-  if (!newDay && !firstUnread) return KeyedSubtree(key: key, child: row);
+  return (newDay: newDay, firstUnread: firstUnread, day: day);
+}
+
+/// Wraps [row] with the dividers that go above it (see [messageDividersFor]).
+/// The list's keyed element is this wrapper, so the key moves here.
+Widget withMessageDividers(
+  Widget row, {
+  required Key key,
+  required AccordMessage? previous,
+  required AccordMessage message,
+  required String? unreadFrom,
+}) {
+  final dividers = messageDividersFor(
+    previous: previous,
+    message: message,
+    unreadFrom: unreadFrom,
+  );
+  if (!dividers.newDay && !dividers.firstUnread) {
+    return KeyedSubtree(key: key, child: row);
+  }
   return Column(
     key: key,
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      if (newDay) _DayDivider(day: day),
-      if (firstUnread) const _NewMessagesDivider(),
+      if (dividers.newDay)
+        _DayDivider(day: dividers.day!, unread: dividers.firstUnread)
+      else
+        const _NewMessagesDivider(),
       row,
     ],
   );
 }
 
-const _kMonths = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+/// "4 November 2026" — the reference client dates every divider, today
+/// included.
+String messageDayLabel(DateTime day) => messageDayString(day);
 
-/// "Today", "Yesterday" or "October 29, 2026".
-String messageDayLabel(DateTime day, {DateTime? now}) {
-  final today = now ?? DateTime.now();
-  final d = DateTime(day.year, day.month, day.day);
-  final t = DateTime(today.year, today.month, today.day);
-  final delta = t.difference(d).inDays;
-  if (delta == 0) return 'Today';
-  if (delta == 1) return 'Yesterday';
-  return '${_kMonths[day.month - 1]} ${day.day}, ${day.year}';
-}
+/// The red of the "NEW" line and pill, as the reference client draws it.
+const Color _kUnreadRed = Color(0xFFD22D39);
 
-/// A thin rule with the date in the middle, between two days of history.
+/// A hairline with the date on a pill in the middle, between two days of
+/// history. When the first unread message starts the day, the line turns red,
+/// the date with it, and the "NEW" pill hangs at its right end.
 class _DayDivider extends StatelessWidget {
-  const _DayDivider({required this.day});
+  const _DayDivider({required this.day, this.unread = false});
 
   final DateTime day;
+  final bool unread;
 
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    final line = Expanded(child: Divider(color: colors.darkGray, height: 1));
+    final lineColor = unread ? _kUnreadRed : colors.hairline;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-      child: Row(
-        children: [
-          line,
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text(
-              messageDayLabel(day),
-              style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                color: colors.gray,
-                fontWeight: FontWeight.w600,
+      key: unread ? const Key('new-messages-divider') : null,
+      padding: const EdgeInsets.fromLTRB(16, 16, 14, 0),
+      child: SizedBox(
+        height: 17,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 8,
+              height: 1,
+              child: ColoredBox(color: lineColor),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: colors.background,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                messageDayLabel(day),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 13 / 12,
+                  color: unread ? _kUnreadRed : colors.interactive,
+                ),
               ),
             ),
-          ),
-          line,
-        ],
+            if (unread) const Positioned(right: 0, top: 2, child: _NewPill()),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// The red "NEW" rule above the first message that arrived since the channel
-/// was last read.
+/// The red rule above the first message that arrived since the channel was
+/// last read, with the "NEW" pill at its right end.
 class _NewMessagesDivider extends StatelessWidget {
   const _NewMessagesDivider();
 
   @override
   Widget build(BuildContext context) {
-    final colors = BonfireThemeExtension.of(context);
-    return Padding(
-      key: const Key('new-messages-divider'),
-      padding: const EdgeInsets.fromLTRB(16, 6, 0, 2),
-      child: Row(
-        children: [
-          Expanded(child: Container(height: 1, color: colors.red)),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: colors.red,
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(4),
-              ),
-            ),
-            child: const Text(
+    return const Padding(
+      key: Key('new-messages-divider'),
+      padding: EdgeInsets.fromLTRB(16, 4, 14, 4),
+      child: SizedBox(
+        height: 1,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(child: ColoredBox(color: _kUnreadRed)),
+            Positioned(right: 0, top: -6, child: _NewPill()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The 27×13 "NEW" tag: a red box with rounded right corners and a pointed
+/// left end, white 10 px bold capitals.
+class _NewPill extends StatelessWidget {
+  const _NewPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: const _NewPillPainter(),
+      child: const Padding(
+        padding: EdgeInsets.fromLTRB(7, 0, 4, 0),
+        child: SizedBox(
+          height: 13,
+          child: Center(
+            child: Text(
               'NEW',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
+                fontWeight: FontWeight.w700,
+                height: 1,
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
+}
+
+class _NewPillPainter extends CustomPainter {
+  const _NewPillPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const r = 4.0;
+    final path = Path()
+      ..moveTo(0, size.height / 2)
+      ..lineTo(4, 0)
+      ..lineTo(size.width - r, 0)
+      ..arcToPoint(Offset(size.width, r), radius: const Radius.circular(r))
+      ..lineTo(size.width, size.height - r)
+      ..arcToPoint(
+        Offset(size.width - r, size.height),
+        radius: const Radius.circular(r),
+      )
+      ..lineTo(4, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = _kUnreadRed);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

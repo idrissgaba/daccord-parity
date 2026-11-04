@@ -36,6 +36,7 @@ abstract final class AppIcons {
   static const IconData bugReportOutlined = PhosphorIconsFill.bug;
   static const IconData call = PhosphorIconsFill.phone;
   static const IconData callEnd = PhosphorIconsFill.phoneDisconnect;
+
   /// The "ID" glyph beside "Copy User ID" in context menus.
   static const IconData badge = PhosphorIconsBold.identificationCard;
   static const IconData callMissed = PhosphorIconsFill.phoneX;
@@ -108,6 +109,7 @@ abstract final class AppIcons {
   static const IconData forumOutlined = PhosphorIconsFill.chatsCircle;
   static const IconData fullscreen = PhosphorIconsBold.cornersOut;
   static const IconData fullscreenExit = PhosphorIconsBold.cornersIn;
+
   /// The trophy of the "you're alone in voice" activities panel.
   static const IconData emojiEvents = PhosphorIconsFill.trophy;
   static const IconData gavel = PhosphorIconsFill.gavel;
@@ -263,4 +265,16 @@ abstract final class AppIcons {
   static const IconData webhook = PhosphorIconsFill.webhooksLogo;
   static const IconData workspacePremiumOutlined = PhosphorIconsFill.medal;
   static const IconData workspacesOutline = PhosphorIconsFill.circlesThree;
+
+  // Lot B (messages): the reference client's message, composer and picker
+  // glyphs, named after what they do.
+  static const IconData forward = PhosphorIconsFill.arrowBendUpRight;
+  static const IconData gif = PhosphorIconsBold.gif;
+  static const IconData sticker = PhosphorIconsFill.sticker;
+  static const IconData idCard = PhosphorIconsFill.identificationCard;
+  static const IconData closeCircle = PhosphorIconsFill.xCircle;
+  static const IconData scrollDown = PhosphorIconsBold.arrowDown;
+  static const IconData star = PhosphorIconsFill.star;
+  static const IconData fileText = PhosphorIconsFill.fileText;
+  static const IconData fileArchive = PhosphorIconsFill.fileZip;
 }

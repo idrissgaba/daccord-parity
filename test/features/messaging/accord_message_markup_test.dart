@@ -58,8 +58,8 @@ void main() {
       expect(text, isNot(contains('*')));
 
       // The channel rendered as a chip pill, and tapping it fires the callback.
-      expect(find.text('#general'), findsOneWidget);
-      await tester.tap(find.text('#general'));
+      expect(find.text('# general'), findsOneWidget);
+      await tester.tap(find.text('# general'));
       await tester.pump();
       expect(tapped, 'c1');
     },
@@ -300,8 +300,14 @@ void main() {
     expect(boxColor(), isNot(pane));
     expect(boxColor()!.a, greaterThan(0));
 
+    final hidden = boxColor();
     await tester.tap(find.text('secret'));
     await tester.pump();
-    expect(boxColor(), Colors.transparent);
+    // Revealed, it keeps a faint wash (the reference client's), not the cover.
+    expect(
+      boxColor(),
+      BonfireThemeExtension.of(tester.element(find.text('secret'))).hover,
+    );
+    expect(boxColor(), isNot(hidden));
   });
 }

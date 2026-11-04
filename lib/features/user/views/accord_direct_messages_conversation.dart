@@ -2,15 +2,21 @@ part of 'accord_direct_messages.dart';
 
 class _DmConversation extends ConsumerStatefulWidget {
   const _DmConversation({
+    super.key,
     required this.channel,
     required this.selfId,
     required this.onBack,
     this.expanded = false,
+    this.showBack = false,
   });
 
   final AccordChannel channel;
   final String? selfId;
   final VoidCallback onBack;
+
+  /// The narrow layout, where the conversation takes the whole screen, keeps
+  /// a back arrow to the Friends page.
+  final bool showBack;
 
   /// The dialog is in voice full screen: a call on this conversation fills
   /// it, messages hidden.
@@ -245,12 +251,13 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
         }
         if (updated != null && !identical(updated, _channel)) {
           setState(() => _channel = updated!);
+          dmHome.replaceChannel(updated);
         }
       },
     );
-    // The home route remains mounted beneath this dialog and may rebuild while
-    // it is open. Reassert the modal conversation as the visible channel so its
-    // incoming messages do not produce unread badges/notifications.
+    // The home rebuilds around this conversation; reassert it as the visible
+    // channel so its incoming messages do not produce unread badges or
+    // notifications.
     accordVisibleChannel = (serverKey: _serverKey, channelId: _channel.id);
     final group = _isGroupChannel;
     final others = _others(_channel, widget.selfId);
@@ -272,9 +279,8 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
             embedded: true,
           );
     if (callView != null && widget.expanded) {
-      // Esc leaves full screen; the dialog route must not also take it as
-      // "dismiss" (the hardware-keyboard handler in the voice view runs, but
-      // the focus tree still receives the key).
+      // Esc leaves full screen (the hardware-keyboard handler in the voice
+      // view runs, but the focus tree still receives the key).
       return Focus(
         autofocus: true,
         skipTraversal: true,
@@ -289,6 +295,12 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
         child: callView,
       );
     }
+    // The profile column only stands beside the messages in a wide window;
+    // a narrow one keeps the conversation readable (the profile is a tap on
+    // the name away).
+    final profileFits =
+        !widget.showBack &&
+        MediaQuery.sizeOf(context).width >= kDmSideColumnMinWindowWidth;
     return MessagePane(
       channel: _channel,
       channelId: _channel.id,
@@ -296,14 +308,22 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
       composerTitle: title,
       topPanel: callView,
       canManageMessagesOverride: true,
+      sidePanel: directUser != null && dmHome.profileShown && profileFits
+          ? _DmProfilePanel(user: directUser)
+          : null,
       headerLeading: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            tooltip: 'Back',
-            onPressed: widget.onBack,
-            icon: Icon(AppIcons.arrowBack, size: 20, color: colors.dirtyWhite),
-          ),
+          if (widget.showBack)
+            IconButton(
+              tooltip: 'Back',
+              onPressed: widget.onBack,
+              icon: Icon(
+                AppIcons.arrowBack,
+                size: 20,
+                color: colors.dirtyWhite,
+              ),
+            ),
           if (group)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -320,10 +340,12 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
                 user: directUser,
                 onTap: () => _showUserProfile(directUser),
                 onMenu: (position) => _showUserMenu(directUser, position),
-                child: UserAvatar(
-                  title,
-                  imageUrl: accordAvatarUrl(directUser, ref.watchCdnUrl()),
-                  radius: 14,
+                child: AccordMemberAvatar(
+                  avatarUrl: accordAvatarUrl(directUser, ref.watchCdnUrl()),
+                  initial: accordInitial(title),
+                  radius: 12,
+                  backgroundColor: accordAvatarColor(directUser, directUser.id),
+                  initialStyle: const TextStyle(fontSize: 11),
                 ),
               ),
             ),
@@ -339,15 +361,30 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
       ),
       headerActions: [
         IconButton(
-          tooltip: 'Start voice call',
+          tooltip: 'Start Voice Call',
           onPressed: () => _startCall(video: false),
-          icon: Icon(AppIcons.call, size: 20, color: colors.dirtyWhite),
+          icon: Icon(AppIcons.call, size: 20, color: colors.interactive),
         ),
         IconButton(
-          tooltip: 'Start video call',
+          tooltip: 'Start Video Call',
           onPressed: () => _startCall(video: true),
-          icon: Icon(AppIcons.videocam, size: 20, color: colors.dirtyWhite),
+          icon: Icon(AppIcons.videocam, size: 20, color: colors.interactive),
         ),
+        if (directUser != null && profileFits)
+          IconButton(
+            key: const Key('dm-toggle-profile'),
+            tooltip: dmHome.profileShown
+                ? 'Hide User Profile'
+                : 'Show User Profile',
+            onPressed: () => setState(dmHome.toggleProfile),
+            icon: Icon(
+              AppIcons.accountCircleOutlined,
+              size: 20,
+              color: dmHome.profileShown
+                  ? colors.dirtyWhite
+                  : colors.interactive,
+            ),
+          ),
         if (group)
           _groupOptions(colors)
         // The 1:1 menu (report, block, friend actions) otherwise only opened on

@@ -402,6 +402,9 @@ AttachmentPreview attachmentPreviewFor({
 /// the platform reported (drag-and-drop only) and the resolved content type,
 /// computed once via [resolveAttachmentMimeType] rather than re-guessed at send
 /// time from the extension alone.
+/// The file-name prefix that marks an attachment as a spoiler.
+const String kSpoilerPrefix = 'SPOILER_';
+
 class PendingAttachment {
   PendingAttachment(this.file, {this.platformMimeType});
 
@@ -424,6 +427,22 @@ class PendingAttachment {
   String get name => file.name;
   Uint8List? get bytes => file.bytes;
   int get size => file.bytes?.length ?? file.size;
+
+  /// Whether the name carries the spoiler prefix (hidden until clicked).
+  bool get isSpoiler => name.startsWith(kSpoilerPrefix);
+
+  /// This attachment under another [name]; the data is shared, not copied.
+  PendingAttachment renamed(String name) => PendingAttachment(
+    PlatformFile(
+      name: name,
+      size: file.size,
+      bytes: file.bytes,
+      path: file.path,
+      readStream: file.readStream,
+      identifier: file.identifier,
+    ),
+    platformMimeType: platformMimeType,
+  );
 
   /// The MIME type this file uploads as. Computed once — sniffing runs over
   /// the leading bytes, and the chip, the send payload and any preview all read

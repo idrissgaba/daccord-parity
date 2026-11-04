@@ -13,6 +13,7 @@ import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
+import 'package:bonfire/features/user/views/accord_direct_messages.dart';
 import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
@@ -27,6 +28,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import '../user/dm_home_host.dart';
 
 /// The callee's side of a DM call (#324): a `call.ring` frame shaped exactly
 /// like accordserver's (`routes/voice.rs` `ring_call`, broadcast under the
@@ -334,7 +337,7 @@ void main() {
   });
 
   testWidgets('the ring shows the banner in the app shell, over a dialog, and '
-      'accepting opens the themed call view', (tester) async {
+      'accepting opens the themed call view in the DM home', (tester) async {
     tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -345,25 +348,16 @@ void main() {
     h.client.login();
     await tester.pump();
 
-    await tester.pumpWidget(
-      h.app(
-        Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showDialog<void>(
-                context: context,
-                builder: (_) =>
-                    const AlertDialog(title: Text('Direct messages')),
-              ),
-              child: const Text('open'),
-            ),
-          ),
-        ),
+    resetDmHomeAfter();
+    await tester.pumpWidget(h.app(const DmHomeHost()));
+    // The callee is sitting in a dialog (on mobile the DM conversation was
+    // one) — the case the outer bootstrap navigator used to hide the banner in.
+    unawaited(
+      showDialog<void>(
+        context: tester.element(find.byType(DmHomeHost)),
+        builder: (_) => const AlertDialog(title: Text('Direct messages')),
       ),
     );
-    // The callee is sitting in a dialog (on mobile the DM conversation *is*
-    // one) — the case the outer bootstrap navigator used to hide the banner in.
-    await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
     expect(find.text('Direct messages'), findsOneWidget);
 
@@ -382,6 +376,10 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(h.callState.incoming, isNull);
     expect(h.container.read(voiceControllerProvider).channelId, 'dm1');
+    // The dialog steps aside for the DM home, open on the call's
+    // conversation with the call view above its messages.
+    expect(find.text('Direct messages'), findsNothing);
+    expect(dmHome.channel?.id, 'dm1');
     final view = find.byType(VoiceChannelView);
     expect(view, findsOneWidget);
     expect(

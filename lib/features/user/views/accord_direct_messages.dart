@@ -24,9 +24,10 @@ import 'package:bonfire/features/user/controllers/blocked_users.dart';
 import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/missed_calls.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
-import 'package:bonfire/features/voice/views/voice_pip_overlay.dart';
+import 'package:bonfire/features/voice/controllers/voice_states.dart';
+import 'package:bonfire/features/channels/utils/message_position.dart';
+import 'package:bonfire/shared/utils/server_timestamp.dart';
 import 'package:bonfire/features/voice/views/voice_view.dart';
-import 'package:bonfire/features/spaces/utils/message_time.dart';
 import 'package:bonfire/features/spaces/views/accord_reports.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:collection/collection.dart' show IterableExtension;
@@ -34,9 +35,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-part 'accord_direct_messages_conversations.dart';
+part 'accord_direct_messages_home.dart';
 part 'accord_direct_messages_conversation.dart';
-part 'accord_direct_messages_friends.dart';
 part 'accord_direct_messages_groups.dart';
 part 'accord_direct_messages_user_search.dart';
 
@@ -80,18 +80,17 @@ bool _isGroup(AccordChannel channel, String? selfId) =>
 String _channelTitle(AccordChannel channel, String? selfId) =>
     dmChannelTitle(channel, selfId, fallback: 'Direct message');
 
-/// Opens the direct-messages & friends panel: a tabbed dialog with the user's DM
-/// conversations and their friends list (with requests). The Accord analogue of
-/// the reference client's `dm_list` + `friends_list`. Pass [initialChannel] to
-/// open straight into a conversation.
+/// Brings the direct-messages home on screen — the Friends page, or straight
+/// into [initialChannel] — in place of the channel the home was showing, as
+/// the reference client's home button does. Any popup it was asked from (a
+/// profile popout, a menu) closes first.
 Future<void> showAccordDirectMessages(
   BuildContext context, {
   AccordChannel? initialChannel,
-}) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => _DirectMessagesDialog(initialChannel: initialChannel),
-  );
+}) async {
+  final navigator = Navigator.of(context, rootNavigator: true);
+  navigator.popUntil((route) => route is! PopupRoute);
+  dmHome.open(initialChannel);
 }
 
 /// Brings the DM conversation [channelId] on screen for its call: the call
@@ -415,168 +414,6 @@ Future<void> _blockDmUser(
     context,
     result?.ok == true ? 'User blocked' : 'Failed to block user',
   );
-}
-
-class _DirectMessagesDialog extends ConsumerStatefulWidget {
-  const _DirectMessagesDialog({this.initialChannel});
-
-  final AccordChannel? initialChannel;
-
-  @override
-  ConsumerState<_DirectMessagesDialog> createState() =>
-      _DirectMessagesDialogState();
-}
-
-class _DirectMessagesDialogState extends ConsumerState<_DirectMessagesDialog>
-    with SingleTickerProviderStateMixin {
-  // Built eagerly rather than lazily: opening straight into a conversation
-  // never builds the TabBar, so a `late` field would first run its initializer
-  // inside dispose(), creating a ticker on an already-deactivated State.
-  late final TabController _tabs;
-  late AccordChannel? _openChannel = widget.initialChannel;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabs = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabs.dispose();
-    super.dispose();
-  }
-
-  String? get _selfId => ref.readUserId();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = BonfireThemeExtension.of(context);
-    final theme = Theme.of(context);
-    final openChannel = _openChannel;
-    final voiceChannelId = ref.watch(
-      voiceControllerProvider.select((v) => v.channelId),
-    );
-    // Voice full screen on this conversation's call: the dialog itself grows
-    // to the window, keeping the conversation (and its video) in place.
-    final expanded = ValueListenableBuilder<bool>(
-      valueListenable: voiceViewExpanded,
-      builder: (context, expanded, _) => _dialog(
-        context,
-        colors,
-        theme,
-        openChannel,
-        expanded:
-            expanded && openChannel != null && openChannel.id == voiceChannelId,
-      ),
-    );
-    final inDmCall = ref.watch(
-      voiceControllerProvider.select(
-        (voice) => voice.isConnected && voice.spaceId == null,
-      ),
-    );
-    return Stack(
-      children: [
-        expanded,
-        // The home screen's PiP sits below this modal route. Host a DM-only
-        // copy here so leaving the call's conversation keeps a visible,
-        // interactive preview instead of hiding it behind the dialog.
-        // Space calls keep using the home overlay, whose channel opener can
-        // restore the correct space and tab.
-        if (inDmCall)
-          VoicePipOverlay(
-            shownChannelId: openChannel?.id,
-            onOpen: (_, _) {
-              // This overlay is only mounted for spaceless calls, which reopen
-              // through [onOpenDm].
-            },
-            onOpenDm: (channelId) {
-              final channel = ref
-                  .read(dmChannelsControllerProvider(_serverKey))
-                  ?.firstWhereOrNull((c) => c.id == channelId);
-              if (channel != null) setState(() => _openChannel = channel);
-            },
-          ),
-      ],
-    );
-  }
-
-  String get _serverKey =>
-      ref.read(voiceControllerProvider).serverKey ??
-      ref.readActiveServerKey() ??
-      '';
-
-  Widget _dialog(
-    BuildContext context,
-    BonfireThemeExtension colors,
-    ThemeData theme,
-    AccordChannel? openChannel, {
-    required bool expanded,
-  }) {
-    return Dialog(
-      backgroundColor: colors.foreground,
-      insetPadding: expanded
-          ? EdgeInsets.zero
-          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(expanded ? 0 : 12),
-      ),
-      child: ConstrainedBox(
-        constraints: expanded
-            ? const BoxConstraints.expand()
-            : dialogConstraints(context, maxWidth: 900, maxHeight: 720),
-        child: openChannel != null
-            ? _DmConversation(
-                channel: openChannel,
-                selfId: _selfId,
-                expanded: expanded,
-                onBack: () => setState(() => _openChannel = null),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Direct messages',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Close',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: Icon(AppIcons.close, size: 20, color: colors.gray),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TabBar(
-                    controller: _tabs,
-                    tabs: const [
-                      Tab(text: 'Messages'),
-                      Tab(text: 'Friends'),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabs,
-                      children: [
-                        _DmListTab(
-                          selfId: _selfId,
-                          onOpen: (c) => setState(() => _openChannel = c),
-                        ),
-                        const _FriendsTab(),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
 }
 
 /// Add / cancel / accept / remove friend for [user], in step with the current

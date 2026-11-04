@@ -48,8 +48,8 @@ void main() {
     final syntax = tester
         .widget<AccordMarkdownBox>(find.byType(AccordMarkdownBox))
         .syntaxExtensions;
-    expect(find.text('#general'), findsOneWidget);
-    expect(find.text('#renamed'), findsNothing);
+    expect(find.text('# general'), findsOneWidget);
+    expect(find.text('# renamed'), findsNothing);
 
     rebuild.value++;
     await tester.pump();
@@ -70,7 +70,7 @@ void main() {
           .syntaxExtensions,
       isNot(same(syntax)),
     );
-    expect(find.text('#general'), findsNothing);
-    expect(find.text('#renamed'), findsOneWidget);
+    expect(find.text('# general'), findsNothing);
+    expect(find.text('# renamed'), findsOneWidget);
   });
 }

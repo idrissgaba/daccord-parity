@@ -9,8 +9,6 @@ import 'package:bonfire/features/events/controllers/presence.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
-import 'package:bonfire/features/spaces/utils/message_time.dart';
-import 'package:bonfire/features/user/views/accord_direct_messages.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,8 +16,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'dm_home_host.dart';
+
 /// A [DmChannelsController] exposing a fixed conversation list, so the DM
-/// dialog renders without a server.
+/// home renders without a server.
 class _FakeDmChannels extends DmChannelsController {
   _FakeDmChannels(this._channels);
 
@@ -112,20 +112,14 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  Future<void> openDialog(WidgetTester tester) async {
+  Future<void> openHome(WidgetTester tester, {bool sidebarOnly = false}) async {
+    resetDmHomeAfter();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
           theme: buildAppTheme(AppThemePreset.dark),
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showAccordDirectMessages(context),
-                child: const Text('open dms'),
-              ),
-            ),
-          ),
+          home: DmHomeHost(sidebarOnly: sidebarOnly),
         ),
       ),
     );
@@ -140,61 +134,33 @@ void main() {
 
   tearDown(() => container.dispose());
 
-  testWidgets('row shows the preview and its last-activity time', (
-    tester,
-  ) async {
-    final sentAt = DateTime.now().subtract(const Duration(days: 1));
+  testWidgets('a row shows the name, not the last message', (tester) async {
+    // The reference client's DM list carries the name and the status line;
+    // the last message is only in the conversation.
     container
         .read(dmChannelsControllerProvider('').notifier)
-        .setPreview('dm1', _message('u2', 'Near the beach', sentAt));
+        .setPreview('dm1', _message('u2', 'Near the beach', DateTime.now()));
 
-    await openDialog(tester);
-
-    expect(find.text('bob'), findsOneWidget);
-    expect(find.text('Near the beach'), findsOneWidget);
-    expect(find.text(conversationTimeString(sentAt)), findsOneWidget);
-  });
-
-  testWidgets('zone-less UTC preview time displays in device local time', (
-    tester,
-  ) async {
-    final instant = DateTime.utc(2026, 9, 28, 16, 15);
-    final message = _message('u2', 'UTC preview', instant)
-      ..timestamp = '2026-09-28 16:15:00';
-    container
-        .read(dmChannelsControllerProvider('').notifier)
-        .setPreview('dm1', message);
-
-    await openDialog(tester);
-
-    final local = instant.toLocal();
-    expect(find.text('UTC preview'), findsOneWidget);
-    expect(find.text(conversationTimeString(local)), findsOneWidget);
-    expect(find.byTooltip(messageTimestampString(local)), findsOneWidget);
-  });
-
-  testWidgets('a preview without a time shows no time label', (tester) async {
-    await openDialog(tester);
+    await openHome(tester);
 
     expect(find.text('bob'), findsOneWidget);
-    expect(find.text('Yesterday'), findsNothing);
+    expect(find.text('Near the beach'), findsNothing);
   });
 
-  testWidgets('a wide row shows the origin badge with its domain', (
-    tester,
-  ) async {
+  testWidgets('a remote row carries the origin badge', (tester) async {
     useConversation(origin: 'remote.example');
 
-    await openDialog(tester);
+    await openHome(tester);
 
-    expect(find.text('@remote.example'), findsOneWidget);
+    expect(find.byIcon(AppIcons.public), findsOneWidget);
   });
 
-  testWidgets('header actions are compact icon buttons', (tester) async {
-    await openDialog(tester);
+  testWidgets('the column offers Find or start and Create DM', (tester) async {
+    await openHome(tester);
 
-    expect(find.byTooltip('New group'), findsOneWidget);
-    expect(find.byTooltip('Message remote user'), findsOneWidget);
+    expect(find.text('Find or start a conversation'), findsOneWidget);
+    expect(find.byTooltip('Create DM'), findsOneWidget);
+    expect(find.text('Friends'), findsWidgets);
   });
 
   group('row semantics', () {
@@ -203,27 +169,18 @@ void main() {
     ) async {
       final semantics = tester.ensureSemantics();
       useConversation(status: 'online');
-      final sentAt = DateTime.now().subtract(const Duration(days: 1));
-      container
-          .read(dmChannelsControllerProvider('').notifier)
-          .setPreview('dm1', _message('u2', 'Near the beach', sentAt));
       final readState = container.read(
         readStateControllerProvider('').notifier,
       );
       readState.markUnread('dm1', isMention: true);
       readState.markUnread('dm1', isMention: true);
 
-      await openDialog(tester);
+      await openHome(tester);
 
       expect(
-        find.bySemanticsLabel(
-          'bob, online, Unread, 2 mentions, Near the beach, '
-          '${messageTimestampString(sentAt)}',
-        ),
+        find.bySemanticsLabel('bob, online, Unread, 2 mentions'),
         findsOneWidget,
       );
-      // The badge is folded into the row label, not read as a bare "2".
-      expect(find.bySemanticsLabel('2'), findsNothing);
       semantics.dispose();
     });
 
@@ -233,7 +190,7 @@ void main() {
           .read(readStateControllerProvider('').notifier)
           .markUnread('dm1', isMention: true);
 
-      await openDialog(tester);
+      await openHome(tester);
 
       expect(
         find.bySemanticsLabel(RegExp(r'Unread, 1 mention$')),
@@ -251,7 +208,7 @@ void main() {
           .read(readStateControllerProvider('').notifier)
           .markUnread('dm1');
 
-      await openDialog(tester);
+      await openHome(tester);
 
       expect(
         find.bySemanticsLabel('bob, do not disturb, Unread'),
@@ -264,7 +221,7 @@ void main() {
       final semantics = tester.ensureSemantics();
       useConversation(status: 'idle');
 
-      await openDialog(tester);
+      await openHome(tester);
 
       expect(find.bySemanticsLabel('bob, idle'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp('Unread')), findsNothing);
@@ -274,7 +231,7 @@ void main() {
     testWidgets('a user with no presence is announced offline', (tester) async {
       final semantics = tester.ensureSemantics();
 
-      await openDialog(tester);
+      await openHome(tester);
 
       expect(find.bySemanticsLabel('bob, offline'), findsOneWidget);
       semantics.dispose();
@@ -286,7 +243,7 @@ void main() {
       final semantics = tester.ensureSemantics();
       useConversation(origin: 'remote.example', status: 'online');
 
-      await openDialog(tester);
+      await openHome(tester);
 
       expect(
         find.bySemanticsLabel('bob, homed on remote.example, online'),
@@ -298,7 +255,7 @@ void main() {
     testWidgets('the row stays tappable for screen readers', (tester) async {
       final semantics = tester.ensureSemantics();
 
-      await openDialog(tester);
+      await openHome(tester);
 
       expect(
         tester.getSemantics(find.bySemanticsLabel('bob, offline')),
@@ -314,68 +271,12 @@ void main() {
     });
   });
 
-  group('own-message previews', () {
-    testWidgets('your own last message is prefixed "You:"', (tester) async {
-      final semantics = tester.ensureSemantics();
-      useConversation(selfId: 'me');
-      container
-          .read(dmChannelsControllerProvider('').notifier)
-          .setPreview('dm1', _message('me', 'On my way', DateTime.now()));
-
-      await openDialog(tester);
-
-      expect(find.text('You: On my way'), findsOneWidget);
-      expect(find.bySemanticsLabel(RegExp('You: On my way')), findsOneWidget);
-      semantics.dispose();
-    });
-
-    testWidgets("the other user's message has no prefix", (tester) async {
-      useConversation(selfId: 'me');
-      container
-          .read(dmChannelsControllerProvider('').notifier)
-          .setPreview('dm1', _message('u2', 'On my way', DateTime.now()));
-
-      await openDialog(tester);
-
-      expect(find.text('On my way'), findsOneWidget);
-      expect(find.textContaining('You:'), findsNothing);
-    });
-  });
-
   group('narrow mobile widths', () {
     const longName =
         'a_really_quite_remarkably_long_username_that_cannot_possibly_fit';
-    const longPreview =
-        'This preview is long enough that it has to be truncated on a phone';
 
     for (final width in [320.0, 375.0]) {
-      testWidgets('a long name uses the full row at ${width.toInt()}px '
-          'when there is no time', (tester) async {
-        useWidth(tester, width);
-        useConversation(name: longName);
-        container
-            .read(dmChannelsControllerProvider('').notifier)
-            .setPreview(
-              'dm1',
-              AccordMessage(
-                id: 'm1',
-                channelId: 'dm1',
-                authorId: 'u2',
-                content: longPreview,
-              ),
-            );
-
-        await openDialog(tester);
-
-        expect(tester.takeException(), isNull);
-        final titleWidth = tester.getSize(find.text(longName)).width;
-        final previewWidth = tester.getSize(find.text(longPreview)).width;
-        // Both lines are truncated to the same text column: the title is not
-        // squeezed into half of it.
-        expect(titleWidth, moreOrLessEquals(previewWidth, epsilon: 1));
-      });
-
-      testWidgets('a long name leaves room for the time and badge at '
+      testWidgets('a long remote name truncates before the badge at '
           '${width.toInt()}px', (tester) async {
         useWidth(tester, width);
         useConversation(
@@ -383,32 +284,14 @@ void main() {
           status: 'online',
           origin: 'remote.example',
         );
-        final sentAt = DateTime.now();
-        container
-            .read(dmChannelsControllerProvider('').notifier)
-            .setPreview('dm1', _message('u2', longPreview, sentAt));
-        final readState = container.read(
-          readStateControllerProvider('').notifier,
-        );
-        for (var i = 0; i < 12; i++) {
-          readState.markUnread('dm1', isMention: true);
-        }
 
-        await openDialog(tester);
+        await openHome(tester, sidebarOnly: true);
 
         expect(tester.takeException(), isNull);
-        final time = find.text(conversationTimeString(sentAt));
-        expect(time, findsOneWidget);
-        expect(find.text('12'), findsOneWidget);
         final titleRect = tester.getRect(find.text(longName));
-        // Too narrow for the "@domain" text: the badge keeps its globe.
-        expect(find.text('@remote.example'), findsNothing);
         final originRect = tester.getRect(find.byIcon(AppIcons.public));
-        final timeRect = tester.getRect(time);
-        // Name, then the origin badge beside it, then the time at the end.
         expect(titleRect.right, lessThanOrEqualTo(originRect.left));
-        expect(originRect.right, lessThanOrEqualTo(timeRect.left));
-        expect(timeRect.right, lessThanOrEqualTo(width));
+        expect(originRect.right, lessThanOrEqualTo(width));
       });
     }
   });

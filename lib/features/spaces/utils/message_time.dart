@@ -38,15 +38,12 @@ String messageClockString(DateTime local) {
 /// |----------|-------------------------|
 /// | Today    | `18:43`                 |
 /// | Yesterday| `Yesterday at 18:43`    |
-/// | This week| `Monday at 18:43`       |
-/// | Last week| `Last Monday at 18:43`  |
-/// | Older    | `12/06/2026 18:43`      |
+/// | Older    | `12/06/2026, 18:43`     |
 ///
-/// Weekday-only labels are limited to the current Monday–Sunday calendar week.
-/// Prefixing weekdays from the previous calendar week with `Last` prevents a
-/// recent message across a week boundary from looking like it belongs to this
-/// week. [now] is injected for testability; callers omit it and the current
-/// wall-clock time is used.
+/// The three forms of the reference client's message header: only today and
+/// yesterday are named, everything else carries its calendar date. [now] is
+/// injected for testability; callers omit it and the current wall-clock time
+/// is used.
 String messageTimeString(DateTime local, {DateTime? now}) {
   final clock = messageClockString(local);
   final ref = now ?? DateTime.now();
@@ -63,30 +60,15 @@ String messageTimeString(DateTime local, {DateTime? now}) {
   if (daysAgo <= 0) return clock;
   if (daysAgo == 1) return 'Yesterday at $clock';
 
-  // DateTime's overflowing day constructor performs calendar arithmetic;
-  // subtracting a Duration here would have the same DST problem as above.
-  final startOfThisWeek = DateTime(
-    today.year,
-    today.month,
-    today.day - (today.weekday - 1),
-  );
-  if (!thatDay.isBefore(startOfThisWeek)) {
-    return '${_weekdays[local.weekday - 1]} at $clock';
-  }
-
-  final startOfLastWeek = DateTime(
-    startOfThisWeek.year,
-    startOfThisWeek.month,
-    startOfThisWeek.day - 7,
-  );
-  if (!thatDay.isBefore(startOfLastWeek)) {
-    return 'Last ${_weekdays[local.weekday - 1]} at $clock';
-  }
-
   final dd = local.day.toString().padLeft(2, '0');
   final mo = local.month.toString().padLeft(2, '0');
-  return '$dd/$mo/${local.year} $clock';
+  return '$dd/$mo/${local.year}, $clock';
 }
+
+/// The day-divider label between two days of history: `4 November 2026`.
+/// Never "Today" or "Yesterday" — the reference client dates every divider.
+String messageDayString(DateTime local) =>
+    '${local.day} ${_months[local.month - 1]} ${local.year}';
 
 /// Compact label for a conversation-list row (the DM list's last activity).
 ///

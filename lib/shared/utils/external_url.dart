@@ -1,6 +1,7 @@
 import 'package:accordkit/accordkit.dart';
-import 'package:bonfire/shared/utils/confirm_dialog.dart';
+import 'package:bonfire/shared/components/accord_dialog.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
+import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -121,14 +122,15 @@ Future<ExternalUrlOpenResult> openExternalUrl(
     return ExternalUrlOpenResult.blocked;
   }
 
-  final confirmed = await showConfirmDialog(
-    context,
-    title: 'Open external link?',
-    message: 'This link will open in your browser.\n\nDestination: ${uri.host}',
-    confirmLabel: 'Open link',
-  );
-  if (confirmed != true || !context.mounted) {
-    return ExternalUrlOpenResult.cancelled;
+  final host = uri.host.toLowerCase();
+  if (!_trustedHosts.contains(host)) {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => LeavingDialog(uri: uri),
+    );
+    if (confirmed != true || !context.mounted) {
+      return ExternalUrlOpenResult.cancelled;
+    }
   }
 
   try {
@@ -154,5 +156,108 @@ Future<void> openTrustedUrl(String url) async {
     await _launchExternalUrl(Uri.parse(url));
   } catch (e) {
     debugPrint('Failed to open $url: $e');
+  }
+}
+
+/// Hosts the user chose to trust for the rest of this session ("Trust
+/// example.com links from now on"): their links open without asking.
+final Set<String> _trustedHosts = {};
+
+/// The reference client's "Leaving" dialog: where the link really goes — the
+/// scheme muted, the host bold — an option to trust the host, Go Back and
+/// Visit Site.
+class LeavingDialog extends StatefulWidget {
+  const LeavingDialog({super.key, required this.uri});
+
+  final Uri uri;
+
+  @override
+  State<LeavingDialog> createState() => _LeavingDialogState();
+}
+
+class _LeavingDialogState extends State<LeavingDialog> {
+  bool _trust = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final uri = widget.uri;
+    final rest = uri.toString().substring(
+      '${uri.scheme}://${uri.authority}'.length,
+    );
+    return AccordDialog(
+      title: 'Leaving Daccord',
+      subtitle: 'This link is taking you to the following website',
+      primaryLabel: 'Visit site',
+      onPrimary: () {
+        if (_trust) _trustedHosts.add(uri.host.toLowerCase());
+        Navigator.of(context).pop(true);
+      },
+      secondaryLabel: 'Go Back',
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: colors.hairline),
+            ),
+            child: Text.rich(
+              TextSpan(
+                style: TextStyle(fontSize: 16, color: colors.interactive),
+                children: [
+                  TextSpan(text: '${uri.scheme}://'),
+                  TextSpan(
+                    text: uri.authority,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: colors.dirtyWhite,
+                    ),
+                  ),
+                  TextSpan(text: rest),
+                ],
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () => setState(() => _trust = !_trust),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: _trust,
+                    onChanged: (v) => setState(() => _trust = v ?? false),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'Trust ',
+                      style: TextStyle(fontSize: 16, color: colors.interactive),
+                      children: [
+                        TextSpan(
+                          text: uri.host,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const TextSpan(text: ' links from now on'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

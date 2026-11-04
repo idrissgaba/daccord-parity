@@ -46,6 +46,17 @@ class _CreateGroupDialogState extends ConsumerState<_CreateGroupDialog> {
     }
   }
 
+  /// Prompts for a qualified handle and opens that conversation (which
+  /// closes this dialog on the way).
+  Future<void> _messageRemoteUser() async {
+    final handle = await showDialog<String>(
+      context: context,
+      builder: (_) => const _RemoteDmDialog(),
+    );
+    if (handle == null || !mounted) return;
+    await openAccordDirectMessage(context, ref, handle);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -126,6 +137,14 @@ class _CreateGroupDialogState extends ConsumerState<_CreateGroupDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  // A user homed on another server is reached by handle
+                  // (federation); the reference client has no equivalent.
+                  TextButton(
+                    key: const Key('dm-message-remote'),
+                    onPressed: _busy ? null : _messageRemoteUser,
+                    child: const Text('Message a remote user'),
+                  ),
+                  const Spacer(),
                   TextButton(
                     onPressed: _busy ? null : () => Navigator.of(context).pop(),
                     child: const Text('Cancel'),

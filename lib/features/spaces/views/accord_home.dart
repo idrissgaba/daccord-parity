@@ -168,9 +168,14 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
   /// member-list end-drawer can be opened/closed programmatically.
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  void _dmHomeChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    dmHome.addListener(_dmHomeChanged);
     _pendingOpenSpaceId = widget.initialSpaceId;
     _pendingChannelId = widget.initialChannelId;
     _pendingChannelName = widget.initialChannelName;
@@ -221,6 +226,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
 
   @override
   void dispose() {
+    dmHome.removeListener(_dmHomeChanged);
     HardwareKeyboard.instance.removeHandler(_onGlobalKey);
     threadPanelHost.attached = false;
     threadPanelHost.close();
@@ -235,6 +241,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
   /// (mirrors the reference client jumping to a server's last/first channel).
   @override
   void _selectSpace(String serverKey, String spaceId) {
+    dmHome.leave();
     final connections = ref.read(connectionsControllerProvider);
     if (serverKey != connections.activeKey) {
       ref.read(accordAuthProvider.notifier).setActiveServer(serverKey);
@@ -273,6 +280,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
   /// selection used to carry.
   @override
   Future<bool> _openChannel(String channelId, {required String spaceId}) async {
+    dmHome.leave();
     final activeKey = ref.read(connectionsControllerProvider).activeKey;
     if (activeKey == null) return false;
     final channel = ref
@@ -563,9 +571,17 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
       }
     }
 
-    // Let the notification layer skip the channel that's on screen.
+    // The direct-messages home replaces the channel on screen.
+    final dmMode = dmHome.active;
+
+    // Let the notification layer skip the channel that's on screen (the DM
+    // conversation asserts its own).
     if (ModalRoute.of(context)?.isCurrent != false) {
-      accordVisibleChannel = activeKey == null || shownChannelId == null
+      accordVisibleChannel = dmMode
+          ? (dmHome.channel == null || activeKey == null
+                ? null
+                : (serverKey: activeKey, channelId: dmHome.channel!.id))
+          : activeKey == null || shownChannelId == null
           ? null
           : (serverKey: activeKey, channelId: shownChannelId);
     }
@@ -592,7 +608,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
     final rail = OnboardingAnchor(
       anchor: OnboardingAnchorId.spaceRail,
       child: _SpaceRail(
-        selectedSpaceId: effectiveSpaceId,
+        selectedSpaceId: dmMode ? null : effectiveSpaceId,
         onSelect: _selectSpace,
         onAddServer: () => showAddServerDialog(context),
         onSwitchAccount: switchAccount,
@@ -605,27 +621,33 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
       (s) => s.id == effectiveSpaceId,
     );
 
-    Widget channelListBody({required bool inDrawer}) => OnboardingAnchor(
-      anchor: OnboardingAnchorId.channelList,
-      child: _ChannelList(
-        spaceId: effectiveSpaceId,
-        spaceName: shownSpace?.name,
-        channels: channels,
-        selectedChannelId: shownChannelId,
-        onSearchSelect: (selection) {
-          _openSearchSelection(selection);
-          if (inDrawer) _scaffoldKey.currentState?.closeDrawer();
-        },
-        onSelect: shownSpaceId == null
-            ? (_) {}
-            : (channelId) {
-                _openChannel(channelId, spaceId: shownSpaceId);
-                // On narrow layouts the list is a drawer — close it so the
-                // freshly-opened channel is visible.
+    Widget channelListBody({required bool inDrawer}) => dmMode
+        ? DmHomeSidebar(
+            onNavigate: inDrawer
+                ? () => _scaffoldKey.currentState?.closeDrawer()
+                : null,
+          )
+        : OnboardingAnchor(
+            anchor: OnboardingAnchorId.channelList,
+            child: _ChannelList(
+              spaceId: effectiveSpaceId,
+              spaceName: shownSpace?.name,
+              channels: channels,
+              selectedChannelId: shownChannelId,
+              onSearchSelect: (selection) {
+                _openSearchSelection(selection);
                 if (inDrawer) _scaffoldKey.currentState?.closeDrawer();
               },
-      ),
-    );
+              onSelect: shownSpaceId == null
+                  ? (_) {}
+                  : (channelId) {
+                      _openChannel(channelId, spaceId: shownSpaceId);
+                      // On narrow layouts the list is a drawer — close it so the
+                      // freshly-opened channel is visible.
+                      if (inDrawer) _scaffoldKey.currentState?.closeDrawer();
+                    },
+            ),
+          );
 
     // The cards at the foot of the sidebar: the voice connection while in a
     // call, then who you are. They span the rail and the channel list
@@ -684,7 +706,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
       ),
     );
 
-    final hasMembers = effectiveSpaceId != null;
+    final hasMembers = effectiveSpaceId != null && !dmMode;
     final memberListVisible = ref.watch(
       settingsControllerProvider.select((s) => s.memberListVisible),
     );
@@ -693,22 +715,25 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
     // roster has been pushed into the end drawer to keep the message column
     // readable; the wide layout keeps it inline and toggles it in place.
     Widget messageArea({required bool membersInDrawer, Widget? sidePanel}) =>
-        MessagePane(
-          channel: channels?.firstWhereOrNull((c) => c.id == shownChannelId),
-          channelId: shownChannelId,
-          spaceId: effectiveSpaceId,
-          membersShown: hasMembers && !membersInDrawer && memberListVisible,
-          onToggleMembers: !hasMembers
-              ? null
-              : membersInDrawer
-              ? () => _scaffoldKey.currentState?.openEndDrawer()
-              : () => setState(() => _memberListVisible = !_memberListVisible),
-          onSearchSelect: _openSearchSelection,
-          sidePanel: sidePanel,
-        );
+        dmMode
+        ? const DmHomeMain()
+        : MessagePane(
+            channel: channels?.firstWhereOrNull((c) => c.id == shownChannelId),
+            channelId: shownChannelId,
+            spaceId: effectiveSpaceId,
+            membersShown: hasMembers && !membersInDrawer && memberListVisible,
+            onToggleMembers: !hasMembers
+                ? null
+                : membersInDrawer
+                ? () => _scaffoldKey.currentState?.openEndDrawer()
+                : () =>
+                      setState(() => _memberListVisible = !_memberListVisible),
+            onSearchSelect: _openSearchSelection,
+            sidePanel: sidePanel,
+          );
 
     final pip = VoicePipOverlay(
-      shownChannelId: shownChannelId,
+      shownChannelId: dmMode ? dmHome.channel?.id : shownChannelId,
       onOpen: (channelId, spaceId) async {
         await _openChannel(channelId, spaceId: spaceId);
       },
@@ -836,8 +861,12 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
               children: [
                 if (desktop && !expanded)
                   HomeTitleBar(
-                    title: shownSpace?.name ?? shownChannel?.name ?? '',
-                    space: shownSpace,
+                    title: dmMode
+                        ? (dmHome.channel == null
+                              ? 'Friends'
+                              : 'Direct Messages')
+                        : shownSpace?.name ?? shownChannel?.name ?? '',
+                    space: dmMode ? null : shownSpace,
                     cdnUrl: ref.watchCdnUrl(),
                   ),
                 Expanded(child: panes),
@@ -931,11 +960,13 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
                             ],
                           ),
                           Expanded(
-                            child: MessagePane(
-                              channel: shownChannel,
-                              channelId: shownChannelId,
-                              spaceId: effectiveSpaceId,
-                            ),
+                            child: dmMode
+                                ? const DmHomeMain(compact: true)
+                                : MessagePane(
+                                    channel: shownChannel,
+                                    channelId: shownChannelId,
+                                    spaceId: effectiveSpaceId,
+                                  ),
                           ),
                         ],
                       ),

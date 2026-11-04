@@ -11,7 +11,6 @@ import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
-import 'package:bonfire/features/user/views/accord_direct_messages.dart';
 import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
@@ -26,6 +25,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+import '../user/dm_home_host.dart';
 
 /// The caller's side of a DM call (#324).
 ///
@@ -216,16 +217,9 @@ class _Harness {
     ),
   );
 
-  /// A home screen with a button that opens the DM conversation the way the
-  /// rail does — a dialog on the root navigator.
-  Widget dmHome() => Scaffold(
-    body: Builder(
-      builder: (context) => TextButton(
-        onPressed: () => showAccordDirectMessages(context, initialChannel: _dm),
-        child: const Text('open dm'),
-      ),
-    ),
-  );
+  /// The DM home with a button that opens the conversation the way the
+  /// rail does.
+  Widget dmHome() => DmHomeHost(initialChannel: _dm);
 }
 
 /// The call view holds a progress indicator while ringing, so it never
@@ -241,10 +235,11 @@ Future<void> _openConversation(WidgetTester tester, _Harness h) async {
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   addTearDown(h.client.dispose);
+  resetDmHomeAfter();
   await tester.pumpWidget(h.app(h.dmHome()));
-  await tester.tap(find.text('open dm'));
+  await tester.tap(find.text('open dms'));
   await tester.pumpAndSettle();
-  expect(find.byTooltip('Start voice call'), findsOneWidget);
+  expect(find.byTooltip('Start Voice Call'), findsOneWidget);
 }
 
 /// The in-call control bar's hang-up button, scoped to the call view because
@@ -265,7 +260,7 @@ void main() {
     final h = _Harness();
     await _openConversation(tester, h);
 
-    await tester.tap(find.byTooltip('Start voice call'));
+    await tester.tap(find.byTooltip('Start Voice Call'));
     await _settle(tester);
 
     // The white screen: the call view threw building on the bootstrap app's
@@ -286,7 +281,6 @@ void main() {
     // The conversation's own messages stay under the call: one pane, the
     // call view embedded above it rather than a second route.
     expect(find.byType(MessagePane), findsOneWidget);
-    expect(find.byTooltip('Back'), findsOneWidget);
 
     // Hanging up while still ringing cancels the call, and ending the call
     // leaves the conversation it was placed from.
@@ -295,15 +289,15 @@ void main() {
     expect(h.requests, contains('POST /api/v1/channels/dm1/call/cancel'));
     expect(h.voice.leaves, 1);
     expect(find.byType(VoiceChannelView), findsNothing);
-    expect(find.byTooltip('Start voice call'), findsOneWidget);
+    expect(find.byTooltip('Start Voice Call'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
   testWidgets('a second call ringing in stays answerable above the call view '
-      'and the conversation dialog', (tester) async {
+      'and the conversation', (tester) async {
     final h = _Harness();
     await _openConversation(tester, h);
-    await tester.tap(find.byTooltip('Start voice call'));
+    await tester.tap(find.byTooltip('Start Voice Call'));
     await _settle(tester);
     expect(find.byType(VoiceChannelView), findsOneWidget);
 
@@ -324,8 +318,7 @@ void main() {
         );
     await _settle(tester);
 
-    // The dialog route is a page on the app's root navigator; the banner host
-    // sits above that navigator, so it is on top.
+    // The banner host sits above the app's root navigator, so it is on top.
     expect(_decline, findsOneWidget);
     expect(_decline.hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -357,7 +350,7 @@ void main() {
     expect(find.byTooltip('Show chat'), findsNothing);
     expect(find.byTooltip('Hide chat'), findsNothing);
 
-    // Full screen: the same element fills the dialog, messages hidden.
+    // Full screen: the same element fills the window, messages hidden.
     final element = tester.element(view);
     await tester.tap(find.byKey(const Key('voice-full-screen')));
     await _settle(tester);
@@ -383,7 +376,7 @@ void main() {
     );
     await _openConversation(tester, h);
 
-    await tester.tap(find.byTooltip('Start voice call'));
+    await tester.tap(find.byTooltip('Start Voice Call'));
     await _settle(tester);
 
     expect(tester.takeException(), isNull);
@@ -392,7 +385,7 @@ void main() {
     expect(h.requests, isNot(contains('POST /api/v1/channels/dm1/call/ring')));
     expect(find.text('Voice backend unavailable'), findsOneWidget);
     final container = ProviderScope.containerOf(
-      tester.element(find.byTooltip('Start voice call')),
+      tester.element(find.byTooltip('Start Voice Call')),
     );
     expect(container.read(callControllerProvider).hasOutgoing, isFalse);
   });
@@ -405,7 +398,7 @@ void main() {
     );
     await _openConversation(tester, h);
 
-    await tester.tap(find.byTooltip('Start voice call'));
+    await tester.tap(find.byTooltip('Start Voice Call'));
     await _settle(tester);
 
     expect(tester.takeException(), isNull);
@@ -414,7 +407,7 @@ void main() {
     expect(h.voice.leaves, 1);
     expect(find.text('Not a DM channel'), findsOneWidget);
     final container = ProviderScope.containerOf(
-      tester.element(find.byTooltip('Start voice call')),
+      tester.element(find.byTooltip('Start Voice Call')),
     );
     expect(container.read(callControllerProvider).hasOutgoing, isFalse);
     expect(container.read(voiceControllerProvider).channelId, isNull);
@@ -431,7 +424,7 @@ void main() {
       final h = _Harness(voice: _StubVoice(joinServerKey: 'gone@nowhere'));
       await _openConversation(tester, h);
 
-      await tester.tap(find.byTooltip('Start voice call'));
+      await tester.tap(find.byTooltip('Start Voice Call'));
       await _settle(tester);
 
       expect(tester.takeException(), isNull);
@@ -446,7 +439,7 @@ void main() {
         findsOneWidget,
       );
       final container = ProviderScope.containerOf(
-        tester.element(find.byTooltip('Start voice call')),
+        tester.element(find.byTooltip('Start Voice Call')),
       );
       expect(container.read(callControllerProvider).hasOutgoing, isFalse);
     },

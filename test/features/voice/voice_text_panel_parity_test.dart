@@ -1,4 +1,3 @@
-import 'package:bonfire/theme/app_icons.dart';
 import 'dart:convert';
 
 import 'package:accordkit/accordkit.dart';
@@ -173,7 +172,7 @@ void main() {
     final row = find.byKey(const ValueKey('m1'));
     expect(row, findsOneWidget);
     // The panel is narrow, so the action bar floats: nothing until hovered…
-    expect(find.byTooltip('Message actions'), findsNothing);
+    expect(find.byTooltip('More'), findsNothing);
     // …and the message keeps essentially the whole row to itself meanwhile.
     expect(
       tester
@@ -185,18 +184,16 @@ void main() {
     );
 
     await _hover(tester, row);
-    expect(find.byTooltip('Add reaction'), findsOneWidget);
-    expect(find.byTooltip('Reply'), findsOneWidget);
-    expect(find.byTooltip('Thread'), findsOneWidget);
+    // The bar's button (and the reactions' own "+" pill beside 👍).
+    expect(find.byTooltip('Add Reaction'), findsWidgets);
+    expect(find.byTooltip('More'), findsOneWidget);
 
     // And the overflow menu carries the rest, exactly as in a text channel.
-    await tester.tap(find.byTooltip('Message actions'));
+    await tester.tap(find.byTooltip('More'));
     await _settle(tester);
-    expect(find.widgetWithText(PopupMenuItem<String>, 'Edit'), findsOneWidget);
-    expect(
-      find.widgetWithText(PopupMenuItem<String>, 'Delete'),
-      findsOneWidget,
-    );
+    expect(find.text('Reply'), findsOneWidget);
+    expect(find.text('Create Thread'), findsOneWidget);
+    expect(find.text('Delete Message'), findsOneWidget);
   });
 
   testWidgets('voice chat shows reactions and can toggle one', (tester) async {
@@ -232,8 +229,8 @@ void main() {
     await _settle(tester);
 
     // Attachments and the emoji picker were both missing from the old panel.
-    expect(find.byIcon(AppIcons.addCircleOutline), findsOneWidget);
-    expect(find.byIcon(AppIcons.emojiEmotionsOutlined), findsOneWidget);
+    expect(find.byKey(const Key('composer-attach')), findsOneWidget);
+    expect(find.byKey(const Key('emoji-pick')), findsOneWidget);
   });
 
   testWidgets('below the side-panel breakpoint the chat is still a full '
@@ -252,17 +249,25 @@ void main() {
     await _settle(tester);
 
     expect(_body('hello from voice chat'), findsOneWidget);
-    expect(find.byTooltip('Message actions'), findsNothing);
+    expect(find.byTooltip('More'), findsNothing);
 
-    await tester.longPress(find.byKey(const ValueKey('m1')));
+    // In the gutter beside the reactions, clear of the text: a Windows or
+    // macOS test host lays out as desktop, where the text is selectable and a
+    // long-press on it selects a word instead.
+    final row = find.byKey(const ValueKey('m1'));
+    await tester.longPressAt(
+      Offset(
+        tester.getRect(row).left + 24,
+        tester.getCenter(find.text('👍')).dy,
+      ),
+    );
     await _settle(tester);
 
-    expect(find.text('Add reaction'), findsOneWidget);
+    expect(find.text('Add Reaction'), findsOneWidget);
     expect(find.text('Reply'), findsOneWidget);
-    expect(find.text('Thread'), findsOneWidget);
-    expect(find.text('Copy text'), findsOneWidget);
-    expect(find.text('Edit'), findsOneWidget);
-    expect(find.text('Delete'), findsOneWidget);
+    expect(find.text('Create Thread'), findsOneWidget);
+    expect(find.text('Copy Text'), findsOneWidget);
+    expect(find.text('Delete Message'), findsOneWidget);
   });
 
   testWidgets('the voice chat panel keeps its close button', (tester) async {

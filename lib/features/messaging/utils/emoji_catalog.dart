@@ -103,3 +103,18 @@ String resolveEmojiGlyph(String value) {
   final key = value.replaceAll(':', '');
   return _emojiByName[key] ?? value;
 }
+
+/// Glyph → short name (`👍` → `thumbsup`), skin tones folded, for labels
+/// such as a reaction's tooltip. Falls back to the glyph itself.
+String emojiShortName(String glyph) {
+  var base = glyph;
+  for (final tone in const ['🏻', '🏼', '🏽', '🏾', '🏿']) {
+    base = base.replaceAll(tone, '');
+  }
+  return _nameByEmoji[base] ?? _nameByEmoji[base.replaceAll('️', '')] ?? glyph;
+}
+
+final Map<String, String> _nameByEmoji = {
+  for (final e in kEmojiCatalog) e.char: e.name,
+  for (final e in kEmojiCatalog) e.char.replaceAll('\uFE0F', ''): e.name,
+};

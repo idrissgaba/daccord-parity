@@ -142,8 +142,22 @@ void main() {
     await tester.pumpWidget(harness.pane());
     await _tick(tester);
 
-    expect(find.text('xvi joined the server.'), findsOneWidget);
-    expect(find.text('xvi  xvi joined the server.'), findsOneWidget);
+    // The reply's preview of the join…
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('reply')),
+        matching: find.text('xvi joined the server.'),
+      ),
+      findsOneWidget,
+    );
+    // …and the join line itself (with its time after the text).
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('join')),
+        matching: find.textContaining('xvi joined the server.'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text(_legacyText, findRichText: true), findsNothing);
     expect(
       find.text('A regular message with old@example.com', findRichText: true),
@@ -203,7 +217,8 @@ void main() {
     expect(find.text('Space name joined the server.'), findsOneWidget);
   });
 
-  testWidgets('copy text copies the displayed join name', (tester) async {
+  testWidgets('a join line offers no Copy Text, so the stored text never '
+      'reaches the clipboard', (tester) async {
     final harness = _Harness();
     addTearDown(() => harness.dispose(tester));
     String? copied;
@@ -224,11 +239,12 @@ void main() {
     );
     await tester.pumpWidget(harness.pane());
     await _tick(tester);
-    await tester.longPress(find.text('xvi joined the server.'));
+    await tester.longPress(find.byKey(const ValueKey('join')));
     await _tick(tester);
-    await tester.tap(find.text('Copy text'));
-    await _tick(tester);
-    expect(copied, 'xvi joined the server.');
+    // A system message's menu, as in the reference client: no Copy Text.
+    expect(find.text('Copy Message ID'), findsOneWidget);
+    expect(find.text('Copy Text'), findsNothing);
+    expect(copied, isNull);
   });
 
   testWidgets('thread join text follows the current profile name', (

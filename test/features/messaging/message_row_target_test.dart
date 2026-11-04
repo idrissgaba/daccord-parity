@@ -10,6 +10,7 @@ import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
 import 'package:bonfire/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,6 +39,11 @@ const _selfId = 'u1';
 class _FakeSettingsController extends SettingsController {
   @override
   AccordSettings build() => const AccordSettings();
+
+  // The real one also writes the Hive box, which a widget test never opens.
+  @override
+  void addRecentEmoji(String token) =>
+      state = state.copyWith(recentEmoji: [token, ...state.recentEmoji]);
 }
 
 /// A logged-in [MessagePane] backed by [MockClient], plus the request log and
@@ -183,13 +189,11 @@ Finder _row(String messageId, String body) {
   return row;
 }
 
-/// Opens [messageId]'s overflow menu and picks [action] from it.
+/// Right-clicks [row] to open its message menu and picks [action] from it.
 Future<void> _menuAction(WidgetTester tester, Finder row, String action) async {
-  await tester.tap(
-    find.descendant(of: row, matching: find.byTooltip('Message actions')),
-  );
+  await tester.tapAt(tester.getCenter(row), buttons: kSecondaryMouseButton);
   await _tick(tester);
-  await tester.tap(find.widgetWithText(PopupMenuItem<String>, action));
+  await tester.tap(find.text(action));
   await _tick(tester);
 }
 
@@ -207,7 +211,7 @@ void main() {
       'message arrives while the confirm dialog is up', (tester) async {
     final harness = await _pumpPane(tester);
 
-    await _menuAction(tester, _row('m1', 'first message'), 'Delete');
+    await _menuAction(tester, _row('m1', 'first message'), 'Delete Message');
 
     // The confirm dialog is up and nothing has been deleted yet.
     expect(
@@ -219,7 +223,7 @@ void main() {
     // …and now a new message lands, shifting every row's index.
     await _newMessageArrives(tester, harness);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
     await _tick(tester);
 
     expect(
@@ -243,8 +247,8 @@ void main() {
   ) async {
     final harness = await _pumpPane(tester, failDeleteOf: 'm1');
 
-    await _menuAction(tester, _row('m1', 'first message'), 'Delete');
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await _menuAction(tester, _row('m1', 'first message'), 'Delete Message');
+    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
     await _tick(tester);
 
     expect(harness.requestsFor('m1'), [
@@ -261,14 +265,8 @@ void main() {
       'when a new message arrives while it is open', (tester) async {
     final harness = await _pumpPane(tester);
 
-    // Open the emoji picker from the first message's hover actions.
-    await tester.tap(
-      find.descendant(
-        of: _row('m1', 'first message'),
-        matching: find.byTooltip('Add reaction'),
-      ),
-    );
-    await _tick(tester);
+    // Open the emoji picker from the first message's menu.
+    await _menuAction(tester, _row('m1', 'first message'), 'Add Reaction');
     expect(find.byTooltip('grinning'), findsOneWidget);
 
     await _newMessageArrives(tester, harness);
@@ -293,7 +291,7 @@ void main() {
   ) async {
     final harness = await _pumpPane(tester);
 
-    await _menuAction(tester, _row('m1', 'first message'), 'Edit');
+    await _menuAction(tester, _row('m1', 'first message'), 'Edit Message');
 
     // The editor opened on the first message, seeded with its content.
     final editor = find.widgetWithText(TextField, 'first message');
@@ -319,7 +317,8 @@ void main() {
     );
 
     await tester.enterText(editor, 'edited text');
-    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    // "enter to save".
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await _tick(tester);
 
     expect(
