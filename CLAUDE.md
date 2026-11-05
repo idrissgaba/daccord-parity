@@ -73,7 +73,8 @@ tool/
                    #   docs/app-store-deploy.md ("Guideline 2.3.10").
   parity_capture/  # Discord-parity capture harness (`parity_app.dart`): the real app
                    #   on store_capture's offline fixture with messages covering lot B
-                   #   (`?scene=messages|dm|friends`, `&typing=1`). Build with
+                   #   (`?scene=messages|dm|friends`, `&typing=1`, `&preview=<roleId>`
+                   #   for a plain member's menus, `&open=shortcuts|switcher`). Build with
                    #   `flutter build web -t tool/parity_capture/parity_app.dart
                    #   --no-tree-shake-icons --release -o build/parity`. Never shipped.
 docs/              # product + technical specs (see below)
@@ -269,6 +270,27 @@ mute + volume, moderation, copy id); `showWatchedStreamMenu` is the watched
 stream's. `AccordMenuEntry` supports `checked`, `.widget` rows and
 `preferAbove`. Deafening also mutes; undeafening restores the mic unless it
 was muted beforehand. A forced disconnect plays `voice_leave`.
+
+Menus, shortcuts, profiles (lot F): every menu — context menus, "…" buttons,
+header dropdowns — is `showAccordContextMenu` / `AccordMenuButton`
+(`shared/components/context_menu.dart` and its `context_menu/` parts): a custom
+route with cascading `submenu`s on hover (three levels), `radio` / `checked` /
+`subtitle` / `leading` rows, disabled rows at half opacity, the keyboard, and
+`anchorX` (0 left, 0.5 centred, 1 right-aligned); never add a Material
+`PopupMenuButton` or `showMenu`. Space menus live in `accord_home_space_actions.dart`,
+channel / category / bell menus and the shared Mute › / Notification Settings ›
+entries in `channels/views/channel_context_menu.dart`, every user menu (member,
+author, DM row, friend row, profile "…") in `member/views/user_context_menu.dart`
+with the moderation actions in `member/utils/member_actions.dart`. Profiles:
+`showAccordMemberPopout` (space or DM, `besideRect` for roster rows),
+`showFullProfile` (`member/views/full_profile.dart`), the account card above the
+user panel and "Set your status" (`user/views/account_card.dart`). Timed mutes,
+statuses and custom statuses are local (`AccordSettings.muteExpiries`,
+`statusExpiries`, `customStatusExpiries`) and lifted by the keep-alive
+`SelfPresenceController`; a channel inherits its category's, then its space's
+notification level, then the space's `default_notifications`
+(`effectiveLevelFor`). The quick switcher (`spaces/views/quick_switcher.dart`)
+also opens from "Find or start a conversation"; Ctrl+/ is `keyboard_shortcuts_dialog.dart`.
 
 MCP's optional `space_management` group provides create/update space and
 create/update/delete/reorder channel tools. Its schemas and validated handlers
