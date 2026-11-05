@@ -16,6 +16,7 @@ import 'package:bonfire/theme/theme.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
 
 /// Opens the soundboard for [spaceId], laid out like Discord's: a grid of
 /// sounds that play into your voice channel (everyone in it hears them), a
@@ -435,26 +436,22 @@ class _SoundTile extends StatelessWidget {
                 ),
               ),
               if (canManage)
-                PopupMenuButton<String>(
-                  iconSize: 16,
+                AccordMenuButton(
                   tooltip: 'Manage',
-                  padding: EdgeInsets.zero,
-                  icon: Icon(AppIcons.moreVert, color: colors.gray),
-                  onSelected: (v) {
-                    switch (v) {
-                      case 'rename':
-                        onRename();
-                      case 'volume':
-                        onVolume();
-                      case 'delete':
-                        onDelete();
-                    }
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'rename', child: Text('Rename')),
-                    PopupMenuItem(value: 'volume', child: Text('Volume')),
-                    PopupMenuItem(value: 'delete', child: Text('Remove')),
+                  entries: () => [
+                    AccordMenuEntry(label: 'Rename', onSelected: onRename),
+                    AccordMenuEntry(label: 'Volume', onSelected: onVolume),
+                    const AccordMenuEntry.divider(),
+                    AccordMenuEntry(
+                      label: 'Remove',
+                      destructive: true,
+                      onSelected: onDelete,
+                    ),
                   ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(AppIcons.moreVert, size: 16, color: colors.gray),
+                  ),
                 )
               else
                 const SizedBox(width: 8),

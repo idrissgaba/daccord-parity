@@ -274,9 +274,12 @@ class _MessageRowState extends ConsumerState<_MessageRow>
     final tappable =
         widget.spaceId != null ||
         (widget.authorUser != null && widget.onUserTap != null);
+    // In a space the author's menu is the member menu; elsewhere (a DM) the
+    // host supplies it.
     final userMenuEnabled =
-        widget.onUserContextMenu != null &&
-        (widget.author?.user != null || widget.authorUser != null);
+        widget.spaceId != null ||
+        (widget.onUserContextMenu != null &&
+            (widget.author?.user != null || widget.authorUser != null));
     void openPopout() => _openPopout(message.authorId);
     // The hover bar is mouse-driven and has no affordance on touch; it floats
     // over the row's top-right corner while the pointer is on the row.

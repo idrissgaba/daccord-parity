@@ -423,14 +423,7 @@ Future<void> _openProfile(
   String userId,
   AccordUser? user,
 ) {
-  if (spaceId != null) {
-    return showAccordMemberPopout(context, spaceId: spaceId, userId: userId);
-  }
-  return showAccordUserProfile(
-    context,
-    user ?? AccordUser(id: userId),
-    cdnUrl: ref.readCdnUrl(),
-  );
+  return showAccordMemberPopout(context, spaceId: spaceId, userId: userId);
 }
 
 /// Sends a member update (server mute / deafen / move / disconnect),

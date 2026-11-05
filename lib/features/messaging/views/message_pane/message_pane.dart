@@ -24,12 +24,13 @@ import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/channels/controllers/muted_channels.dart';
 import 'package:bonfire/features/channels/controllers/read_state.dart';
 import 'package:bonfire/features/channels/utils/mark_channel_read.dart';
-import 'package:bonfire/features/channels/utils/toggle_channel_mute.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/member/utils/permissions.dart';
 import 'package:bonfire/features/member/views/accord_member_avatar.dart';
 import 'package:bonfire/features/member/views/accord_member_popout.dart';
+import 'package:bonfire/features/member/views/user_context_menu.dart';
+import 'package:bonfire/features/channels/views/channel_context_menu.dart';
 import 'package:bonfire/features/messaging/controllers/accord_emojis.dart';
 import 'package:bonfire/features/messaging/controllers/accord_messages.dart';
 import 'package:bonfire/features/messaging/controllers/message_jump.dart';
@@ -743,7 +744,7 @@ class _MessagePaneState extends ConsumerState<MessagePane> {
                 icon: AppIcons.threads,
                 onPressed: () => _showThreadsPopover(context),
               ),
-            _MuteButton(channelId: channelId),
+            _MuteButton(channelId: channelId, spaceId: spaceId),
             _HeaderButton(
               key: const Key('channel-header-pins'),
               tooltip: 'Pinned Messages',

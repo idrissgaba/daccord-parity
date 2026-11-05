@@ -24,6 +24,18 @@ mixin _MessageRowHandlers on ConsumerState<_MessageRow>, _MessageRowEditing {
 
   void _openUserMenu([Offset? position]) {
     final user = widget.author?.user ?? widget.authorUser;
+    final spaceId = widget.spaceId;
+    if (spaceId != null) {
+      showUserContextMenu(
+        context,
+        ref,
+        userId: widget.message.authorId,
+        user: user,
+        spaceId: spaceId,
+        globalPosition: position,
+      );
+      return;
+    }
     if (user == null) return;
     widget.onUserContextMenu?.call(user, position);
   }

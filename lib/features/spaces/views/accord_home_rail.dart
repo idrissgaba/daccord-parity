@@ -355,11 +355,11 @@ class _SpaceRail extends ConsumerWidget {
     ctl.setSpaceOrder([for (final id in rest) ServerEntityKey.tryDecode(id)!]);
   }
 
-  /// Context menu for a space (long-press on touch / right-click on desktop):
-  /// server actions (invite, settings, leave) above the folder-assignment
-  /// actions. [serverKey] is the owning connection's key, so actions hit the
-  /// right server even when it isn't the active one. [position] anchors the
-  /// menu on desktop; null presents the touch-friendly sheet.
+  /// Context menu for a space (long-press on touch / right-click on desktop),
+  /// see [_spaceIconMenuEntries]. [serverKey] is the owning connection's key,
+  /// so actions hit the right server even when it isn't the active one.
+  /// [position] anchors the menu on desktop; null presents the touch-friendly
+  /// sheet.
   Future<void> _spaceMenu(
     BuildContext context,
     WidgetRef ref,
@@ -367,38 +367,15 @@ class _SpaceRail extends ConsumerWidget {
     String serverKey,
     Offset? position,
   ) {
-    final settings = ref.read(settingsControllerProvider);
-    final ctl = ref.read(settingsControllerProvider.notifier);
-    final entityKey = ServerEntityKey(serverKey, space.id);
-    final inFolder = settings.spaceFolders.any(
-      (f) => f.spaceIds.contains(entityKey.encoded),
-    );
-
-    final entries = <AccordMenuEntry>[
-      ..._serverActionEntries(context, ref, space, serverKey),
-      AccordMenuEntry(
-        label: 'New folder with this space',
-        icon: AppIcons.createNewFolderOutlined,
-        onSelected: () => ctl.createFolder(spaces: [entityKey]),
-      ),
-      for (final f in settings.spaceFolders)
-        if (!f.spaceIds.contains(entityKey.encoded))
-          AccordMenuEntry(
-            label: 'Move to "${f.name.isEmpty ? 'Folder' : f.name}"',
-            icon: AppIcons.folderOutlined,
-            onSelected: () => ctl.moveSpaceToFolder(entityKey, f.id),
-          ),
-      if (inFolder)
-        AccordMenuEntry(
-          label: 'Remove from folder',
-          icon: AppIcons.folderOffOutlined,
-          onSelected: () => ctl.moveSpaceToFolder(entityKey, null),
-        ),
-    ];
-
     return showAccordContextMenu(
       context,
-      entries: entries,
+      entries: _spaceIconMenuEntries(
+        context,
+        ref,
+        space,
+        serverKey,
+        moveTo: _railMoveToEntries(ref, ServerEntityKey(serverKey, space.id)),
+      ),
       globalPosition: position,
       title: space.name,
     );
@@ -457,4 +434,56 @@ class _SpaceRail extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The rail's "Move to…" submenu for [entity]: First in List / Last in List,
+/// then the folders it can join, a new folder, or out of its folder.
+List<AccordMenuEntry> _railMoveToEntries(WidgetRef ref, ServerEntityKey entity) {
+  final settings = ref.read(settingsControllerProvider);
+  final ctl = ref.read(settingsControllerProvider.notifier);
+  final order = [
+    for (final id in settings.spaceOrder)
+      if (ServerEntityKey.tryDecode(id) case final key?) key,
+  ];
+  final index = order.indexWhere((k) => k.encoded == entity.encoded);
+  void moveTo({required bool first}) {
+    final next = [
+      for (final k in order)
+        if (k.encoded != entity.encoded) k,
+    ];
+    first ? next.insert(0, entity) : next.add(entity);
+    ctl.setSpaceOrder(next);
+  }
+
+  final inFolder = settings.spaceFolders.any(
+    (f) => f.spaceIds.contains(entity.encoded),
+  );
+  return [
+    AccordMenuEntry(
+      label: 'First in List',
+      onSelected: index == 0 ? null : () => moveTo(first: true),
+    ),
+    AccordMenuEntry(
+      label: 'Last in List',
+      onSelected: index >= 0 && index == order.length - 1
+          ? null
+          : () => moveTo(first: false),
+    ),
+    const AccordMenuEntry.divider(),
+    for (final f in settings.spaceFolders)
+      if (!f.spaceIds.contains(entity.encoded))
+        AccordMenuEntry(
+          label: f.name.isEmpty ? 'Folder' : f.name,
+          onSelected: () => ctl.moveSpaceToFolder(entity, f.id),
+        ),
+    AccordMenuEntry(
+      label: 'New Folder',
+      onSelected: () => ctl.createFolder(spaces: [entity]),
+    ),
+    if (inFolder)
+      AccordMenuEntry(
+        label: 'Remove from Folder',
+        onSelected: () => ctl.moveSpaceToFolder(entity, null),
+      ),
+  ];
 }

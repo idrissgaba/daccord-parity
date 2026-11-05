@@ -1,14 +1,14 @@
+import 'dart:math' as math;
+
 import 'package:bonfire/shared/utils/platform.dart';
 import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-/// Context menus open and close a third faster than Material's defaults, which
-/// feel sluggish for a menu you flick open dozens of times a session. Each
-/// constant is ~⅔ of the framework value it overrides.
-
-/// Open *and* close duration of the anchored desktop menu (Material: 300ms).
-const _kAnchoredMenuDuration = Duration(milliseconds: 200);
+part 'context_menu/anchored_menu.dart';
+part 'context_menu/menu_rows.dart';
+part 'context_menu/menu_sheet.dart';
 
 /// Enter duration of the mobile bottom sheet (Material: 250ms).
 const _kSheetEnterDuration = Duration(milliseconds: 167);
@@ -16,33 +16,47 @@ const _kSheetEnterDuration = Duration(milliseconds: 167);
 /// Exit duration of the mobile bottom sheet (Material: 200ms).
 const _kSheetExitDuration = Duration(milliseconds: 133);
 
-/// One row in an Accord context menu. A null [onSelected] (or [enabled] false)
-/// renders the entry disabled. Use [AccordMenuEntry.divider] for a separator.
+/// One row in an Accord context menu — the single menu every context menu,
+/// "…" button and dropdown of the app is built from. A null [onSelected] (or
+/// [enabled] false) renders the entry disabled: shown at half opacity, as the
+/// reference client keeps "Mark as Read" in place when nothing is unread. Use
+/// [AccordMenuEntry.divider] for a separator and [submenu] for a "›" row that
+/// opens a further menu on hover.
 class AccordMenuEntry {
   const AccordMenuEntry({
     required this.label,
     this.key,
     this.icon,
     this.subtitle,
+    this.sheetSubtitle,
     this.onSelected,
     this.destructive = false,
     this.enabled = true,
     this.checked,
+    this.radio,
     this.trailingChevron = false,
+    this.submenu,
+    this.trailing,
+    this.leading,
   }) : isDivider = false,
        child = null,
-       height = 36;
+       height = 0;
 
   const AccordMenuEntry.divider()
     : label = '',
       key = null,
       icon = null,
       subtitle = null,
+      sheetSubtitle = null,
       onSelected = null,
       destructive = false,
       enabled = false,
       checked = null,
+      radio = null,
       trailingChevron = false,
+      submenu = null,
+      trailing = null,
+      leading = null,
       isDivider = true,
       child = null,
       height = 1;
@@ -50,29 +64,41 @@ class AccordMenuEntry {
   /// A row holding an arbitrary live widget (a slider, say) of [height]
   /// pixels in the anchored menu. It is never "selected": the widget handles
   /// its own interaction and the menu stays open.
-  const AccordMenuEntry.widget({required Widget this.child, this.height = 56})
-    : label = '',
-      key = null,
-      icon = null,
-      subtitle = null,
-      onSelected = null,
-      destructive = false,
-      enabled = true,
-      checked = null,
-      trailingChevron = false,
-      isDivider = false;
+  const AccordMenuEntry.widget({
+    required Widget this.child,
+    this.height = 56,
+    this.key,
+  }) : label = '',
+       icon = null,
+       subtitle = null,
+       sheetSubtitle = null,
+       onSelected = null,
+       destructive = false,
+       enabled = true,
+       checked = null,
+       radio = null,
+       trailingChevron = false,
+       submenu = null,
+       trailing = null,
+       leading = null,
+       isDivider = false;
 
   final String label;
 
   /// Identifies the row in the tree (tests).
   final Key? key;
+
+  /// A 20 px glyph at the row's left edge.
   final IconData? icon;
 
-  /// Secondary line shown under [label] in the bottom-sheet form only (anchored
-  /// menus stay compact).
+  /// A second, smaller line under [label] ("All Messages", "Only visible to
+  /// you"), in the anchored menu and the sheet alike.
   final String? subtitle;
 
-  /// Run after the menu closes. Null = disabled.
+  /// A description shown under [label] in the bottom-sheet form only.
+  final String? sheetSubtitle;
+
+  /// Run after the menu closes. Null = disabled (unless [submenu] is set).
   final VoidCallback? onSelected;
 
   /// Tints the entry with the theme's danger color.
@@ -80,13 +106,30 @@ class AccordMenuEntry {
   final bool enabled;
   final bool isDivider;
 
-  /// A checkbox at the row's right edge, as the menus of other chat apps draw
-  /// their toggles (Mute, Deafen, …). Selecting the row calls [onSelected].
+  /// A checkbox at the row's right edge. Selecting the row calls
+  /// [onSelected].
   final bool? checked;
 
+  /// A radio button at the row's right edge, filled when true.
+  final bool? radio;
+
   /// A "›" at the row's right edge: the entry opens something further (a
-  /// picker, a second menu) rather than acting at once.
+  /// picker, a dialog) rather than acting at once. Rows with a [submenu]
+  /// always show it.
   final bool trailingChevron;
+
+  /// Entries of a further menu, opened beside this row on hover, → or a
+  /// click. A row with both a submenu and [onSelected] runs [onSelected]
+  /// when clicked (Mute Server mutes until turned back on) and opens the
+  /// submenu on hover.
+  final List<AccordMenuEntry>? submenu;
+
+  /// A small widget at the row's right edge before any chevron (a badge).
+  final Widget? trailing;
+
+  /// A small widget in the 20 px slot at the left, in place of [icon] (a
+  /// status dot, an account's avatar).
+  final Widget? leading;
 
   /// See [AccordMenuEntry.widget].
   final Widget? child;
@@ -94,68 +137,42 @@ class AccordMenuEntry {
 
   bool get isWidget => child != null;
 
+  bool get hasSubmenu => submenu != null && submenu!.isNotEmpty;
+
+  bool get _activatable =>
+      !isDivider && !isWidget && enabled && onSelected != null;
+
   bool get _interactive =>
-      isDivider || isWidget ? false : enabled && onSelected != null;
-}
+      isDivider || isWidget ? false : enabled && (onSelected != null || hasSubmenu);
 
-/// The right-aligned checkbox of a toggling menu row: a 20 px rounded square,
-/// filled with the accent colour and a tick when on.
-class _MenuCheck extends StatelessWidget {
-  const _MenuCheck({required this.checked, this.destructive = false});
+  bool get _showsChevron => trailingChevron || hasSubmenu;
 
-  final bool checked;
-  final bool destructive;
+  bool get _hasGlyph =>
+      icon != null ||
+      leading != null ||
+      checked != null ||
+      radio != null ||
+      _showsChevron ||
+      trailing != null;
 
-  @override
-  Widget build(BuildContext context) {
-    final colors = BonfireThemeExtension.of(context);
-    final on = destructive ? colors.red : colors.primary;
-    return Container(
-      width: 20,
-      height: 20,
-      decoration: BoxDecoration(
-        color: checked ? on : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
-        border: checked ? null : Border.all(color: colors.gray, width: 1.5),
-      ),
-      child: checked
-          ? const Icon(AppIcons.check, size: 16, color: Colors.white)
-          : null,
-    );
+  /// The row's height in the anchored menu: 34 for a bare label, 36 with a
+  /// 20 px glyph, 52 with a subtitle, 17 for a separator (1 px + 8 above and
+  /// below) — the reference client's measurements.
+  double get _rowHeight {
+    if (isDivider) return 17;
+    if (isWidget) return height;
+    if (subtitle != null) return 52;
+    return _hasGlyph ? 36 : 34;
   }
 }
 
-/// Hosts a live widget inside an anchored menu, which otherwise only offers
-/// selectable rows.
-class _WidgetMenuEntry extends PopupMenuEntry<int> {
-  const _WidgetMenuEntry({
-    super.key,
-    required this.height,
-    required this.child,
-  });
-
-  final Widget child;
-
-  @override
-  final double height;
-
-  @override
-  bool represents(int? value) => false;
-
-  @override
-  State<_WidgetMenuEntry> createState() => _WidgetMenuEntryState();
-}
-
-class _WidgetMenuEntryState extends State<_WidgetMenuEntry> {
-  @override
-  Widget build(BuildContext context) => widget.child;
-}
-
 /// Shows a context menu for [entries]. On desktop layouts it opens an anchored
-/// [showMenu] next to [globalPosition]; on mobile/touch (or when no position is
-/// given) it opens a bottom sheet titled [title]. The chosen entry's
-/// [AccordMenuEntry.onSelected] runs after the menu closes — callbacks must not
-/// dismiss the menu themselves.
+/// menu at [globalPosition] (submenus cascade beside their row); on
+/// mobile/touch (or when no position is given) it opens a bottom sheet titled
+/// [title]. [anchorX] places the menu's left edge (0), centre (0.5) or right
+/// edge (1) at the position: a header button's menu sits right-aligned under
+/// it, the space name's menu centred under the column header. The chosen entry's [AccordMenuEntry.onSelected] runs after the
+/// menu closes — callbacks must not dismiss the menu themselves.
 Future<void> showAccordContextMenu(
   BuildContext context, {
   required List<AccordMenuEntry> entries,
@@ -164,6 +181,7 @@ Future<void> showAccordContextMenu(
   IconData? titleIcon,
   bool preferAbove = false,
   bool anchorLeft = false,
+  double anchorX = 0,
   double? width,
 }) {
   if (shouldUseDesktopLayout(context) && globalPosition != null) {
@@ -171,257 +189,82 @@ Future<void> showAccordContextMenu(
       context,
       entries,
       globalPosition,
-      preferAbove,
+      preferAbove: preferAbove,
       anchorLeft: anchorLeft,
+      anchorX: anchorX,
       width: width,
     );
   }
   return _showSheet(context, entries, title, titleIcon);
 }
 
-/// The height an anchored menu of [entries] takes (rows, dividers and the
-/// menu's own padding), for placing it above its anchor.
-double _anchoredHeight(List<AccordMenuEntry> entries) {
-  var height = 16.0;
-  for (final e in entries) {
-    height += e.isDivider ? 17 : e.height;
+/// A button (a "…", a chevron) that opens [entries] as an Accord menu where
+/// it was tapped — the replacement for Material's `PopupMenuButton`.
+class AccordMenuButton extends StatelessWidget {
+  const AccordMenuButton({
+    super.key,
+    required this.entries,
+    required this.child,
+    this.tooltip,
+    this.title,
+    this.preferAbove = false,
+  });
+
+  /// Built when the button is pressed, so the menu reflects current state.
+  final List<AccordMenuEntry> Function() entries;
+  final Widget child;
+  final String? tooltip;
+  final String? title;
+  final bool preferAbove;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTapUp: (details) => showAccordContextMenu(
+        context,
+        entries: entries(),
+        globalPosition: details.globalPosition,
+        title: title,
+        preferAbove: preferAbove,
+      ),
+      onTap: () {},
+      child: child,
+    );
+    return tooltip == null ? button : Tooltip(message: tooltip, child: button);
   }
-  return height;
 }
 
-/// The surface of an anchored menu: the pane background lifted by a touch of
-/// the text colour (`#28282D` on the Dark preset).
+/// The surface of an anchored menu: `#28282D` on the Dark preset, the pane
+/// background lifted by a touch of the text colour.
 Color menuSurfaceColor(BonfireThemeExtension colors) => Color.alphaBlend(
   colors.dirtyWhite.withValues(alpha: 0.063),
   colors.background,
 );
 
-/// Width of an anchored menu, as the reference client's.
+/// Width of an anchored menu that hosts a live widget row (a slider, the
+/// quick-reaction row). Text-only menus size to their widest row.
 const double kAccordMenuWidth = 222;
+
+/// The narrowest anchored menu, and the narrowest submenu.
+const double kAccordMenuMinWidth = 144;
+const double kAccordSubmenuMinWidth = 188;
 
 /// The widest an anchored menu grows for a row that needs the room.
 const double kAccordMenuMaxWidth = 320;
 
-Future<void> _showAnchored(
-  BuildContext context,
-  List<AccordMenuEntry> entries,
-  Offset position,
-  bool preferAbove, {
-  bool anchorLeft = false,
-  double? width,
-}) async {
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-  if (overlay == null) return;
-  final colors = BonfireThemeExtension.of(context);
-  // Opened from a button in a bottom bar, the menu stands above the button
-  // (8 px clear of it) rather than spilling below — centred on it, or with
-  // its left edge on the button's when [anchorLeft].
-  final anchor = preferAbove
-      ? Rect.fromLTWH(
-          (position.dx - (anchorLeft ? 0 : 90)).clamp(
-            8.0,
-            overlay.size.width - 8,
-          ),
-          (position.dy - 8 - _anchoredHeight(entries)).clamp(0.0, position.dy),
-          0,
-          0,
-        )
-      : position & const Size(40, 40);
-  final items = <PopupMenuEntry<int>>[];
-  // Leading and trailing dividers, and runs of them, collapse: entries are
-  // often built with optional groups.
+/// Leading and trailing dividers, and runs of them, collapse: entries are
+/// often built with optional groups.
+List<AccordMenuEntry> _collapseDividers(List<AccordMenuEntry> entries) {
   final visible = <AccordMenuEntry>[];
   for (final entry in entries) {
-    if (entry.isDivider) {
-      if (visible.isEmpty || visible.last.isDivider) continue;
+    if (entry.isDivider && (visible.isEmpty || visible.last.isDivider)) {
+      continue;
     }
     visible.add(entry);
   }
   while (visible.isNotEmpty && visible.last.isDivider) {
     visible.removeLast();
   }
-  const destructiveColor = Color(0xFFF87E7A);
-  for (var i = 0; i < visible.length; i++) {
-    final entry = visible[i];
-    if (entry.isDivider) {
-      items.add(
-        PopupMenuDivider(
-          height: 17,
-          color: colors.hairline,
-          thickness: 1,
-          indent: 0,
-          endIndent: 0,
-        ),
-      );
-      continue;
-    }
-    if (entry.isWidget) {
-      items.add(
-        _WidgetMenuEntry(
-          key: entry.key,
-          height: entry.height,
-          child: entry.child!,
-        ),
-      );
-      continue;
-    }
-    final color = entry.destructive
-        ? destructiveColor
-        : entry._interactive
-        ? colors.dirtyWhite
-        : colors.gray;
-    final iconColor = entry.destructive
-        ? destructiveColor
-        : entry._interactive
-        ? colors.interactive
-        : colors.gray;
-    items.add(
-      PopupMenuItem<int>(
-        key: entry.key,
-        value: i,
-        enabled: entry._interactive,
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            if (entry.icon != null) ...[
-              Icon(entry.icon, size: 20, color: iconColor),
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Text(
-                entry.label,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  height: 18 / 14,
-                  color: color,
-                ),
-              ),
-            ),
-            if (entry.trailingChevron) ...[
-              const SizedBox(width: 8),
-              Icon(AppIcons.chevronRight, size: 16, color: iconColor),
-            ],
-            if (entry.checked != null) ...[
-              const SizedBox(width: 16),
-              _MenuCheck(
-                checked: entry.checked!,
-                destructive: entry.destructive,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-  final selected = await showMenu<int>(
-    context: context,
-    color: menuSurfaceColor(colors),
-    elevation: 8,
-    shadowColor: Colors.black.withValues(alpha: 0.6),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-      side: BorderSide(color: colors.hairline),
-    ),
-    menuPadding: const EdgeInsets.all(8),
-    // The reference client's menus are 222 px unless a row needs more
-    // (a volume slider, a long label), up to 320.
-    constraints: BoxConstraints(
-      minWidth: width ?? kAccordMenuWidth,
-      maxWidth: width ?? kAccordMenuMaxWidth,
-    ),
-    position: RelativeRect.fromRect(anchor, Offset.zero & overlay.size),
-    items: items,
-    popUpAnimationStyle: AnimationStyle(duration: _kAnchoredMenuDuration),
-  );
-  if (selected != null) visible[selected].onSelected?.call();
-}
-
-Future<void> _showSheet(
-  BuildContext context,
-  List<AccordMenuEntry> entries,
-  String? title,
-  IconData? titleIcon,
-) {
-  final colors = BonfireThemeExtension.of(context);
-  return showModalBottomSheet<void>(
-    context: context,
-    sheetAnimationStyle: AnimationStyle(
-      duration: _kSheetEnterDuration,
-      reverseDuration: _kSheetExitDuration,
-    ),
-    builder: (sheetCtx) {
-      final theme = Theme.of(sheetCtx);
-      return SafeArea(
-        // Scrollable: the sheet is capped at a fraction of the viewport, so a
-        // long menu would otherwise clip its last entries on short screens.
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (title != null) ...[
-                ListTile(
-                  dense: true,
-                  leading: titleIcon == null
-                      ? null
-                      : Icon(titleIcon, color: colors.dirtyWhite),
-                  title: Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall,
-                  ),
-                ),
-                const Divider(height: 1),
-              ],
-              for (final entry in entries)
-                if (entry.isDivider)
-                  const Divider(height: 1)
-                else if (entry.isWidget)
-                  KeyedSubtree(key: entry.key, child: entry.child!)
-                else
-                  ListTile(
-                    key: entry.key,
-                    trailing: entry.checked != null
-                        ? _MenuCheck(
-                            checked: entry.checked!,
-                            destructive: entry.destructive,
-                          )
-                        : entry.trailingChevron
-                        ? Icon(
-                            AppIcons.chevronRight,
-                            size: 18,
-                            color: colors.gray,
-                          )
-                        : null,
-                    leading: entry.icon == null
-                        ? null
-                        : Icon(
-                            entry.icon,
-                            color: entry.destructive ? colors.red : null,
-                          ),
-                    title: Text(
-                      entry.label,
-                      style: entry.destructive
-                          ? TextStyle(color: colors.red)
-                          : null,
-                    ),
-                    subtitle: entry.subtitle == null
-                        ? null
-                        : Text(entry.subtitle!),
-                    enabled: entry._interactive,
-                    onTap: entry._interactive
-                        ? () {
-                            Navigator.of(sheetCtx).pop();
-                            entry.onSelected!.call();
-                          }
-                        : null,
-                  ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
+  return visible;
 }

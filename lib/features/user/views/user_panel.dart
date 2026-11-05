@@ -5,7 +5,8 @@ import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
-import 'package:bonfire/features/user/views/self_status_button.dart';
+import 'package:bonfire/features/user/views/account_card.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/views/voice_settings_screen.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
@@ -21,16 +22,9 @@ import 'package:livekit_client/livekit_client.dart' show Hardware, MediaDevice;
 /// chevron that lists the audio devices; both tint red on a red field while
 /// muted or deafened, as in other voice chat apps.
 class UserPanel extends ConsumerWidget {
-  const UserPanel({
-    super.key,
-    required this.onOpenSettings,
-    required this.onSwitchAccount,
-    required this.onLogout,
-  });
+  const UserPanel({super.key, required this.onOpenSettings});
 
   final VoidCallback onOpenSettings;
-  final VoidCallback onSwitchAccount;
-  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -118,20 +112,7 @@ class UserPanel extends ConsumerWidget {
         child: Row(
           children: [
             Expanded(
-              child: SelfStatusButton(
-                extras: [
-                  SelfStatusExtra(
-                    label: 'Switch account',
-                    icon: AppIcons.switchAccount,
-                    onSelected: onSwitchAccount,
-                  ),
-                  SelfStatusExtra(
-                    label: 'Log out',
-                    icon: AppIcons.logout,
-                    onSelected: onLogout,
-                    destructive: true,
-                  ),
-                ],
+              child: _AccountButton(
                 child: Row(
                   children: [
                     AccordMemberAvatar(
@@ -208,7 +189,6 @@ class UserPanel extends ConsumerWidget {
     WidgetRef ref, {
     required bool input,
   }) async {
-    final colors = BonfireThemeExtension.of(context);
     final settings = ref.read(settingsControllerProvider);
     final current = input
         ? settings.audioInputDeviceId
@@ -224,65 +204,50 @@ class UserPanel extends ConsumerWidget {
     }
     if (!context.mounted) return;
     final box = context.findRenderObject() as RenderBox?;
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    final anchor = box == null || overlay == null
-        ? Offset.zero
-        : box.localToGlobal(Offset.zero, ancestor: overlay);
-    final selected = await showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        anchor & Size(box?.size.width ?? 0, 0),
-        Offset.zero & (overlay?.size ?? Size.zero),
-      ),
-      items: [
-        PopupMenuItem<String>(
-          enabled: false,
-          height: 28,
-          child: Text(
-            input ? 'INPUT DEVICE' : 'OUTPUT DEVICE',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: colors.gray,
-            ),
-          ),
+    final anchor = box == null
+        ? null
+        : box.localToGlobal(Offset(0, 0));
+    final controller = ref.read(settingsControllerProvider.notifier);
+    final currentLabel = devices
+        .where(
+          (d) =>
+              d.deviceId == current ||
+              (current.isEmpty && d == devices.first),
+        )
+        .map((d) => d.label.isEmpty ? d.deviceId : d.label)
+        .firstOrNull;
+    await showAccordContextMenu(
+      context,
+      globalPosition: anchor,
+      preferAbove: true,
+      anchorLeft: true,
+      entries: [
+        // The reference client's chevron menu was not captured (à
+        // confirmer): the device list as a submenu, then the settings.
+        AccordMenuEntry(
+          label: input ? 'Input Device' : 'Output Device',
+          subtitle: currentLabel ?? 'No devices found',
+          submenu: [
+            for (final device in devices)
+              AccordMenuEntry(
+                label: device.label.isEmpty ? device.deviceId : device.label,
+                radio:
+                    device.deviceId == current ||
+                    (current.isEmpty && device == devices.first),
+                onSelected: () => input
+                    ? controller.setAudioInputDevice(device.deviceId)
+                    : controller.setAudioOutputDevice(device.deviceId),
+              ),
+          ],
         ),
-        if (devices.isEmpty)
-          const PopupMenuItem<String>(
-            enabled: false,
-            child: Text('No devices found'),
-          ),
-        for (final device in devices)
-          CheckedPopupMenuItem<String>(
-            value: 'device:${device.deviceId}',
-            checked:
-                device.deviceId == current ||
-                (current.isEmpty && device == devices.first),
-            child: Text(
-              device.label.isEmpty ? device.deviceId : device.label,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        const PopupMenuDivider(),
-        const PopupMenuItem<String>(
-          value: 'settings',
-          child: Text('Voice Settings'),
+        const AccordMenuEntry.divider(),
+        AccordMenuEntry(
+          label: 'Voice Settings',
+          icon: AppIcons.settings,
+          onSelected: () => showVoiceSettings(context),
         ),
       ],
     );
-    if (selected == null || !context.mounted) return;
-    if (selected == 'settings') {
-      showVoiceSettings(context);
-      return;
-    }
-    final id = selected.substring('device:'.length);
-    final controller = ref.read(settingsControllerProvider.notifier);
-    if (input) {
-      controller.setAudioInputDevice(id);
-    } else {
-      controller.setAudioOutputDevice(id);
-    }
   }
 }
 
@@ -434,6 +399,34 @@ class _SplitButton extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Your avatar and name in the panel: a click opens the account card above
+/// the panel.
+class _AccountButton extends StatelessWidget {
+  const _AccountButton({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return InkWell(
+      key: const Key('user-panel-account'),
+      borderRadius: BorderRadius.circular(8),
+      hoverColor: colors.hover,
+      onTap: () {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null) return;
+        final rect = box.localToGlobal(Offset.zero) & box.size;
+        showAccountCard(context, anchor: rect.shift(const Offset(0, -2)));
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        child: child,
+      ),
     );
   }
 }

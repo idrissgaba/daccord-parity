@@ -14,6 +14,56 @@ const composerNativeInputBarrierChannel = 'daccord/composer/input_barrier';
 /// A mention that pings everyone, which the send confirms first.
 final _broadcastMention = RegExp(r'@(everyone|here)\b');
 
+/// What an app-wide shortcut asks of the composer on screen: open a picker
+/// (Ctrl+E / Ctrl+G / Ctrl+S), the file dialog (Ctrl+Shift+U), or take the
+/// focus with a typed character ("any key focuses the text area").
+enum ComposerShortcut { emoji, gif, sticker, upload, focus }
+
+/// The mounted composers, newest last, each able to run a [ComposerShortcut].
+final List<_ComposerShortcutTarget> _composerTargets = [];
+
+/// The composer that last had the focus, while it stays mounted.
+_ComposerShortcutTarget? _lastFocusedComposer;
+
+typedef _ComposerShortcutTarget = ({
+  bool Function() focused,
+  bool Function(ComposerShortcut action, String? text) run,
+});
+
+/// Runs [action] on the composer the user is writing in: the focused one,
+/// else the one focused last, else the newest. [text] is inserted for
+/// [ComposerShortcut.focus]. False when no composer can take it.
+bool requestComposerShortcut(ComposerShortcut action, {String? text}) {
+  if (_composerTargets.isEmpty) return false;
+  _ComposerShortcutTarget? target;
+  for (final t in _composerTargets) {
+    if (t.focused()) target = t;
+  }
+  target ??= _composerTargets.contains(_lastFocusedComposer)
+      ? _lastFocusedComposer
+      : _composerTargets.last;
+  return target!.run(action, text);
+}
+
+/// Wraps the selection of [value] in [marker] (`**` bold, `*` italic, `__`
+/// underline), keeping it selected; null when nothing is selected.
+TextEditingValue? wrapSelection(TextEditingValue value, String marker) {
+  final selection = value.selection;
+  if (!selection.isValid || selection.isCollapsed) return null;
+  final text = value.text;
+  final inner = selection.textInside(text);
+  final next =
+      selection.textBefore(text) + marker + inner + marker +
+      selection.textAfter(text);
+  return TextEditingValue(
+    text: next,
+    selection: TextSelection(
+      baseOffset: selection.start + marker.length,
+      extentOffset: selection.start + marker.length + inner.length,
+    ),
+  );
+}
+
 class _Composer extends ConsumerStatefulWidget {
   const _Composer({
     super.key,
@@ -111,6 +161,8 @@ class _ComposerState extends ConsumerState<_Composer>
     // A "Mention" asked for elsewhere (the voice participant menu) lands
     // here, now or when this composer mounts.
     composerInsertRequest.addListener(_takeInsertRequest);
+    _composerTargets.add(_shortcutTarget);
+    _focusNode.addListener(_trackFocus);
     final pending = takeComposerInsert();
     if (pending != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -147,14 +199,27 @@ class _ComposerState extends ConsumerState<_Composer>
       final result = _onEmojiSuggestKey(event, mods);
       if (result != null) return result;
     }
-    // Ctrl+E opens the emoji picker, as in other chat apps.
+    // Ctrl+B / Ctrl+I / Ctrl+U wrap the selection in bold, italic or
+    // underline markdown. (Ctrl+E and the other pickers are app-wide
+    // shortcuts that reach this composer through [requestComposerShortcut].)
     if (event is KeyDownEvent &&
-        key == LogicalKeyboardKey.keyE &&
         (mods.isControlPressed || mods.isMetaPressed) &&
         !mods.isShiftPressed &&
         !mods.isAltPressed) {
-      if (!_sending) _pickEmoji();
-      return KeyEventResult.handled;
+      final marker = switch (key) {
+        LogicalKeyboardKey.keyB => '**',
+        LogicalKeyboardKey.keyI => '*',
+        LogicalKeyboardKey.keyU => '__',
+        _ => null,
+      };
+      final wrapped = marker == null
+          ? null
+          : wrapSelection(_controller.value, marker);
+      if (wrapped != null) {
+        _controller.value = wrapped;
+        _onChanged(_controller.text);
+        return KeyEventResult.handled;
+      }
     }
     if (event is KeyDownEvent && key == LogicalKeyboardKey.escape) {
       if (widget.replyingTo != null && widget.onCancelReply != null) {
@@ -431,9 +496,46 @@ class _ComposerState extends ConsumerState<_Composer>
     _settings.setDraft(_serverKey, channelId, text);
   }
 
+  late final _ComposerShortcutTarget _shortcutTarget = (
+    focused: () => _focusNode.hasFocus,
+    run: _runShortcut,
+  );
+
+  void _trackFocus() {
+    if (_focusNode.hasFocus) _lastFocusedComposer = _shortcutTarget;
+  }
+
+  /// See [requestComposerShortcut].
+  bool _runShortcut(ComposerShortcut action, String? text) {
+    if (!mounted || !widget.canSend) return false;
+    switch (action) {
+      case ComposerShortcut.emoji:
+        if (!_sending) _pickEmoji();
+      case ComposerShortcut.gif:
+        if (!_sending) _pickGif();
+      case ComposerShortcut.sticker:
+        if (!_sending) _pickSticker();
+      case ComposerShortcut.upload:
+        if (!_sending) _pickFiles();
+      case ComposerShortcut.focus:
+        if (text == null || text.isEmpty) {
+          _focusNode.requestFocus();
+        } else {
+          _insertAtCursor(text);
+          _onChanged(_controller.text);
+        }
+    }
+    return true;
+  }
+
   @override
   void dispose() {
     composerInsertRequest.removeListener(_takeInsertRequest);
+    _composerTargets.remove(_shortcutTarget);
+    if (identical(_lastFocusedComposer, _shortcutTarget)) {
+      _lastFocusedComposer = null;
+    }
+    _focusNode.removeListener(_trackFocus);
     _cooldownTicker?.cancel();
     _saveDraft(widget.channelId, _controller.text);
     _controller.dispose();

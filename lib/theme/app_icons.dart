@@ -19,6 +19,7 @@ abstract final class AppIcons {
   static const IconData adminPanelSettings = PhosphorIconsFill.shieldStar;
   static const IconData alternateEmail = PhosphorIconsBold.at;
   static const IconData arrowBack = PhosphorIconsBold.arrowLeft;
+  static const IconData arrowDownward = PhosphorIconsBold.arrowDown;
   static const IconData arrowDropDown = PhosphorIconsFill.caretDown;
   static const IconData arrowForwardRounded = PhosphorIconsBold.arrowRight;
   static const IconData arrowUpward = PhosphorIconsBold.arrowUp;

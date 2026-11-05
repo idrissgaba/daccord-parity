@@ -1,4 +1,5 @@
 import 'package:bonfire/features/channels/controllers/muted_channels.dart';
+import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,12 @@ Future<void> toggleChannelMute(
   final result = await ref
       .read(mutedChannelsControllerProvider(serverKey).notifier)
       .setMuted(channelId, !muted);
+  // A mute toggled by hand, on or off, has no timer.
+  if (result == MuteResult.ok) {
+    ref
+        .read(settingsControllerProvider.notifier)
+        .setMuteExpiry(serverKey, channelId, null);
+  }
   if (result != MuteResult.failed || !context.mounted) return;
   showInfoSnack(
     context,

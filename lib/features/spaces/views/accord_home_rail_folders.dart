@@ -169,8 +169,8 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
   }
 
   /// Context menu for a folder member (long-press on touch / right-click on
-  /// desktop): the shared server actions above "remove from folder".
-  /// [position] anchors it on desktop; null presents the touch sheet.
+  /// desktop): the space icon menu, whose Move to… holds "Remove from
+  /// Folder". [position] anchors it on desktop; null presents the touch sheet.
   Future<void> _memberMenu(
     BuildContext context,
     WidgetRef ref,
@@ -179,25 +179,16 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
     Offset? position,
   ) {
     final space = railSpace.space;
-    final entries = <AccordMenuEntry>[
-      ..._serverActionEntries(
+    final serverKey = widget.connOf[railSpace.key]?.serverKey ?? '';
+    return showAccordContextMenu(
+      context,
+      entries: _spaceIconMenuEntries(
         context,
         ref,
         space,
-        widget.connOf[railSpace.key]?.serverKey ?? '',
+        serverKey,
+        moveTo: _railMoveToEntries(ref, ServerEntityKey(serverKey, space.id)),
       ),
-      AccordMenuEntry(
-        label: 'Remove "${space.name}" from folder',
-        icon: AppIcons.folderOffOutlined,
-        onSelected: () => ctl.moveSpaceToFolder(
-          ServerEntityKey.tryDecode(railSpace.key)!,
-          null,
-        ),
-      ),
-    ];
-    return showAccordContextMenu(
-      context,
-      entries: entries,
       globalPosition: position,
       title: space.name,
     );
@@ -214,7 +205,6 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
     final entries = <AccordMenuEntry>[
       AccordMenuEntry(
         label: 'Mark Server Folder As Read',
-        icon: AppIcons.markChatReadOutlined,
         onSelected: () {
           for (final member in spaces) {
             final serverKey = widget.connOf[member.key]?.serverKey ?? '';
@@ -237,13 +227,11 @@ class _FolderTileState extends ConsumerState<_FolderTile> {
       const AccordMenuEntry.divider(),
       AccordMenuEntry(
         label: 'Folder Settings',
-        icon: AppIcons.settingsOutlined,
         onSelected: () => _showFolderSettings(context, ref),
       ),
       const AccordMenuEntry.divider(),
       AccordMenuEntry(
-        label: 'Delete folder',
-        icon: AppIcons.folderDeleteOutlined,
+        label: 'Delete Folder',
         destructive: true,
         onSelected: () => ctl.deleteFolder(folder.id),
       ),

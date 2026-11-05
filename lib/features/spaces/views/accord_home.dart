@@ -10,9 +10,19 @@ import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/authentication/utils/confirm_logout.dart';
 import 'package:bonfire/features/channels/views/channel_context_menu.dart';
+import 'package:bonfire/features/automod/views/automod_panel.dart';
+import 'package:bonfire/features/member/utils/member_actions.dart';
+import 'package:bonfire/features/spaces/views/accord_audit_log.dart';
+import 'package:bonfire/features/spaces/views/accord_ban_list.dart';
+import 'package:bonfire/features/spaces/views/accord_emoji_management.dart';
+import 'package:bonfire/features/spaces/views/accord_role_management.dart';
+import 'package:bonfire/features/spaces/views/accord_soundboard.dart';
+import 'package:bonfire/features/spaces/views/accord_webhooks.dart';
+import 'package:bonfire/features/user/controllers/self_presence.dart';
 import 'package:bonfire/features/channels/views/channel_management.dart';
 import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/channels/controllers/open_tabs.dart';
+import 'package:bonfire/features/channels/controllers/muted_channels.dart';
 import 'package:bonfire/features/channels/controllers/read_state.dart';
 import 'package:bonfire/features/channels/models/open_tab.dart';
 import 'package:bonfire/features/channels/utils/channel_reorder.dart';
@@ -70,10 +80,12 @@ import 'package:bonfire/shared/components/drawer_swipe_area.dart';
 import 'package:bonfire/shared/components/server_unreachable.dart';
 import 'package:bonfire/shared/app_info.dart';
 import 'package:bonfire/shared/models/server_entity_key.dart';
+import 'package:bonfire/shared/utils/in_app_links.dart';
 import 'package:bonfire/shared/utils/platform.dart';
 import 'package:bonfire/shared/utils/pointer_anchor.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
 import 'package:bonfire/shared/utils/text_prompt_dialog.dart';
+import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
 import 'package:bonfire/features/voice/utils/stage_logic.dart';
@@ -663,11 +675,7 @@ class _AccordHomeScreenState extends ConsumerState<AccordHomeScreen>
             }
           },
         ),
-        user: UserPanel(
-          onOpenSettings: openSettings,
-          onSwitchAccount: switchAccount,
-          onLogout: logout,
-        ),
+        user: UserPanel(onOpenSettings: openSettings),
       ),
     );
 

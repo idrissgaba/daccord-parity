@@ -119,7 +119,15 @@ class _DmHomeSidebarState extends ConsumerState<DmHomeSidebar> {
     controller.setChannels(channels);
   }
 
+  /// "Find or start a conversation" opens the quick switcher, as in the
+  /// reference client.
   Future<void> _findOrStart() async {
+    await QuickSwitcherLauncher.open();
+    widget.onNavigate?.call();
+  }
+
+  /// The "+" beside "Direct Messages": pick people for a DM or a group.
+  Future<void> _createDm() async {
     final channel = await showDialog<AccordChannel>(
       context: context,
       builder: (_) => const _CreateGroupDialog(),
@@ -166,26 +174,28 @@ class _DmHomeSidebarState extends ConsumerState<DmHomeSidebar> {
     final group = _isGroup(channel, selfId);
     final others = _others(channel, selfId);
     final user = !group && others.isNotEmpty ? others.first : null;
-    final closeEntry = AccordMenuEntry(
-      label: group ? 'Leave Group' : 'Close DM',
-      icon: group ? AppIcons.logout : AppIcons.close,
-      destructive: true,
-      onSelected: () => _close(channel),
-    );
     if (user != null) {
-      showAccordDmUserContextMenu(
+      showUserContextMenu(
         context,
         ref,
-        user,
+        userId: user.id,
+        user: user,
+        dmChannel: channel,
         globalPosition: position,
-        currentDmUserId: user.id,
-        extraEntries: [const AccordMenuEntry.divider(), closeEntry],
+        origin: UserMenuOrigin.dmRow,
+        onCloseDm: () => _close(channel),
       );
       return;
     }
     showAccordContextMenu(
       context,
-      entries: [closeEntry],
+      entries: [
+        AccordMenuEntry(
+          label: 'Leave Group',
+          destructive: true,
+          onSelected: () => _close(channel),
+        ),
+      ],
       globalPosition: position,
       title: _channelTitle(channel, selfId),
     );
@@ -285,7 +295,7 @@ class _DmHomeSidebarState extends ConsumerState<DmHomeSidebar> {
                       message: 'Create DM',
                       child: InkWell(
                         key: const Key('dm-create'),
-                        onTap: _findOrStart,
+                        onTap: _createDm,
                         child: Padding(
                           padding: const EdgeInsets.all(4),
                           child: Icon(
@@ -1170,11 +1180,15 @@ class _FriendListRowState extends ConsumerState<_FriendListRow> {
           builder: (context) => round('More', AppIcons.moreVert, () {
             if (user == null) return;
             final box = context.findRenderObject() as RenderBox?;
-            showAccordDmUserContextMenu(
+            showUserContextMenu(
               context,
               ref,
-              user,
-              globalPosition: box?.localToGlobal(Offset(0, box.size.height)),
+              userId: user.id,
+              user: user,
+              origin: UserMenuOrigin.friendRow,
+              globalPosition: box?.localToGlobal(
+                Offset(box.size.width / 2, box.size.height / 2 - 5),
+              ),
             );
           }),
         ),
@@ -1625,8 +1639,7 @@ class _DmProfilePanel extends ConsumerWidget {
                 height: 40,
                 child: TextButton(
                   key: const Key('dm-view-full-profile'),
-                  onPressed: () =>
-                      showAccordUserProfile(context, user, cdnUrl: cdnUrl),
+                  onPressed: () => showFullProfile(context, userId: user.id),
                   style: TextButton.styleFrom(
                     backgroundColor: colors.selection.withValues(alpha: 0.12),
                     foregroundColor: colors.dirtyWhite,

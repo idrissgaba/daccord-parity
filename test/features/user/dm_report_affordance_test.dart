@@ -2,7 +2,7 @@ import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/channels/controllers/dm_channels.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
-import 'package:bonfire/features/user/views/accord_direct_messages.dart';
+import 'package:bonfire/features/member/views/accord_member_popout.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,11 +12,9 @@ import 'dm_home_host.dart';
 
 /// Reaching Report and Block from a direct message (App Review 1.2, #290).
 ///
-/// A DM has no space, so the space-scoped member popout can't open there: a tap
-/// on a DM user lands on the account-level profile, and the conversation's
-/// report/block menu used to open on long-press or right-click only. Both were
-/// dead ends for a reviewer tapping around. These hold the two affordances in
-/// place.
+/// A tap on a DM user opens their profile popout, whose "…" carries Block and
+/// Report User Profile; the conversation header has a visible menu too. These
+/// hold the two affordances in place.
 
 /// A [DmChannelsController] exposing a fixed conversation list, so the DM
 /// dialog renders without a server.
@@ -85,19 +83,22 @@ void main() {
     await tester.pumpWidget(
       app(
         (context) =>
-            () => showAccordUserProfile(context, _them),
+            () => showAccordMemberPopout(context, userId: _them.id),
       ),
     );
     await tester.tap(find.text('open'));
     await _tick(tester);
 
-    expect(find.text('Report user'), findsOneWidget);
-    expect(find.text('Block'), findsOneWidget);
-
-    await tester.tap(find.text('Report user'));
+    await tester.tap(find.byKey(const Key('profile-more')));
     await _tick(tester);
 
-    expect(find.text('Report bob'), findsOneWidget);
+    expect(find.text('Report User Profile'), findsOneWidget);
+    expect(find.text('Block'), findsOneWidget);
+
+    await tester.tap(find.text('Report User Profile'));
+    await _tick(tester);
+
+    expect(find.textContaining('Report '), findsWidgets);
     expect(find.text('Submit report'), findsOneWidget);
   });
 
@@ -107,18 +108,20 @@ void main() {
     await tester.pumpWidget(
       app(
         (context) =>
-            () => showAccordUserProfile(context, _them),
+            () => showAccordMemberPopout(context, userId: _them.id),
       ),
     );
     await tester.tap(find.text('open'));
     await _tick(tester);
 
+    await tester.tap(find.byKey(const Key('profile-more')));
+    await _tick(tester);
     await tester.tap(find.text('Block'));
     await _tick(tester);
 
-    expect(find.text('Block user'), findsOneWidget);
+    expect(find.textContaining('Block '), findsWidgets);
     expect(
-      find.textContaining('Blocked users can\'t message you directly'),
+      find.textContaining('won\'t be able to message you'),
       findsOneWidget,
     );
   });
@@ -146,13 +149,16 @@ void main() {
       await tester.tap(find.byTooltip('Conversation options'));
       await _tick(tester);
 
-      expect(find.text('Report user'), findsOneWidget);
+      expect(find.text('Profile'), findsOneWidget);
       expect(find.text('Block'), findsOneWidget);
 
-      await tester.tap(find.text('Report user'));
+      await tester.tap(find.text('Profile'));
       await _tick(tester);
 
-      expect(find.text('Report bob'), findsOneWidget);
+      // The full profile's "…" carries Report User Profile.
+      await tester.tap(find.byKey(const Key('full-profile-more')));
+      await _tick(tester);
+      expect(find.text('Report User Profile'), findsOneWidget);
     },
   );
 }

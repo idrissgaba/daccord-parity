@@ -1,7 +1,6 @@
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/settings/models/custom_keybind.dart';
 import 'package:bonfire/features/spaces/utils/home_shortcuts.dart';
-import 'package:bonfire/features/spaces/views/quick_switcher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -269,41 +268,175 @@ void main() {
     });
   });
 
-  group('filterQuickSwitchEntries', () {
-    final entries = [
-      QuickSwitchEntry(
-        spaceId: 's1',
-        spaceName: 'Maison',
-        channel: _channel('general'),
-      ),
-      QuickSwitchEntry(
-        spaceId: 's1',
-        spaceName: 'Maison',
-        channel: _channel('chill', type: 'voice'),
-      ),
-      QuickSwitchEntry(
-        spaceId: 's2',
-        spaceName: 'Gaming',
-        channel: _channel('general-chat'),
-      ),
-    ];
+  group('lot F chords', () {
+    HomeShortcut? match(
+      LogicalKeyboardKey key, {
+      bool control = false,
+      bool shift = false,
+      bool alt = false,
+    }) => matchHomeShortcut(
+      pressed: key,
+      control: control,
+      shift: shift,
+      alt: alt,
+    );
 
-    test('prefix matches rank before substring and space-name matches', () {
-      final names = filterQuickSwitchEntries(
-        entries,
-        'gen',
-      ).map((e) => e.channelName).toList();
-      expect(names, ['general', 'general-chat']);
-      final bySpace = filterQuickSwitchEntries(
-        entries,
-        'gam',
-      ).map((e) => e.channelName).toList();
-      expect(bySpace, ['general-chat']);
+    test('the reference client\'s chords map to their actions', () {
+      expect(
+        match(LogicalKeyboardKey.arrowDown, alt: true, shift: true),
+        HomeShortcut.nextUnread,
+      );
+      expect(
+        match(
+          LogicalKeyboardKey.arrowUp,
+          control: true,
+          alt: true,
+          shift: true,
+        ),
+        HomeShortcut.previousMention,
+      );
+      expect(
+        match(LogicalKeyboardKey.arrowLeft, alt: true),
+        HomeShortcut.historyBack,
+      );
+      expect(
+        match(LogicalKeyboardKey.arrowRight, control: true, alt: true),
+        HomeShortcut.toggleDmHome,
+      );
+      expect(
+        match(LogicalKeyboardKey.keyV, control: true, alt: true, shift: true),
+        HomeShortcut.currentCall,
+      );
+      expect(
+        match(LogicalKeyboardKey.keyN, control: true, shift: true),
+        HomeShortcut.createOrJoinServer,
+      );
+      expect(
+        match(LogicalKeyboardKey.enter, control: true),
+        HomeShortcut.answerCall,
+      );
+      expect(
+        match(LogicalKeyboardKey.quote, control: true),
+        HomeShortcut.startDmCall,
+      );
+      expect(
+        match(LogicalKeyboardKey.keyB, control: true, shift: true),
+        HomeShortcut.toggleSoundboard,
+      );
+      expect(
+        match(LogicalKeyboardKey.escape, shift: true),
+        HomeShortcut.markSpaceRead,
+      );
+      expect(
+        match(LogicalKeyboardKey.keyT, control: true, shift: true),
+        HomeShortcut.createGroupDm,
+      );
+      expect(match(LogicalKeyboardKey.keyP, control: true), HomeShortcut.togglePins);
+      expect(match(LogicalKeyboardKey.keyI, control: true), HomeShortcut.toggleInbox);
+      expect(match(LogicalKeyboardKey.keyU, control: true), HomeShortcut.toggleMembers);
+      expect(match(LogicalKeyboardKey.keyE, control: true), HomeShortcut.emojiPicker);
+      expect(match(LogicalKeyboardKey.keyG, control: true), HomeShortcut.gifPicker);
+      expect(match(LogicalKeyboardKey.keyS, control: true), HomeShortcut.stickerPicker);
+      expect(
+        match(LogicalKeyboardKey.keyU, control: true, shift: true),
+        HomeShortcut.uploadFile,
+      );
+      expect(
+        match(LogicalKeyboardKey.keyL, control: true, shift: true),
+        HomeShortcut.copyChannelLink,
+      );
+      expect(
+        match(LogicalKeyboardKey.keyH, control: true, shift: true),
+        HomeShortcut.getHelp,
+      );
+      expect(match(LogicalKeyboardKey.keyF, control: true), HomeShortcut.search);
     });
 
-    test('an empty query lists everything, capped', () {
-      expect(filterQuickSwitchEntries(entries, '  ').length, 3);
-      expect(filterQuickSwitchEntries(entries, '', limit: 2).length, 2);
+    test('Esc declines a ringing call before it marks the channel read', () {
+      expect(
+        matchHomeShortcuts(
+          pressed: LogicalKeyboardKey.escape,
+          control: false,
+          shift: false,
+          alt: false,
+        ),
+        [HomeShortcut.declineCall, HomeShortcut.markChannelRead],
+      );
+      expect(passThroughShortcuts, contains(HomeShortcut.markChannelRead));
+      expect(passThroughShortcuts, isNot(contains(HomeShortcut.declineCall)));
+    });
+
+    test('every action has a built-in chord and a label', () {
+      for (final shortcut in HomeShortcut.values) {
+        expect(defaultBindingFor(shortcut).label, isNotEmpty);
+      }
+    });
+
+    test('key caps spell the chord the dialog draws', () {
+      expect(
+        defaultBindingFor(HomeShortcut.previousMention).keyCaps(),
+        ['CTRL', 'SHIFT', 'ALT', '↑'],
+      );
+      expect(defaultBindingFor(HomeShortcut.declineCall).keyCaps(), ['ESC']);
+      expect(defaultBindingFor(HomeShortcut.startDmCall).keyCaps(), [
+        'CTRL',
+        "'",
+      ]);
+      expect(defaultBindingFor(HomeShortcut.quickSwitcher).keyCaps(mac: true), [
+        '⌘',
+        'K',
+      ]);
+    });
+
+    test('the combo cards list each section in the reference order', () {
+      final sections = <ShortcutSection>[];
+      for (final card in keyboardComboCards) {
+        if (sections.isEmpty || sections.last != card.section) {
+          sections.add(card.section);
+        }
+      }
+      expect(sections, ShortcutSection.values);
+      expect(
+        keyboardComboCards
+            .where((c) => c.section == ShortcutSection.navigation)
+            .map((c) => c.label)
+            .toList(),
+        [
+          'Navigate between servers',
+          'Navigate between channels',
+          'Navigate forward and backward in page history',
+          'Navigate between unread channels',
+          'Navigate between unread channels with mentions',
+          'Navigate to current call',
+          'Toggle between last server and DMs',
+          'Toggle QuickSwitcher',
+          'Create or join a server',
+        ],
+      );
+    });
+  });
+
+  group('adjacentMatchingId', () {
+    const ids = ['a', 'b', 'c', 'd'];
+    test('finds the next match, wrapping, never the current one', () {
+      bool unread(String id) => id == 'a' || id == 'c';
+      expect(
+        adjacentMatchingId(ids, 'a', forward: true, test: unread),
+        'c',
+      );
+      expect(
+        adjacentMatchingId(ids, 'c', forward: true, test: unread),
+        'a',
+      );
+      expect(
+        adjacentMatchingId(ids, 'b', forward: false, test: unread),
+        'a',
+      );
+      expect(
+        adjacentMatchingId(ids, 'a', forward: true, test: (id) => id == 'a'),
+        isNull,
+      );
+      expect(adjacentMatchingId(ids, null, forward: false, test: unread), 'c');
     });
   });
 }

@@ -1,15 +1,17 @@
 part of 'message_pane.dart';
 
-/// Notification controls for a channel. Server-side mutes come from the shared
-/// per-connection cache; local notification levels remain app settings.
+/// The header bell: its menu (Mute Channel › · Use category default / All
+/// Messages / Only @mentions / Nothing) opens under it, right-aligned, as the
+/// reference client's. Server-side mutes come from the shared per-connection
+/// cache; levels are app settings.
 class _MuteButton extends ConsumerWidget {
-  const _MuteButton({required this.channelId});
+  const _MuteButton({required this.channelId, required this.spaceId});
 
   final String channelId;
+  final String? spaceId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = BonfireThemeExtension.of(context);
     final activeKey = ref.watch(
       connectionsControllerProvider.select((state) => state.activeKey),
     );
@@ -24,106 +26,46 @@ class _MuteButton extends ConsumerWidget {
             : settings.channelNotificationLevel(activeKey, channelId),
       ),
     );
-    final levelLabel = level == null
-        ? 'Mentions (default)'
-        : level == AccordSettings.channelNotifAll
-        ? 'All messages'
-        : level == AccordSettings.channelNotifMentions
-        ? 'Mentions only'
-        : 'Nothing';
-
-    return PopupMenuButton<_NotifAction>(
-      tooltip: 'Notification settings — $levelLabel',
-      icon: Icon(
-        muted
+    return Builder(
+      builder: (buttonContext) => _HeaderButton(
+        key: const Key('channel-header-notifications'),
+        tooltip: 'Notification Settings',
+        icon: muted
             ? AppIcons.notificationsOff
             : (level == AccordSettings.channelNotifNothing
                   ? AppIcons.notificationsPaused
-                  : (level == AccordSettings.channelNotifAll
-                        ? AppIcons.notificationsActive
-                        : AppIcons.notificationsNone)),
-        size: 20,
-        color: colors.interactive,
+                  : AppIcons.notificationsNone),
+        onPressed: () {
+          final serverKey = activeKey;
+          if (serverKey == null) return;
+          final box = buttonContext.findRenderObject() as RenderBox?;
+          showAccordContextMenu(
+            context,
+            anchorX: 1,
+            globalPosition: box?.localToGlobal(
+              Offset(box.size.width / 2 + 15, box.size.height + 4),
+            ),
+            title: 'Notification Settings',
+            entries: [
+              channelMuteEntry(
+                context,
+                ref,
+                serverKey: serverKey,
+                channelId: channelId,
+                muted: muted,
+                noun: 'Channel',
+              ),
+              const AccordMenuEntry.divider(),
+              ...channelNotificationEntries(
+                ref,
+                serverKey: serverKey,
+                spaceId: spaceId,
+                channelId: channelId,
+              ),
+            ],
+          );
+        },
       ),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-      onSelected: (action) {
-        if (activeKey == null) return;
-        switch (action) {
-          case _NotifAction.levelDefault:
-            ref
-                .read(settingsControllerProvider.notifier)
-                .setChannelNotificationLevel(activeKey, channelId, null);
-          case _NotifAction.levelAll:
-            ref
-                .read(settingsControllerProvider.notifier)
-                .setChannelNotificationLevel(
-                  activeKey,
-                  channelId,
-                  AccordSettings.channelNotifAll,
-                );
-          case _NotifAction.levelMentions:
-            ref
-                .read(settingsControllerProvider.notifier)
-                .setChannelNotificationLevel(
-                  activeKey,
-                  channelId,
-                  AccordSettings.channelNotifMentions,
-                );
-          case _NotifAction.levelNothing:
-            ref
-                .read(settingsControllerProvider.notifier)
-                .setChannelNotificationLevel(
-                  activeKey,
-                  channelId,
-                  AccordSettings.channelNotifNothing,
-                );
-          case _NotifAction.toggleMute:
-            toggleChannelMute(
-              context,
-              ref,
-              serverKey: activeKey,
-              channelId: channelId,
-              muted: muted,
-            );
-        }
-      },
-      itemBuilder: (context) => [
-        CheckedPopupMenuItem(
-          value: _NotifAction.levelDefault,
-          checked: level == null,
-          child: const Text('Use default'),
-        ),
-        CheckedPopupMenuItem(
-          value: _NotifAction.levelAll,
-          checked: level == AccordSettings.channelNotifAll,
-          child: const Text('All messages'),
-        ),
-        CheckedPopupMenuItem(
-          value: _NotifAction.levelMentions,
-          checked: level == AccordSettings.channelNotifMentions,
-          child: const Text('Only @mentions'),
-        ),
-        CheckedPopupMenuItem(
-          value: _NotifAction.levelNothing,
-          checked: level == AccordSettings.channelNotifNothing,
-          child: const Text('Nothing'),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
-          value: _NotifAction.toggleMute,
-          enabled: activeKey != null && !mutedChannels.isLoading,
-          child: Text(muted ? 'Unmute channel' : 'Mute channel'),
-        ),
-      ],
     );
   }
-}
-
-enum _NotifAction {
-  levelDefault,
-  levelAll,
-  levelMentions,
-  levelNothing,
-  toggleMute,
 }

@@ -1,6 +1,8 @@
 import 'package:bonfire/features/channels/controllers/muted_channels.dart';
 import 'package:bonfire/features/channels/utils/toggle_channel_mute.dart';
 import 'package:bonfire/theme/app_theme.dart';
+import 'package:bonfire/features/settings/controllers/settings.dart';
+import 'package:bonfire/features/settings/models/accord_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -38,6 +40,8 @@ Future<_FakeMutedChannels> _tapToggle(
     ProviderScope(
       overrides: [
         mutedChannelsControllerProvider('server').overrideWith(() => fake),
+        // A hand-toggled mute clears any timer kept in settings.
+        settingsControllerProvider.overrideWith(_Settings.new),
       ],
       child: MaterialApp(
         theme: buildAppTheme(AppThemePreset.dark),
@@ -61,6 +65,11 @@ Future<_FakeMutedChannels> _tapToggle(
   await tester.tap(find.text('toggle'));
   await tester.pumpAndSettle();
   return fake;
+}
+
+class _Settings extends SettingsController {
+  @override
+  AccordSettings build() => const AccordSettings();
 }
 
 void main() {

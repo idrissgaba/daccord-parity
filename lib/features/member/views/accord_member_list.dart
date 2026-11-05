@@ -6,20 +6,18 @@ import 'package:bonfire/features/member/controllers/accord_members.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/member/views/accord_member_avatar.dart';
 import 'package:bonfire/features/member/views/accord_member_popout.dart';
+import 'package:bonfire/features/member/views/user_context_menu.dart';
 import 'package:bonfire/features/member/views/remote_origin_badge.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/spaces/models/home_layout.dart';
-import 'package:bonfire/features/user/views/accord_direct_messages.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/server_unreachable.dart';
-import 'package:bonfire/shared/utils/rest_result_ext.dart';
 import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The right-hand member roster for the Accord home view. Groups the space's
@@ -321,11 +319,17 @@ class _MemberRow extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(8),
           hoverColor: colors.hover,
-          onTap: () => showAccordMemberPopout(
-            context,
-            spaceId: spaceId,
-            userId: member.userId,
-          ),
+          onTap: () {
+            final box = context.findRenderObject() as RenderBox?;
+            showAccordMemberPopout(
+              context,
+              spaceId: spaceId,
+              userId: member.userId,
+              besideRect: box == null || !box.hasSize
+                  ? null
+                  : box.localToGlobal(Offset.zero) & box.size,
+            );
+          },
           onSecondaryTapUp: (d) => _showMemberContextMenu(
             context,
             ref,
@@ -434,55 +438,19 @@ class _MemberRow extends ConsumerWidget {
   }
 }
 
-/// Quick-utility right-click / long-press menu for a roster member: view their
-/// profile, start a DM, or copy their id/username. Moderation lives in the
-/// profile popout reached by tapping the row. [globalPos] is the pointer
-/// location for a right-click; it's null for a long-press, where the menu
-/// anchors to the overlay centre instead.
+/// The member menu ([showUserContextMenu]) at [globalPos]; null (a
+/// long-press) presents the touch sheet.
 Future<void> _showMemberContextMenu(
   BuildContext context,
   WidgetRef ref,
   AccordMember member,
   String spaceId,
   Offset? globalPos,
-) async {
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-  if (overlay == null) return;
-  final anchor = globalPos ?? overlay.size.center(Offset.zero);
-  final currentUserId = ref.readUserId();
-  final isSelf = currentUserId != null && currentUserId == member.userId;
-  final username = member.user?.username;
-  final selected = await showMenu<String>(
-    context: context,
-    position: RelativeRect.fromRect(
-      anchor & const Size(40, 40),
-      Offset.zero & overlay.size,
-    ),
-    items: [
-      const PopupMenuItem(value: 'profile', child: Text('View Profile')),
-      if (!isSelf)
-        const PopupMenuItem(value: 'dm', child: Text('Direct Message')),
-      const PopupMenuDivider(),
-      const PopupMenuItem(value: 'copyId', child: Text('Copy User ID')),
-      if (username != null && username.isNotEmpty)
-        const PopupMenuItem(value: 'copyName', child: Text('Copy Username')),
-    ],
-  );
-  if (selected == null || !context.mounted) return;
-  switch (selected) {
-    case 'profile':
-      await showAccordMemberPopout(
-        context,
-        spaceId: spaceId,
-        userId: member.userId,
-      );
-    case 'dm':
-      await openAccordDirectMessage(context, ref, member.userId);
-    case 'copyId':
-      await Clipboard.setData(ClipboardData(text: member.userId));
-      if (context.mounted) showInfoSnack(context, 'User ID copied');
-    case 'copyName':
-      await Clipboard.setData(ClipboardData(text: username!));
-      if (context.mounted) showInfoSnack(context, 'Username copied');
-  }
-}
+) => showUserContextMenu(
+  context,
+  ref,
+  userId: member.userId,
+  user: member.user,
+  spaceId: spaceId,
+  globalPosition: globalPos,
+);

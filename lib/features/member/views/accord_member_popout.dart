@@ -1,26 +1,26 @@
 import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
-import 'package:bonfire/shared/components/async_state_views.dart';
-import 'package:bonfire/shared/utils/rest_result_ext.dart';
-import 'package:bonfire/shared/utils/server_timestamp.dart';
-import 'package:bonfire/shared/utils/ban_dialog.dart';
-import 'package:bonfire/shared/utils/confirm_dialog.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
-import 'package:bonfire/shared/utils/text_prompt_dialog.dart';
 import 'package:bonfire/features/events/controllers/presence.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
+import 'package:bonfire/features/member/controllers/profile_extras.dart';
+import 'package:bonfire/features/member/utils/member_actions.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/member/utils/permissions.dart';
 import 'package:bonfire/features/member/views/accord_member_avatar.dart';
+import 'package:bonfire/features/member/views/full_profile.dart';
+import 'package:bonfire/features/member/views/profile_card.dart';
+import 'package:bonfire/features/member/views/profile_extras.dart'
+    show profileColor;
 import 'package:bonfire/features/member/views/remote_origin_badge.dart';
+import 'package:bonfire/features/member/views/user_context_menu.dart';
+import 'package:bonfire/features/messaging/views/emoji_picker.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
-import 'package:bonfire/features/user/controllers/blocked_users.dart';
-import 'package:bonfire/features/user/views/accord_direct_messages.dart';
-import 'package:bonfire/features/spaces/views/accord_reports.dart';
+import 'package:bonfire/features/user/views/account_card.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:collection/collection.dart';
-import 'package:bonfire/features/member/views/profile_extras.dart';
 import 'package:bonfire/shared/utils/platform.dart';
 import 'package:bonfire/shared/utils/pointer_anchor.dart';
 import 'package:flutter/material.dart';
@@ -28,39 +28,104 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'member_popout/sections.dart';
 
-/// Opens the member profile card for [userId] within [spaceId]. On desktop
-/// it pops out beside the click that opened it; on touch layouts (or with no
-/// recent click) it is a centered modal.
+/// Width of the profile popout, as the reference client's.
+const double kProfilePopoutWidth = 300;
+
+/// Opens the profile popout for [userId] — a member of [spaceId], or (in a
+/// DM, with no space) the account alone. On desktop it pops out beside the
+/// click that opened it; on touch layouts (or with no recent click) it is a
+/// centered modal. Clicking the avatar or banner opens the full profile.
+///
+/// [besideRect] (a member-list row) puts the card's top-right corner 7 px
+/// left of the row, level with it, as the reference client's roster does.
 Future<void> showAccordMemberPopout(
   BuildContext context, {
-  required String spaceId,
+  String? spaceId,
   required String userId,
+  Rect? besideRect,
 }) {
-  final anchor = shouldUseDesktopLayout(context) ? recentPointerAnchor() : null;
+  final desktop = shouldUseDesktopLayout(context);
+  if (desktop && besideRect != null) {
+    return _showAnchoredPopout(
+      context,
+      _BesideLayout(besideRect),
+      spaceId: spaceId,
+      userId: userId,
+    );
+  }
+  final anchor = desktop ? recentPointerAnchor() : null;
   if (anchor == null) {
     return showDialog<void>(
       context: context,
-      builder: (_) => _MemberPopout(spaceId: spaceId, userId: userId),
+      builder: (_) => Center(
+        child: _MemberPopout(spaceId: spaceId, userId: userId),
+      ),
     );
   }
-  return showGeneralDialog<void>(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: 'Close profile',
-    barrierColor: Colors.transparent,
-    transitionDuration: const Duration(milliseconds: 120),
-    pageBuilder: (_, _, _) => CustomSingleChildLayout(
-      delegate: _PopoverLayout(anchor),
-      child: _MemberPopout(spaceId: spaceId, userId: userId, anchored: true),
-    ),
-    transitionBuilder: (_, animation, _, child) =>
-        FadeTransition(opacity: animation, child: child),
+  return _showAnchoredPopout(
+    context,
+    _PopoverLayout(anchor),
+    spaceId: spaceId,
+    userId: userId,
   );
 }
 
+Future<void> _showAnchoredPopout(
+  BuildContext context,
+  SingleChildLayoutDelegate layout, {
+  required String? spaceId,
+  required String userId,
+}) => showGeneralDialog<void>(
+  context: context,
+  barrierDismissible: true,
+  barrierLabel: 'Close profile',
+  barrierColor: Colors.transparent,
+  transitionDuration: const Duration(milliseconds: 120),
+  pageBuilder: (_, _, _) => CustomSingleChildLayout(
+    delegate: layout,
+    child: _MemberPopout(spaceId: spaceId, userId: userId),
+  ),
+  transitionBuilder: (_, animation, _, child) =>
+      FadeTransition(opacity: animation, child: child),
+);
+
+/// Beside a roster row: the card's top-right corner 7 px left of the row,
+/// level with its top, kept on screen.
+class _BesideLayout extends SingleChildLayoutDelegate {
+  const _BesideLayout(this.row);
+
+  final Rect row;
+  static const double _margin = 12;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints.loose(
+        Size(
+          kProfilePopoutWidth,
+          (constraints.maxHeight - 2 * _margin).clamp(0, 900),
+        ),
+      );
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final x = (row.left - 7 - childSize.width).clamp(
+      _margin,
+      (size.width - childSize.width - _margin).clamp(_margin, size.width),
+    );
+    final y = row.top.clamp(
+      _margin,
+      (size.height - childSize.height - _margin).clamp(_margin, size.height),
+    );
+    return Offset(x.toDouble(), y.toDouble());
+  }
+
+  @override
+  bool shouldRelayout(_BesideLayout oldDelegate) => row != oldDelegate.row;
+}
+
 /// Places the card to the right of [anchor] (to its left when there is no
-/// room, e.g. clicks in the member list), its top near the click, kept on
-/// screen.
+/// room, e.g. clicks in the member list), its top a little above the click,
+/// kept on screen.
 class _PopoverLayout extends SingleChildLayoutDelegate {
   const _PopoverLayout(this.anchor);
 
@@ -70,16 +135,19 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
       BoxConstraints.loose(
-        Size(360, (constraints.maxHeight - 2 * _margin).clamp(0, 900)),
+        Size(
+          kProfilePopoutWidth,
+          (constraints.maxHeight - 2 * _margin).clamp(0, 900),
+        ),
       );
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
     var x = anchor.dx + 16;
     if (x + childSize.width > size.width - _margin) {
-      x = anchor.dx - 16 - childSize.width;
+      x = anchor.dx - 20 - childSize.width;
     }
-    final y = (anchor.dy - 40).clamp(
+    final y = (anchor.dy - 20).clamp(
       _margin,
       (size.height - childSize.height - _margin).clamp(_margin, size.height),
     );
@@ -97,323 +165,105 @@ class _PopoverLayout extends SingleChildLayoutDelegate {
       anchor != oldDelegate.anchor;
 }
 
-/// Available timeout durations (label → seconds), mirroring the reference
-/// client's `moderate_member_dialog`.
-const _timeoutDurations = <(String, int)>[
-  ('60 seconds', 60),
-  ('5 minutes', 300),
-  ('10 minutes', 600),
-  ('1 hour', 3600),
-  ('1 day', 86400),
-  ('1 week', 604800),
-];
-
 class _MemberPopout extends ConsumerStatefulWidget {
-  const _MemberPopout({
-    required this.spaceId,
-    required this.userId,
-    this.anchored = false,
-  });
+  const _MemberPopout({required this.spaceId, required this.userId});
 
-  final String spaceId;
+  final String? spaceId;
   final String userId;
-
-  /// Shown beside a click (a plain card) rather than as a centered dialog.
-  final bool anchored;
 
   @override
   ConsumerState<_MemberPopout> createState() => _MemberPopoutState();
 }
 
 class _MemberPopoutState extends ConsumerState<_MemberPopout> {
-  bool _busy = false;
-  String? _error;
+  final _message = TextEditingController();
+  int? _relationship;
+  bool _relationshipLoaded = false;
+  List<AccordUser> _mutualFriends = const [];
 
-  AccordClient? get _client => ref.accordClient;
   String get _serverKey => ref.readActiveServerKey() ?? '';
 
-  Future<void> _run(
-    Future<RestResult> Function(AccordClient client) action, {
-    String failure = 'Action failed',
-    bool closeOnSuccess = false,
-    VoidCallback? onSuccess,
+  @override
+  void initState() {
+    super.initState();
+    _loadRelations();
+  }
 
-    /// Given the successful result, for actions that report something back
-    /// (e.g. how many messages a ban purged). Runs before [closeOnSuccess]
-    /// pops, so it must not touch this popout's context.
-    void Function(RestResult result)? onResult,
-    bool missingIsSuccess = false,
-  }) async {
-    final client = _client;
-    if (client == null || _busy) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    final result = await action(client);
+  @override
+  void dispose() {
+    _message.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadRelations() async {
+    if (widget.userId == ref.readUserId()) return;
+    final type = await fetchRelationshipType(ref, widget.userId);
+    final client = ref.accordClient;
+    final mutual = client == null
+        ? null
+        : await client.users.getMutualFriends(widget.userId);
     if (!mounted) return;
-    // For removal actions (kick/ban), a "resource does not exist" / not-found
-    // error means the member is already gone server-side — the desired end
-    // state. Treat it as success so a stale roster row still gets cleared
-    // instead of leaving the member stuck with a confusing error.
-    final ok = result.ok || (missingIsSuccess && _isMissingResource(result));
-    if (ok) {
-      onSuccess?.call();
-      onResult?.call(result);
-      if (closeOnSuccess) {
-        Navigator.of(context).pop();
-        return;
-      }
-      setState(() => _busy = false);
-    } else {
-      setState(() {
-        _busy = false;
-        _error = result.errorOr(failure);
-      });
-    }
+    setState(() {
+      _relationship = type;
+      _relationshipLoaded = true;
+      final data = mutual?.data;
+      _mutualFriends = data is List
+          ? data.whereType<AccordUser>().toList()
+          : const [];
+    });
   }
 
-  /// Whether [result] is a "the target no longer exists" error (HTTP 404 or the
-  /// server's foreign-key / not-found message), meaning the member is already
-  /// absent.
-  bool _isMissingResource(RestResult result) {
-    if (result.statusCode == 404) return true;
-    final msg = result.error?.toString().toLowerCase() ?? '';
-    return msg.contains('does not exist') || msg.contains('not found');
+  /// "Message @x": sends, closes the popout and stays where you are. What the
+  /// reference client does afterwards could not be seen without writing to
+  /// someone: à confirmer.
+  Future<void> _send(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+    final navigator = Navigator.of(context);
+    final sent = await sendDirectMessage(context, ref, widget.userId, trimmed);
+    if (sent && mounted) navigator.pop();
   }
 
-  void _kick() {
-    _run(
-      (c) => c.members.kick(widget.spaceId, widget.userId),
-      failure: 'Failed to kick member',
-      closeOnSuccess: true,
-      missingIsSuccess: true,
-      onSuccess: () => ref
-          .read(
-            accordMembersControllerProvider(
-              _serverKey,
-              widget.spaceId,
-            ).notifier,
-          )
-          .removeMember(widget.userId),
-    );
-  }
-
-  /// Reports this user to the space's moderators, with the option to block
-  /// them at the same time (App Review 1.2 — see #290).
-  void _report() {
-    showReportDialog(
-      context,
+  void _openFull() {
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    showFullProfile(
+      navigator.context,
+      userId: widget.userId,
       spaceId: widget.spaceId,
-      targetType: 'user',
-      targetId: widget.userId,
-      reportedUserId: widget.userId,
-      reportedName: _displayName,
-    );
-  }
-
-  /// Blocks this user (relationship type 2). Account-level, not space-scoped —
-  /// uses `users.putRelationship`. Unblocking lives in the Friends → Blocked
-  /// list.
-  Future<void> _block() async {
-    final confirmed = await _confirm(
-      title: 'Block user',
-      message:
-          'Blocked users can\'t message you directly or notify you. Their '
-          'messages in spaces stay visible. Continue?',
-      action: 'Block',
-    );
-    if (confirmed != true) return;
-    _run(
-      (c) => c.users.putRelationship(widget.userId, {
-        'type': accordBlockedRelationship,
-      }),
-      failure: 'Failed to block user',
-      closeOnSuccess: true,
-      // Applies the block (DMs hidden, notifications silenced) right away
-      // rather than at the next relationship fetch (#290).
-      onSuccess: () => ref.blockedUsers.block(widget.userId),
-    );
-  }
-
-  /// The member's display name, resolved the same way [build] resolves it, for
-  /// the moderation dialogs that name their target.
-  String get _displayName {
-    final member = ref.read(
-      accordMembersControllerProvider(_serverKey, widget.spaceId),
-    )?[widget.userId];
-    if (member != null) return accordMemberName(member);
-    final cached = ref.read(
-      accordUsersControllerProvider(_serverKey),
-    )[widget.userId];
-    return accordUserName(cached, fallback: widget.userId);
-  }
-
-  Future<void> _ban() async {
-    // Resolved up front because the ban removes the member from the roster
-    // cache `_displayName` reads, leaving only the raw id afterwards.
-    final name = _displayName;
-    final request = await showBanDialog(context, memberName: name);
-    if (request == null || !mounted) return;
-    // Captured now: the popout pops itself on success, so by the time the
-    // result lands its own context can no longer find a messenger.
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    _run(
-      (c) =>
-          c.bans.create(widget.spaceId, widget.userId, data: request.toJson()),
-      failure: 'Failed to ban member',
-      closeOnSuccess: true,
-      missingIsSuccess: true,
-      onSuccess: () => ref
-          .read(
-            accordMembersControllerProvider(
-              _serverKey,
-              widget.spaceId,
-            ).notifier,
-          )
-          .removeMember(widget.userId),
-      onResult: (result) {
-        if (request.deleteMessageSeconds == 0) return;
-        // Reported rather than assumed: a server that predates the purge
-        // ignores the field, and this is the only way that shows up.
-        final count = _deletedMessageCount(result);
-        messenger?.showSnackBar(
-          SnackBar(
-            content: Text(
-              count == 1
-                  ? 'Banned $name and deleted 1 message'
-                  : 'Banned $name and deleted $count messages',
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// `deleted_message_count` from a ban response, or 0 when the server didn't
-  /// report one (i.e. it doesn't support purging on ban).
-  int _deletedMessageCount(RestResult result) {
-    final data = result.data;
-    if (data is! Map) return 0;
-    final count = data['deleted_message_count'];
-    return asInt(count);
-  }
-
-  void _timeout(int seconds) {
-    final until = DateTime.now().toUtc().add(Duration(seconds: seconds));
-    final iso = '${until.toIso8601String().split('.').first}Z';
-    _run(
-      (c) => c.members.update(widget.spaceId, widget.userId, {
-        'communication_disabled_until': iso,
-      }),
-      failure: 'Failed to time out member',
-    );
-  }
-
-  void _removeTimeout() {
-    _run(
-      (c) => c.members.update(widget.spaceId, widget.userId, {
-        'communication_disabled_until': null,
-      }),
-      failure: 'Failed to remove timeout',
-    );
-  }
-
-  /// Sets or clears [member]'s nickname. An empty value resets to the display
-  /// name. Optimistically mirrors the result into the member cache.
-  Future<void> _editNickname(AccordMember member) async {
-    final initial = member.nickname ?? '';
-    final next = (await showTextPromptDialog(
-      context,
-      title: 'Change nickname',
-      label: 'Nickname',
-      hintText: 'Leave empty to reset to their display name',
-      initial: initial,
-      resetLabel: initial.isNotEmpty ? 'Reset' : null,
-    ))?.trim();
-    if (next == null || !mounted) return;
-    _run(
-      (c) => c.members.update(widget.spaceId, widget.userId, {
-        'nickname': next.isEmpty ? null : next,
-      }),
-      failure: 'Failed to update nickname',
-      onSuccess: () {
-        member.nickname = next.isEmpty ? null : next;
-        ref
-            .read(
-              accordMembersControllerProvider(
-                _serverKey,
-                widget.spaceId,
-              ).notifier,
-            )
-            .upsertMember(member);
-      },
-    );
-  }
-
-  void _toggleRole(AccordMember member, AccordRole role, bool add) {
-    _run(
-      (c) => add
-          ? c.members.addRole(widget.spaceId, widget.userId, role.id)
-          : c.members.removeRole(widget.spaceId, widget.userId, role.id),
-      failure: 'Failed to update roles',
-      onSuccess: () {
-        final roles = [...member.roles];
-        if (add) {
-          if (!roles.contains(role.id)) roles.add(role.id);
-        } else {
-          roles.remove(role.id);
-        }
-        member.roles = roles;
-        ref
-            .read(
-              accordMembersControllerProvider(
-                _serverKey,
-                widget.spaceId,
-              ).notifier,
-            )
-            .upsertMember(member);
-      },
-    );
-  }
-
-  Future<bool?> _confirm({
-    required String title,
-    required String message,
-    required String action,
-  }) {
-    return showConfirmDialog(
-      context,
-      title: title,
-      message: message,
-      confirmLabel: action,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-
-    final members = ref.watch(
-      accordMembersControllerProvider(_serverKey, widget.spaceId),
-    );
-    final member = members?[widget.userId];
-    // Backfill the target from the on-demand user cache when outside the page.
+    final serverKey = _serverKey;
+    final spaceId = widget.spaceId;
+    final member = spaceId == null
+        ? null
+        : ref.watch(
+            accordMembersControllerProvider(
+              serverKey,
+              spaceId,
+            ).select((m) => m?[widget.userId]),
+          );
     final cachedUser = ref.watch(
-      accordUsersControllerProvider(_serverKey).select((m) => m[widget.userId]),
+      accordUsersControllerProvider(serverKey).select((m) => m[widget.userId]),
     );
-    if (member == null && cachedUser == null && members != null) {
-      ref
-          .read(accordUsersControllerProvider(_serverKey).notifier)
-          .ensure(widget.userId);
+    if (member == null && cachedUser == null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => ref
+            .read(accordUsersControllerProvider(serverKey).notifier)
+            .ensure(widget.userId),
+      );
     }
-
-    final space = ref.watch(
-      spacesControllerProvider.select(
-        (s) => s?.firstWhereOrNull((sp) => sp.id == widget.spaceId),
-      ),
-    );
-    final roles = space?.roles ?? const <AccordRole>[];
+    final space = spaceId == null
+        ? null
+        : ref.watch(
+            spacesControllerProvider.select(
+              (s) => s?.firstWhereOrNull((sp) => sp.id == spaceId),
+            ),
+          );
     final status = ref.watch(
       activePresencesProvider.select(
         (p) => accordPresenceStatus(p, widget.userId),
@@ -424,188 +274,228 @@ class _MemberPopoutState extends ConsumerState<_MemberPopout> {
         (p) => accordCustomStatus(p, widget.userId),
       ),
     );
+    final extras = ref
+        .watch(profileExtrasProvider(serverKey, widget.userId))
+        .asData
+        ?.value;
     final cdnUrl = ref.watchCdnUrl();
-    final currentUserId = ref.watchUserId();
-
+    final selfId = ref.watchUserId();
+    final isSelf = selfId != null && selfId == widget.userId;
+    final user = member?.user ?? cachedUser;
     final name = member != null
         ? accordMemberName(member)
         : accordUserName(cachedUser, fallback: widget.userId);
-    final username = member?.user?.username ?? cachedUser?.username;
+    final username = user?.username ?? '';
     final avatarUrl = member != null
         ? accordMemberAvatarUrl(member, cdnUrl)
         : accordAvatarUrl(cachedUser, cdnUrl);
-    final colorRole = member == null ? null : memberColorRole(member, roles);
-    final nameColor = colorRole == null
-        ? null
-        : accordRoleColor(colorRole.color);
-
-    final perms = ref.watchAccordPermissions(space, widget.spaceId);
-    final isSelf = currentUserId != null && currentUserId == widget.userId;
-    // A remote (federated) user is homed on another server; local-only
-    // moderation (kick/ban/timeout/roles/nickname) can't be performed on them
-    // here, so those actions are suppressed regardless of local permissions.
-    final remoteDomain =
-        accordMemberOrigin(member) ?? accordUserOrigin(cachedUser);
-    final isRemote = remoteDomain != null;
-    final canKick =
-        !isSelf &&
-        !isRemote &&
-        accordHasPermission(perms, AccordPermission.kickMembers);
-    final canBan =
-        !isSelf &&
-        !isRemote &&
-        accordHasPermission(perms, AccordPermission.banMembers);
-    final canTimeout =
-        !isSelf &&
-        !isRemote &&
-        accordHasPermission(perms, AccordPermission.moderateMembers);
+    final roles = space?.roles ?? const <AccordRole>[];
+    final memberRoles = [
+      for (final id in member?.roles ?? const <String>[])
+        if (roles.firstWhereOrNull((r) => r.id == id) case final role?)
+          if (role.position != 0) role,
+    ]..sort((a, b) => b.position.compareTo(a.position));
+    final perms = spaceId == null
+        ? const <String>{}
+        : ref.watchAccordPermissions(space, spaceId);
     final canManageRoles =
-        !isRemote && accordHasPermission(perms, AccordPermission.manageRoles);
-    final canEditNickname =
-        !isRemote &&
-        (isSelf
-            ? accordHasPermission(perms, AccordPermission.changeNickname)
-            : accordHasPermission(perms, AccordPermission.manageNicknames));
-    final timedOut =
-        member?.timedOutUntil != null &&
-        member!.timedOutUntil.toString().isNotEmpty;
+        member != null &&
+        accordMemberOrigin(member) == null &&
+        accordHasPermission(perms, AccordPermission.manageRoles);
+    final remoteDomain = accordMemberOrigin(member) ?? accordUserOrigin(user);
+    final card = profileCardColor(colors);
+    final bannerColor = extras?.themePrimary != null
+        ? profileColor(extras!.themePrimary!)
+        : null;
+    final bio = user?.bio?.trim();
+    // Spaces of this connection whose member list holds the user (Accord has
+    // no mutual-servers endpoint, §4).
+    final mutualSpaces = isSelf
+        ? 0
+        : (ref.watch(spacesControllerProvider) ?? const <AccordSpace>[])
+              .where(
+                (s) => ref.watch(
+                  accordMembersControllerProvider(
+                    serverKey,
+                    s.id,
+                  ).select((m) => m?.containsKey(widget.userId) ?? false),
+                ),
+              )
+              .length;
 
-    // Roles assignable in the popout: skip @everyone (position 0) and managed.
-    final assignableRoles = roles
-        .where((r) => r.position != 0 && !r.managed)
-        .sortedBy<num>((r) => -r.position);
-    final memberRoleIds = member?.roles ?? const <String>[];
+    final notFriend =
+        !isSelf &&
+        _relationshipLoaded &&
+        _relationship != AccordRelationshipType.friend &&
+        _relationship != AccordRelationshipType.blocked;
 
-    return _PopoutFrame(
-      anchored: widget.anchored,
-      color: colors.foreground,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
+    return Material(
+      type: MaterialType.transparency,
+      child: Container(
+        key: const Key('profile-popout'),
+        width: kProfilePopoutWidth,
+        decoration: BoxDecoration(
+          color: card,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.hairline),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x3D000000),
+              offset: Offset(0, 12),
+              blurRadius: 24,
+            ),
+          ],
+        ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ProfileThemeBand(serverKey: _serverKey, userId: widget.userId),
-              _ProfileHeader(
-                name: name,
-                username: username,
+              _PopoutHeader(
+                bannerColor: bannerColor,
                 avatarUrl: avatarUrl,
-                avatarBackgroundColor: accordAvatarColor(
-                  member?.user,
-                  widget.userId,
-                ),
+                name: name,
+                avatarColor: accordAvatarColor(user, widget.userId),
                 status: status,
-                nameColor: nameColor,
                 customStatus: customStatus,
-                remoteDomain: remoteDomain,
-              ),
-              ProfileExtrasSection(
-                serverKey: _serverKey,
-                userId: widget.userId,
                 isSelf: isSelf,
-                bio: member?.user?.bio ?? cachedUser?.bio,
-              ),
-              if (timedOut) ...[
-                const SizedBox(height: 12),
-                _TimeoutBanner(
-                  label: 'Timed out until ${member.timedOutUntil}',
-                ),
-              ],
-              if (member != null)
-                _MembershipInfo(
-                  member: member,
-                  roles: roles,
-                  memberRoleIds: memberRoleIds,
-                ),
-              if (canManageRoles &&
-                  member != null &&
-                  assignableRoles.isNotEmpty)
-                _RoleEditor(
-                  roles: assignableRoles,
-                  memberRoleIds: memberRoleIds,
-                  enabled: !_busy,
-                  onToggle: (role, add) => _toggleRole(member, role, add),
-                ),
-              if (canEditNickname && member != null) ...[
-                const SizedBox(height: 8),
-                _ActionTile(
-                  icon: AppIcons.badgeOutlined,
-                  label: (member.nickname ?? '').isEmpty
-                      ? 'Set nickname'
-                      : 'Edit nickname',
-                  color: colors.dirtyWhite,
-                  onTap: _busy ? null : () => _editNickname(member),
-                ),
-              ],
-              if (canKick || canBan || canTimeout) ...[
-                const SizedBox(height: 16),
-                Divider(color: colors.background, height: 1),
-                const SizedBox(height: 12),
-                _ModerationActions(
-                  canKick: canKick,
-                  canBan: canBan,
-                  canTimeout: canTimeout,
-                  timedOut: timedOut,
-                  busy: _busy,
-                  onKick: _kick,
-                  onBan: _ban,
-                  onTimeout: _timeout,
-                  onRemoveTimeout: _removeTimeout,
-                ),
-              ],
-              if (!isSelf) ...[
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _busy
-                        ? null
-                        : () => openAccordDirectMessage(
-                            context,
-                            ref,
-                            widget.userId,
-                          ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: colors.primary,
+                cardColor: card,
+                onOpenFull: _openFull,
+                onEditStatus: isSelf
+                    ? () {
+                        Navigator.of(context).pop();
+                        showCustomStatusDialog(context, ref);
+                      }
+                    : null,
+                buttons: [
+                  if (notFriend)
+                    BannerRoundButton(
+                      key: const Key('profile-add-friend'),
+                      icon: AppIcons.personAdd,
+                      tooltip: switch (_relationship) {
+                        AccordRelationshipType.pendingOut => 'Pending',
+                        _ => 'Add Friend',
+                      },
+                      onTap: (_) async {
+                        await changeRelationship(
+                          context,
+                          ref,
+                          widget.userId,
+                          _relationship,
+                        );
+                        _loadRelations();
+                      },
                     ),
-                    icon: const Icon(AppIcons.chatBubbleOutline, size: 18),
-                    label: const Text('Direct Message'),
+                  BannerRoundButton(
+                    key: const Key('profile-more'),
+                    icon: AppIcons.moreHoriz,
+                    tooltip: 'More',
+                    onTap: (position) => showUserContextMenu(
+                      context,
+                      ref,
+                      userId: widget.userId,
+                      user: user,
+                      spaceId: spaceId,
+                      globalPosition: position,
+                      origin: UserMenuOrigin.profile,
+                    ),
                   ),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _NameBlock(
+                      name: name,
+                      username: username,
+                      pronouns: extras?.pronouns,
+                      remoteDomain: remoteDomain,
+                      onTap: _openFull,
+                    ),
+                    if (bio != null && bio.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        bio,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 18 / 14,
+                          color: colors.dirtyWhite,
+                        ),
+                      ),
+                    ],
+                    if (!isSelf &&
+                        (_mutualFriends.isNotEmpty || mutualSpaces > 0)) ...[
+                      const SizedBox(height: 12),
+                      _MutualLine(
+                        friends: _mutualFriends,
+                        servers: mutualSpaces,
+                        cdnUrl: cdnUrl,
+                        onTap: () {
+                          final navigator = Navigator.of(context);
+                          navigator.pop();
+                          showFullProfile(
+                            navigator.context,
+                            userId: widget.userId,
+                            spaceId: spaceId,
+                            initialTab: FullProfileTab.mutualFriends,
+                          );
+                        },
+                      ),
+                    ],
+                    if (memberRoles.isNotEmpty || canManageRoles) ...[
+                      const SizedBox(height: 12),
+                      _RoleList(
+                        roles: memberRoles,
+                        onAdd: canManageRoles
+                            ? (position) => showAccordContextMenu(
+                                context,
+                                globalPosition: position,
+                                entries: [
+                                  for (final role
+                                      in roles
+                                          .where(
+                                            (r) =>
+                                                r.position != 0 && !r.managed,
+                                          )
+                                          .sortedBy<num>((r) => -r.position))
+                                    AccordMenuEntry(
+                                      label: role.name,
+                                      checked: member.roles.contains(role.id),
+                                      onSelected: () => setMemberRole(
+                                        context,
+                                        ref,
+                                        spaceId: spaceId!,
+                                        member: member,
+                                        role: role,
+                                        add: !member.roles.contains(role.id),
+                                      ),
+                                    ),
+                                ],
+                              )
+                            : null,
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    if (isSelf)
+                      _EditProfileButton(
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          openEditProfile(context);
+                        },
+                      )
+                    else
+                      _MessageField(
+                        controller: _message,
+                        name: username.isNotEmpty ? username : name,
+                        onSend: _send,
+                      ),
+                  ],
                 ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FriendActionButton(
-                    user:
-                        member?.user ??
-                        cachedUser ??
-                        AccordUser(id: widget.userId),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _busy ? null : _report,
-                    style: TextButton.styleFrom(foregroundColor: colors.red),
-                    icon: const Icon(AppIcons.flagOutlined, size: 18),
-                    label: const Text('Report user'),
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _busy ? null : _block,
-                    style: TextButton.styleFrom(foregroundColor: colors.red),
-                    icon: const Icon(AppIcons.block, size: 18),
-                    label: const Text('Block user'),
-                  ),
-                ),
-              ],
-              if (_error != null) ...[
-                const SizedBox(height: 10),
-                InlineError(_error!, centered: false),
-              ],
+              ),
             ],
           ),
         ),

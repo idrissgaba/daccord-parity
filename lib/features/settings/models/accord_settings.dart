@@ -148,6 +148,15 @@ class AccordSettings {
     this.disabledDefaultKeybinds = const <String>[],
     this.mutedSpaces = const <String>[],
     this.hiddenSpaces = const <String>[],
+    this.muteExpiries = const <String, int>{},
+    this.spaceNotifications = const <String, String>{},
+    this.spaceSuppressEveryone = const <String>[],
+    this.spaceSuppressRoles = const <String>[],
+    this.pinnedChannels = const <String>[],
+    this.hideMutedChannels = const <String>[],
+    this.hiddenVoiceNames = const <String>[],
+    this.statusExpiries = const <String, int>{},
+    this.customStatusExpiries = const <String, int>{},
     this.channelListWidth = defaultChannelListWidth,
   });
 
@@ -430,6 +439,46 @@ class AccordSettings {
   /// rendered until unhidden. Stored client-side like [spaceFolders].
   final List<String> hiddenSpaces;
 
+  /// When a timed mute ends, in epoch milliseconds, keyed by the muted
+  /// space's, category's, channel's or DM's [ServerEntityKey]. A mute with no
+  /// entry lasts until turned back on ("Until I turn it back on"). Kept
+  /// client-side until the server stores `muted_until` itself; the
+  /// `MuteExpiryController` lifts each mute when its time comes.
+  final Map<String, int> muteExpiries;
+
+  /// Per-space notification level (`'all'`, `'mentions'`, `'nothing'`), the
+  /// server-wide choice of the space's "Notification Settings" submenu.
+  /// Channels and categories use [channelNotifications].
+  final Map<String, String> spaceNotifications;
+
+  /// Spaces whose `@everyone` / `@here` never notify ("Suppress @everyone and
+  /// @here"), on top of the global [suppressEveryone].
+  final List<String> spaceSuppressEveryone;
+
+  /// Spaces whose role mentions never notify ("Suppress All Role @mentions").
+  final List<String> spaceSuppressRoles;
+
+  /// Channels pinned to the top of their space's channel list ("Pin Channel
+  /// to Top"), as channel [ServerEntityKey]s, in pin order.
+  final List<String> pinnedChannels;
+
+  /// Spaces whose muted channels are hidden from the channel list ("Hide
+  /// Muted Channels").
+  final List<String> hideMutedChannels;
+
+  /// Voice channels whose participants are not listed under them in the
+  /// channel list ("Hide Names").
+  final List<String> hiddenVoiceNames;
+
+  /// When a timed Idle / Do Not Disturb / Invisible status ends, in epoch
+  /// milliseconds, per connection key ("For 1 Hour" … in the status
+  /// submenu). Absent = until changed.
+  final Map<String, int> statusExpiries;
+
+  /// When the custom status is cleared, in epoch milliseconds, per connection
+  /// key ("Clear after" of the Set your status dialog).
+  final Map<String, int> customStatusExpiries;
+
   /// Width of the channel-list column on desktop, in logical pixels. Clamped to
   /// [minChannelListWidth]–[maxChannelListWidth]; persisted across restarts.
   final double channelListWidth;
@@ -504,6 +553,15 @@ class AccordSettings {
     List<String>? disabledDefaultKeybinds,
     List<String>? mutedSpaces,
     List<String>? hiddenSpaces,
+    Map<String, int>? muteExpiries,
+    Map<String, String>? spaceNotifications,
+    List<String>? spaceSuppressEveryone,
+    List<String>? spaceSuppressRoles,
+    List<String>? pinnedChannels,
+    List<String>? hideMutedChannels,
+    List<String>? hiddenVoiceNames,
+    Map<String, int>? statusExpiries,
+    Map<String, int>? customStatusExpiries,
     double? channelListWidth,
   }) {
     return AccordSettings(
@@ -583,6 +641,16 @@ class AccordSettings {
           disabledDefaultKeybinds ?? this.disabledDefaultKeybinds,
       mutedSpaces: mutedSpaces ?? this.mutedSpaces,
       hiddenSpaces: hiddenSpaces ?? this.hiddenSpaces,
+      muteExpiries: muteExpiries ?? this.muteExpiries,
+      spaceNotifications: spaceNotifications ?? this.spaceNotifications,
+      spaceSuppressEveryone:
+          spaceSuppressEveryone ?? this.spaceSuppressEveryone,
+      spaceSuppressRoles: spaceSuppressRoles ?? this.spaceSuppressRoles,
+      pinnedChannels: pinnedChannels ?? this.pinnedChannels,
+      hideMutedChannels: hideMutedChannels ?? this.hideMutedChannels,
+      hiddenVoiceNames: hiddenVoiceNames ?? this.hiddenVoiceNames,
+      statusExpiries: statusExpiries ?? this.statusExpiries,
+      customStatusExpiries: customStatusExpiries ?? this.customStatusExpiries,
       channelListWidth: channelListWidth ?? this.channelListWidth,
     );
   }
@@ -590,6 +658,48 @@ class AccordSettings {
   /// Whether [spaceId]'s notifications are muted.
   bool isSpaceMuted(String serverKey, String spaceId) =>
       mutedSpaces.contains(ServerEntityKey(serverKey, spaceId).encoded);
+
+  /// When the timed mute of [entityId] (a space, category, channel or DM)
+  /// ends, or null for a mute that lasts until turned back on.
+  DateTime? muteExpiry(String serverKey, String entityId) {
+    final ms = muteExpiries[ServerEntityKey(serverKey, entityId).encoded];
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  /// [spaceId]'s own notification level, or null for the default.
+  String? spaceNotificationLevel(String serverKey, String spaceId) =>
+      spaceNotifications[ServerEntityKey(serverKey, spaceId).encoded];
+
+  /// The level that decides a message in [channelId]: the channel's own,
+  /// else its category's, else its space's, else null (the default).
+  String? effectiveNotificationLevel(
+    String serverKey,
+    String channelId, {
+    String? categoryId,
+    String? spaceId,
+  }) =>
+      channelNotificationLevel(serverKey, channelId) ??
+      (categoryId == null
+          ? null
+          : channelNotificationLevel(serverKey, categoryId)) ??
+      (spaceId == null ? null : spaceNotificationLevel(serverKey, spaceId));
+
+  bool suppressesEveryoneIn(String serverKey, String spaceId) =>
+      spaceSuppressEveryone.contains(
+        ServerEntityKey(serverKey, spaceId).encoded,
+      );
+
+  bool suppressesRolesIn(String serverKey, String spaceId) =>
+      spaceSuppressRoles.contains(ServerEntityKey(serverKey, spaceId).encoded);
+
+  bool isChannelPinned(String serverKey, String channelId) =>
+      pinnedChannels.contains(ServerEntityKey(serverKey, channelId).encoded);
+
+  bool hidesMutedChannels(String serverKey, String spaceId) =>
+      hideMutedChannels.contains(ServerEntityKey(serverKey, spaceId).encoded);
+
+  bool hidesVoiceNames(String serverKey, String channelId) =>
+      hiddenVoiceNames.contains(ServerEntityKey(serverKey, channelId).encoded);
 
   /// Whether [spaceId]'s welcome screen has been shown.
   bool isWelcomeSeen(String serverKey, String spaceId) =>
@@ -803,6 +913,15 @@ class AccordSettings {
     'disabledDefaultKeybinds': disabledDefaultKeybinds,
     'mutedSpaces': mutedSpaces,
     'hiddenSpaces': hiddenSpaces,
+    'muteExpiries': muteExpiries,
+    'spaceNotifications': spaceNotifications,
+    'spaceSuppressEveryone': spaceSuppressEveryone,
+    'spaceSuppressRoles': spaceSuppressRoles,
+    'pinnedChannels': pinnedChannels,
+    'hideMutedChannels': hideMutedChannels,
+    'hiddenVoiceNames': hiddenVoiceNames,
+    'statusExpiries': statusExpiries,
+    'customStatusExpiries': customStatusExpiries,
     'channelListWidth': channelListWidth,
   };
 
@@ -962,10 +1081,34 @@ class AccordSettings {
         for (final s in (json['hiddenSpaces'] as List? ?? const []))
           s.toString(),
       ],
+      muteExpiries: _intMapFromJson(json['muteExpiries']),
+      spaceNotifications: {
+        for (final entry
+            in (json['spaceNotifications'] as Map? ?? const {}).entries)
+          entry.key.toString(): entry.value.toString(),
+      },
+      spaceSuppressEveryone: _stringListFromJson(json['spaceSuppressEveryone']),
+      spaceSuppressRoles: _stringListFromJson(json['spaceSuppressRoles']),
+      pinnedChannels: _stringListFromJson(json['pinnedChannels']),
+      hideMutedChannels: _stringListFromJson(json['hideMutedChannels']),
+      hiddenVoiceNames: _stringListFromJson(json['hiddenVoiceNames']),
+      statusExpiries: _intMapFromJson(json['statusExpiries']),
+      customStatusExpiries: _intMapFromJson(json['customStatusExpiries']),
       channelListWidth: _channelListWidthFromJson(json['channelListWidth']),
     );
   }
 }
+
+/// A persisted `{key: epoch ms}` map, dropping malformed entries.
+Map<String, int> _intMapFromJson(Object? raw) => {
+  for (final entry in (raw as Map? ?? const {}).entries)
+    if (entry.value is num) entry.key.toString(): (entry.value as num).toInt(),
+};
+
+/// A persisted list of strings.
+List<String> _stringListFromJson(Object? raw) => [
+  for (final s in (raw as List? ?? const [])) s.toString(),
+];
 
 /// Reads a persisted channel-list width, treating the pre-measurement default
 /// as unset so untouched installs pick up the reference width.

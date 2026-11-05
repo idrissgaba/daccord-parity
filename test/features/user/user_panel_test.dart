@@ -43,11 +43,7 @@ void main() {
         child: MaterialApp(
           theme: buildAppTheme(AppThemePreset.dark),
           home: Scaffold(
-            body: UserPanel(
-              onOpenSettings: () => settings++,
-              onSwitchAccount: () {},
-              onLogout: () {},
-            ),
+            body: UserPanel(onOpenSettings: () => settings++),
           ),
         ),
       ),

@@ -1,18 +1,27 @@
+import 'dart:math' as math;
+
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/spaces/utils/home_shortcuts.dart';
-import 'package:bonfire/shared/components/dialog_title_bar.dart';
+import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Lists every keyboard shortcut in force (Ctrl+/ and Settings › Keybinds).
-/// An action the user recorded a keybind for shows that chord in place of
-/// the built-in one.
+part 'keyboard_shortcuts_dialog/combo_grid.dart';
+
+/// The scrim behind the dialog (black at 72 %, as the reference client's
+/// modals).
+const Color _kScrim = Color(0xB8000000);
+
+/// Lists every keyboard shortcut in force (Ctrl+/ and Settings › Keybinds),
+/// laid out as the reference client's "Keyboard Combos" modal. An action the
+/// user recorded a keybind for shows that chord in place of the built-in one.
 Future<void> showKeyboardShortcutsDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
+    barrierColor: _kScrim,
     builder: (_) => const KeyboardShortcutsDialog(),
   );
 }
@@ -20,85 +29,61 @@ Future<void> showKeyboardShortcutsDialog(BuildContext context) {
 class KeyboardShortcutsDialog extends ConsumerWidget {
   const KeyboardShortcutsDialog({super.key});
 
+  /// The modal's size: 950 × 741 at the reference viewport.
+  static const double width = 950;
+  static const double height = 741;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = BonfireThemeExtension.of(context);
-    final theme = Theme.of(context);
     final mac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
     final settings = ref.watch(settingsControllerProvider);
     final effective = effectiveBindings(
       settings.keybinds,
       disabledDefaults: settings.disabledDefaultKeybinds,
     );
-    // One row per action: the first binding in force for it, or none when
-    // the user removed it.
-    final rows = [
-      for (final shortcut in HomeShortcut.values)
-        (
-          homeShortcutLabel(shortcut),
-          effective
-              .firstWhereOrNull((b) => b.shortcut == shortcut)
-              ?.describe(mac: mac),
-        ),
+    // One line of key caps per action: the first binding in force for it.
+    List<List<String>> chordsOf(KeyboardComboCard card) => [
+      ...card.fixed,
+      for (final action in card.actions)
+        if (effective.firstWhereOrNull((b) => b.shortcut == action)
+            case final binding?)
+          binding.keyCaps(mac: mac),
     ];
-    Widget row(String chord, String label) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: colors.foreground,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              chord,
-              style: theme.textTheme.labelMedium!.copyWith(
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    Widget heading(String text) => Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 4),
-      child: Text(
-        text.toUpperCase(),
-        style: theme.textTheme.labelSmall!.copyWith(color: colors.gray),
-      ),
-    );
+    final screen = MediaQuery.sizeOf(context);
     return Dialog(
       backgroundColor: colors.background,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480, maxHeight: 600),
+      insetPadding: const EdgeInsets.all(16),
+      // Material caps dialogs at 560 px; this modal is wider.
+      constraints: const BoxConstraints(),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        key: const Key('keyboard-combos'),
+        width: math.min(width, screen.width - 32),
+        height: math.min(height, screen.height - 32),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const DialogTitleBar('Keyboard shortcuts'),
-            Flexible(
+            _ComboHeader(mac: mac),
+            Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    heading('Navigation and voice'),
-                    for (final (label, chord) in rows)
-                      row(chord ?? 'Not bound', label),
-                    heading('Writing'),
-                    for (final (chord, label) in composerShortcutRows)
-                      row(chord, label),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(
-                        'Change them in Settings › Keybinds.',
-                        style: theme.textTheme.bodySmall!.copyWith(
-                          color: colors.gray,
+                    for (final (i, section) in ShortcutSection.values.indexed)
+                      if (keyboardComboCards.any((c) => c.section == section))
+                        _ComboSection(
+                          key: Key('keyboard-combos-${section.name}'),
+                          first: i == 0,
+                          title: shortcutSectionTitle(section),
+                          cards: [
+                            for (final card in keyboardComboCards)
+                              if (card.section == section)
+                                (label: card.label, chords: chordsOf(card)),
+                          ],
                         ),
-                      ),
-                    ),
                   ],
                 ),
               ),

@@ -144,8 +144,10 @@ void main() {
     await tester.longPress(find.text('bob'));
     await tester.pumpAndSettle();
 
-    expect(find.text('View profile'), findsOneWidget);
-    expect(find.text('Copy user ID'), findsOneWidget);
+    // The DM row's menu, in the reference client's order.
+    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Copy User ID'), findsOneWidget);
+    expect(find.text('Copy Channel ID'), findsOneWidget);
     expect(find.text('Close DM'), findsOneWidget);
   });
 

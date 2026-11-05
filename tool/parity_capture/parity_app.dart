@@ -8,7 +8,9 @@
 //
 // Build: `flutter build web -t tool/parity_capture/parity_app.dart
 // --no-tree-shake-icons -o build/parity`, serve `build/parity`, open
-// `/?scene=messages` or `/?scene=dm`. Nothing here is shipped.
+// `/?scene=messages`, `/?scene=dm` or `/?scene=friends`; add
+// `&preview=r-everyone` to see the menus of a plain member, `&open=shortcuts`
+// or `&open=switcher` for Ctrl+/ and Ctrl+K. Nothing here is shipped.
 
 import 'dart:convert';
 
@@ -27,8 +29,11 @@ import 'package:bonfire/features/profiles/services/profile_store.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
+import 'package:bonfire/features/spaces/controllers/role_preview.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/spaces/views/accord_home.dart';
+import 'package:bonfire/features/spaces/views/keyboard_shortcuts_dialog.dart';
+import 'package:bonfire/features/spaces/views/quick_switcher.dart';
 import 'package:bonfire/features/user/views/accord_direct_messages.dart';
 import 'package:bonfire/shared/components/app_shell.dart';
 import 'package:bonfire/theme/app_theme.dart';
@@ -198,6 +203,7 @@ MockClient _transport() {
       return _json(_dmMessages.reversed.toList());
     }
     if (path.endsWith('/users/@me/channels')) return _json([_dm]);
+    if (path.endsWith('/users/@me/mutes')) return _json([]);
     if (path.endsWith('/users/@me/relationships')) {
       return _json([
         {
@@ -298,15 +304,42 @@ Future<void> main() async {
           .userTyping('u-june');
     });
   }
+  // `&preview=r-everyone` views the space as that role (the owner's "View
+  // Server As Role"), for the menus a plain member gets.
+  final previewRole = Uri.base.queryParameters['preview'];
+  if (previewRole != null) {
+    container
+        .read(rolePreviewControllerProvider.notifier)
+        .enter(
+          RolePreview(
+            spaceId: seedSpaceId,
+            roleId: previewRole,
+            roleName: previewRole,
+          ),
+        );
+  }
   if (scene == 'dm' || scene == 'friends') {
     Future<void>.delayed(const Duration(milliseconds: 800), () {
       dmHome.open(scene == 'dm' ? AccordChannel.fromJson(_dm) : null);
+    });
+  }
+  // `&open=shortcuts` / `&open=switcher` opens Ctrl+/ or Ctrl+K once the
+  // home is up (synthetic keyboard events don't reach Flutter's shortcuts).
+  final navigatorKey = GlobalKey<NavigatorState>();
+  final open = Uri.base.queryParameters['open'];
+  if (open != null) {
+    Future<void>.delayed(const Duration(milliseconds: 1500), () {
+      final context = navigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      if (open == 'shortcuts') showKeyboardShortcutsDialog(context);
+      if (open == 'switcher') showQuickSwitcher(context);
     });
   }
   runApp(
     UncontrolledProviderScope(
       container: container,
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         theme: buildAppTheme(AppThemePreset.dark),
         builder: (context, child) =>

@@ -1,265 +1,156 @@
 part of '../accord_member_popout.dart';
 
-/// The top row of the popout: avatar with presence dot, display name (in the
-/// member's color role), @username, presence label, custom status, and the
-/// remote-origin badge for federated users.
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
+/// The banner (105 px) with the avatar (80 px at 16, 61) astride it and the
+/// status bubble to the avatar's right.
+class _PopoutHeader extends StatelessWidget {
+  const _PopoutHeader({
+    required this.bannerColor,
+    required this.avatarUrl,
+    required this.name,
+    required this.avatarColor,
+    required this.status,
+    required this.customStatus,
+    required this.isSelf,
+    required this.cardColor,
+    required this.onOpenFull,
+    required this.onEditStatus,
+    required this.buttons,
+  });
+
+  final Color? bannerColor;
+  final String? avatarUrl;
+  final String name;
+  final Color avatarColor;
+  final String status;
+  final String? customStatus;
+  final bool isSelf;
+  final Color cardColor;
+  final VoidCallback onOpenFull;
+  final VoidCallback? onEditStatus;
+  final List<Widget> buttons;
+
+  @override
+  Widget build(BuildContext context) {
+    final showBubble =
+        isSelf || (customStatus != null && customStatus!.isNotEmpty);
+    return SizedBox(
+      height: 105 + 44,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: GestureDetector(
+              onTap: onOpenFull,
+              child: ProfileBanner(
+                height: 105,
+                topRadius: 7,
+                color: bannerColor,
+                avatarUrl: avatarUrl,
+                trailing: buttons,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 12,
+            top: 57,
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                key: const Key('profile-popout-avatar'),
+                onTap: onOpenFull,
+                child: ProfileAvatarCutout(
+                  size: 80,
+                  ring: 4,
+                  avatarUrl: avatarUrl,
+                  initial: accordInitial(name),
+                  backgroundColor: avatarColor,
+                  status: status,
+                  cardColor: cardColor,
+                ),
+              ),
+            ),
+          ),
+          if (showBubble)
+            Positioned(
+              left: 106,
+              top: 99,
+              child: CustomStatusBubble(
+                text: customStatus,
+                prompt: statusPromptOfTheDay(),
+                onTap: onEditStatus,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Display name (20 / 600) over the username, pronouns and origin badge.
+class _NameBlock extends StatelessWidget {
+  const _NameBlock({
     required this.name,
     required this.username,
-    required this.avatarUrl,
-    required this.avatarBackgroundColor,
-    required this.status,
-    required this.nameColor,
-    required this.customStatus,
+    required this.pronouns,
     required this.remoteDomain,
+    required this.onTap,
   });
 
   final String name;
-  final String? username;
-  final String? avatarUrl;
-  final Color avatarBackgroundColor;
-  final String status;
-  final Color? nameColor;
-  final String? customStatus;
+  final String username;
+  final String? pronouns;
   final String? remoteDomain;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
-    return Row(
-      children: [
-        AccordMemberAvatar(
-          avatarUrl: avatarUrl,
-          initial: accordInitial(name),
-          status: status,
-          radius: 28,
-          backgroundColor: avatarBackgroundColor,
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                style: theme.textTheme.titleMedium!.copyWith(color: nameColor),
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (username != null)
-                Text(
-                  '@$username',
-                  style: theme.textTheme.bodySmall!.copyWith(
-                    color: colors.gray,
-                  ),
-                ),
-              Text(
-                _statusLabel(status),
-                style: theme.textTheme.bodySmall!.copyWith(color: colors.gray),
-              ),
-              if (customStatus != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  customStatus!,
-                  style: theme.textTheme.bodyMedium!.copyWith(
-                    color: colors.dirtyWhite,
-                  ),
-                ),
-              ],
-              if (remoteDomain != null) ...[
-                const SizedBox(height: 4),
-                RemoteOriginBadge(domain: remoteDomain!),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'online':
-        return 'Online';
-      case 'idle':
-        return 'Idle';
-      case 'dnd':
-        return 'Do Not Disturb';
-      default:
-        return 'Offline';
-    }
-  }
-}
-
-/// The amber "Timed out until …" pill shown while a member is timed out.
-class _TimeoutBanner extends StatelessWidget {
-  const _TimeoutBanner({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAA81A).withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            AppIcons.timerOutlined,
-            size: 16,
-            color: Color(0xFFFAA81A),
-          ),
-          const SizedBox(width: 6),
-          Flexible(child: Text(label, style: theme.textTheme.bodySmall)),
-        ],
-      ),
-    );
-  }
-}
-
-/// The read-only membership facts: "Member since" date and the member's
-/// current role chips.
-class _MembershipInfo extends StatelessWidget {
-  const _MembershipInfo({
-    required this.member,
-    required this.roles,
-    required this.memberRoleIds,
-  });
-
-  final AccordMember member;
-  final List<AccordRole> roles;
-  final List<String> memberRoleIds;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = BonfireThemeExtension.of(context);
+    final muted = Color.lerp(colors.gray, colors.interactive, 0.5)!;
     return Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (member.joinedAt.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          Text(
-            'Member since ${_date(member.joinedAt)}',
-            style: theme.textTheme.bodySmall!.copyWith(color: colors.gray),
-          ),
-        ],
-        if (memberRoleIds.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Text(
-            'ROLES',
-            style: theme.textTheme.labelSmall!.copyWith(
-              color: colors.gray,
-              fontWeight: FontWeight.bold,
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Text(
+              name,
+              key: const Key('profile-popout-name'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                height: 24 / 20,
+                color: colors.dirtyWhite,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final id in memberRoleIds)
-                if (roles.firstWhereOrNull((r) => r.id == id) case final role?)
-                  _RoleChip(role: role),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-
-  String _date(String iso) {
-    final dt = parseServerTimestamp(iso);
-    if (dt == null) return iso;
-    final local = dt.toLocal();
-    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')}';
-  }
-}
-
-class _RoleChip extends StatelessWidget {
-  const _RoleChip({required this.role});
-
-  final AccordRole role;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = BonfireThemeExtension.of(context);
-    final color = accordRoleColor(role.color) ?? colors.dirtyWhite;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            role.name,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall!.copyWith(color: colors.dirtyWhite),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoleEditor extends StatelessWidget {
-  const _RoleEditor({
-    required this.roles,
-    required this.memberRoleIds,
-    required this.enabled,
-    required this.onToggle,
-  });
-
-  final List<AccordRole> roles;
-  final List<String> memberRoleIds;
-  final bool enabled;
-  final void Function(AccordRole role, bool add) onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = BonfireThemeExtension.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 14),
-        Text(
-          'ASSIGN ROLES',
-          style: theme.textTheme.labelSmall!.copyWith(
-            color: colors.gray,
-            fontWeight: FontWeight.bold,
-          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 3),
         Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 6,
-          runSpacing: 6,
+          runSpacing: 4,
           children: [
-            for (final role in roles)
-              FilterChip(
-                label: Text(role.name),
-                selected: memberRoleIds.contains(role.id),
-                onSelected: enabled ? (value) => onToggle(role, value) : null,
-                showCheckmark: true,
+            if (username.isNotEmpty)
+              Text(
+                username,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 18 / 14,
+                  color: colors.dirtyWhite,
+                ),
               ),
+            if (pronouns != null && pronouns!.isNotEmpty)
+              Text(
+                '• $pronouns',
+                style: TextStyle(fontSize: 14, height: 18 / 14, color: muted),
+              ),
+            if (remoteDomain != null) RemoteOriginBadge(domain: remoteDomain!),
           ],
         ),
       ],
@@ -267,157 +158,225 @@ class _RoleEditor extends StatelessWidget {
   }
 }
 
-class _ModerationActions extends StatelessWidget {
-  const _ModerationActions({
-    required this.canKick,
-    required this.canBan,
-    required this.canTimeout,
-    required this.timedOut,
-    required this.busy,
-    required this.onKick,
-    required this.onBan,
-    required this.onTimeout,
-    required this.onRemoveTimeout,
+/// "[avatar] 1 Mutual Friend • 1 Mutual Server" (12 px), opening the full
+/// profile on the friends tab.
+class _MutualLine extends StatelessWidget {
+  const _MutualLine({
+    required this.friends,
+    required this.servers,
+    required this.cdnUrl,
+    required this.onTap,
   });
 
-  final bool canKick;
-  final bool canBan;
-  final bool canTimeout;
-  final bool timedOut;
-  final bool busy;
-  final VoidCallback onKick;
-  final VoidCallback onBan;
-  final ValueChanged<int> onTimeout;
-  final VoidCallback onRemoveTimeout;
+  final List<AccordUser> friends;
+  final int servers;
+  final String? cdnUrl;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (canTimeout)
-          PopupMenuButton<int>(
-            enabled: !busy,
-            tooltip: 'Time out',
-            onSelected: onTimeout,
-            itemBuilder: (context) => [
-              for (final (label, seconds) in _timeoutDurations)
-                PopupMenuItem(value: seconds, child: Text(label)),
+    final style = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      height: 16 / 12,
+      color: colors.interactive,
+    );
+    final parts = [
+      if (friends.isNotEmpty)
+        friends.length == 1 ? '1 Mutual Friend' : '${friends.length} Mutual Friends',
+      if (servers > 0) servers == 1 ? '1 Mutual Server' : '$servers Mutual Servers',
+    ];
+    final first = friends.firstOrNull;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (first != null) ...[
+                AccordMemberAvatar(
+                  avatarUrl: accordAvatarUrl(first, cdnUrl),
+                  initial: accordInitial(accordUserName(first, fallback: first.id)),
+                  radius: 8,
+                  backgroundColor: accordAvatarColor(first, first.id),
+                  initialStyle: const TextStyle(fontSize: 7),
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(parts.join(' • '), style: style),
             ],
-            child: _ActionRow(
-              icon: AppIcons.timerOutlined,
-              label: 'Time out…',
-              color: const Color(0xFFFAA81A),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The member's role pills, and "+ Add role" for those who manage roles.
+class _RoleList extends StatelessWidget {
+  const _RoleList({required this.roles, required this.onAdd});
+
+  final List<AccordRole> roles;
+  final void Function(Offset position)? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final pillColor = profileBubbleColor(colors);
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (final role in roles)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: pillColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: accordRoleColor(role.color) ?? colors.gray,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  role.name,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: colors.dirtyWhite,
+                  ),
+                ),
+              ],
             ),
           ),
-        if (canTimeout && timedOut)
-          _ActionTile(
-            icon: AppIcons.timerOffOutlined,
-            label: 'Remove timeout',
-            color: colors.dirtyWhite,
-            onTap: busy ? null : onRemoveTimeout,
-          ),
-        if (canKick)
-          _ActionTile(
-            icon: AppIcons.exitToApp,
-            label: 'Kick member',
-            color: const Color(0xFFFAA81A),
-            onTap: busy ? null : onKick,
-          ),
-        if (canBan)
-          _ActionTile(
-            icon: AppIcons.gavel,
-            label: 'Ban member',
-            color: colors.red,
-            onTap: busy ? null : onBan,
+        if (onAdd != null)
+          GestureDetector(
+            key: const Key('profile-add-role'),
+            onTapUp: (d) => onAdd!(d.globalPosition),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(AppIcons.add, size: 14, color: colors.interactive),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Add role',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 16 / 12,
+                        color: colors.interactive,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
       ],
     );
   }
 }
 
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
+/// Your own card's "Edit Profile": a full-width accent button.
+class _EditProfileButton extends StatelessWidget {
+  const _EditProfileButton({required this.onTap});
 
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: _ActionRow(icon: icon, label: label, color: color),
-    );
-  }
-}
-
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium!.copyWith(color: color),
+    final colors = BonfireThemeExtension.of(context);
+    return SizedBox(
+      height: 32,
+      child: FilledButton.icon(
+        key: const Key('profile-edit'),
+        style: FilledButton.styleFrom(
+          backgroundColor: colors.primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
           ),
-        ],
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          padding: EdgeInsets.zero,
+        ),
+        onPressed: onTap,
+        icon: const Icon(AppIcons.edit, size: 16),
+        label: const Text('Edit Profile'),
       ),
     );
   }
 }
 
-/// A centered dialog, or a raised card when the profile pops out beside a
-/// click.
-class _PopoutFrame extends StatelessWidget {
-  const _PopoutFrame({
-    required this.anchored,
-    required this.color,
-    required this.child,
+/// "Message @name" with the emoji button, sending on Enter.
+class _MessageField extends ConsumerWidget {
+  const _MessageField({
+    required this.controller,
+    required this.name,
+    required this.onSend,
   });
 
-  final bool anchored;
-  final Color color;
-  final Widget child;
+  final TextEditingController controller;
+  final String name;
+  final ValueChanged<String> onSend;
 
   @override
-  Widget build(BuildContext context) {
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
-    );
-    if (!anchored) {
-      return Dialog(backgroundColor: color, shape: shape, child: child);
-    }
-    return Material(
-      color: color,
-      shape: shape,
-      elevation: 12,
-      clipBehavior: Clip.antiAlias,
-      child: child,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = BonfireThemeExtension.of(context);
+    final muted = Color.lerp(colors.gray, colors.interactive, 0.5)!;
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.only(left: 12, right: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.hairline),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              key: const Key('profile-message-field'),
+              controller: controller,
+              onSubmitted: onSend,
+              style: TextStyle(fontSize: 14, color: colors.dirtyWhite),
+              decoration: InputDecoration(
+                isCollapsed: true,
+                border: InputBorder.none,
+                hintText: 'Message @$name',
+                hintStyle: TextStyle(fontSize: 14, color: muted),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (buttonContext) => IconButton(
+              tooltip: 'Select emoji',
+              iconSize: 20,
+              color: colors.interactive,
+              icon: const Icon(AppIcons.emojiEmotionsOutlined),
+              onPressed: () async {
+                final pick = await showAccordEmojiPicker(buttonContext);
+                if (pick == null) return;
+                controller.text += pick.composerText;
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

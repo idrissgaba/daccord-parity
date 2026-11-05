@@ -14,6 +14,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
 
 /// Channel types a webhook can post in.
 bool webhookPostable(AccordChannel channel) =>
@@ -325,37 +326,37 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
                                   onPressed: () => _copyUrl(webhook),
                                   icon: const Icon(AppIcons.link, size: 18),
                                 ),
-                                PopupMenuButton<String>(
+                                AccordMenuButton(
                                   key: ValueKey('webhook-menu-${webhook.id}'),
-                                  enabled: !_busy,
                                   tooltip: 'More',
-                                  onSelected: (action) => switch (action) {
-                                    'rename' => _rename(webhook),
-                                    'move' => _move(webhook, channels),
-                                    'avatar' => _changeAvatar(webhook),
-                                    _ => _delete(webhook),
-                                  },
-                                  itemBuilder: (_) => [
-                                    const PopupMenuItem(
-                                      value: 'rename',
-                                      child: Text('Rename'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'move',
-                                      child: Text('Change channel'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'avatar',
-                                      child: Text('Change avatar'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text(
-                                        'Delete',
-                                        style: TextStyle(color: colors.red),
-                                      ),
-                                    ),
-                                  ],
+                                  entries: () => _busy
+                                      ? const []
+                                      : [
+                                          AccordMenuEntry(
+                                            label: 'Rename',
+                                            onSelected: () => _rename(webhook),
+                                          ),
+                                          AccordMenuEntry(
+                                            label: 'Change Channel',
+                                            onSelected: () =>
+                                                _move(webhook, channels),
+                                          ),
+                                          AccordMenuEntry(
+                                            label: 'Change Avatar',
+                                            onSelected: () =>
+                                                _changeAvatar(webhook),
+                                          ),
+                                          const AccordMenuEntry.divider(),
+                                          AccordMenuEntry(
+                                            label: 'Delete',
+                                            destructive: true,
+                                            onSelected: () => _delete(webhook),
+                                          ),
+                                        ],
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(8),
+                                    child: Icon(AppIcons.moreVert, size: 20),
+                                  ),
                                 ),
                               ],
                             ),

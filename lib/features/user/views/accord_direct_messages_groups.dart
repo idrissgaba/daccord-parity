@@ -272,22 +272,20 @@ class _GroupMembersDialog extends ConsumerWidget {
                           for (final user in members)
                             _DmUserGesture(
                               user: user,
-                              onTap: () => showAccordUserProfile(
+                              onTap: () => showAccordMemberPopout(
                                 context,
-                                user,
-                                cdnUrl: ref.readCdnUrl(),
+                                userId: user.id,
                               ),
-                              onMenu: (position) => showAccordDmUserContextMenu(
+                              onMenu: (position) => showUserContextMenu(
                                 context,
                                 ref,
-                                user,
+                                userId: user.id,
+                                user: user,
                                 globalPosition: position,
                                 extraEntries: canRemove
                                     ? [
-                                        const AccordMenuEntry.divider(),
                                         AccordMenuEntry(
-                                          label: 'Remove from group',
-                                          icon: AppIcons.personRemoveOutlined,
+                                          label: 'Remove From Group',
                                           destructive: true,
                                           onSelected: () => onRemove(user),
                                         ),

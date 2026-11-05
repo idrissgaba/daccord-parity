@@ -338,13 +338,15 @@ class _SortBar extends StatelessWidget {
           const Spacer(),
           Icon(AppIcons.sort, size: 16, color: colors.gray),
           const SizedBox(width: 6),
-          PopupMenuButton<ForumSort>(
-            initialValue: sort,
+          AccordMenuButton(
             tooltip: 'Sort posts',
-            onSelected: onChanged,
-            itemBuilder: (context) => [
+            entries: () => [
               for (final s in ForumSort.values)
-                PopupMenuItem(value: s, child: Text(s.label)),
+                AccordMenuEntry(
+                  label: s.label,
+                  radio: s == sort,
+                  onSelected: () => onChanged(s),
+                ),
             ],
             child: Row(
               mainAxisSize: MainAxisSize.min,

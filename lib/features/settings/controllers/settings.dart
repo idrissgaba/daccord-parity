@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:bonfire/shared/utils/desktop_tray.dart';
 import 'package:bonfire/features/profiles/services/profile_store.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
@@ -441,20 +443,148 @@ class SettingsController extends _$SettingsController {
 
   /// Mutes or unmutes [spaceId]'s notifications (per-space suppression). No-op
   /// when already in the requested state.
-  void setSpaceMuted(String serverKey, String spaceId, bool muted) {
+  ///
+  /// [until] times the mute ("For 1 Hour"); null mutes until turned back on.
+  /// Unmuting drops any timer.
+  void setSpaceMuted(
+    String serverKey,
+    String spaceId,
+    bool muted, {
+    DateTime? until,
+  }) {
     final key = ServerEntityKey(serverKey, spaceId).encoded;
     final isMuted = state.mutedSpaces.contains(key);
-    if (muted == isMuted) return;
+    final expiries = _withExpiry(key, muted ? until : null);
+    if (muted == isMuted && mapEquals(expiries, state.muteExpiries)) return;
     _update(
       state.copyWith(
-        mutedSpaces: muted
+        mutedSpaces: muted == isMuted
+            ? null
+            : muted
             ? [...state.mutedSpaces, key]
             : [
                 for (final s in state.mutedSpaces)
                   if (s != key) s,
               ],
+        muteExpiries: expiries,
       ),
     );
+  }
+
+  /// Times (or untimes, with null) the mute of a channel, category or DM —
+  /// whose mute itself lives on the server.
+  void setMuteExpiry(String serverKey, String entityId, DateTime? until) {
+    final key = ServerEntityKey(serverKey, entityId).encoded;
+    final expiries = _withExpiry(key, until);
+    if (mapEquals(expiries, state.muteExpiries)) return;
+    _update(state.copyWith(muteExpiries: expiries));
+  }
+
+  Map<String, int> _withExpiry(String key, DateTime? until) {
+    final next = Map<String, int>.from(state.muteExpiries);
+    if (until == null) {
+      next.remove(key);
+    } else {
+      next[key] = until.millisecondsSinceEpoch;
+    }
+    return next;
+  }
+
+  /// Sets [spaceId]'s server-wide notification level; null restores the
+  /// default.
+  void setSpaceNotificationLevel(
+    String serverKey,
+    String spaceId,
+    String? level,
+  ) {
+    final key = ServerEntityKey(serverKey, spaceId).encoded;
+    final next = Map<String, String>.from(state.spaceNotifications);
+    if (level == null || level.isEmpty) {
+      if (!next.containsKey(key)) return;
+      next.remove(key);
+    } else {
+      if (next[key] == level) return;
+      next[key] = level;
+    }
+    _update(state.copyWith(spaceNotifications: next));
+  }
+
+  /// [list] with [key] added or removed; null when nothing changes.
+  List<String>? _toggled(List<String> list, String key, bool on) {
+    if (list.contains(key) == on) return null;
+    return on
+        ? [...list, key]
+        : [
+            for (final s in list)
+              if (s != key) s,
+          ];
+  }
+
+  void setSpaceSuppressEveryone(String serverKey, String spaceId, bool on) {
+    final next = _toggled(
+      state.spaceSuppressEveryone,
+      ServerEntityKey(serverKey, spaceId).encoded,
+      on,
+    );
+    if (next != null) _update(state.copyWith(spaceSuppressEveryone: next));
+  }
+
+  void setSpaceSuppressRoles(String serverKey, String spaceId, bool on) {
+    final next = _toggled(
+      state.spaceSuppressRoles,
+      ServerEntityKey(serverKey, spaceId).encoded,
+      on,
+    );
+    if (next != null) _update(state.copyWith(spaceSuppressRoles: next));
+  }
+
+  /// Pins [channelId] to the top of its space's channel list, or unpins it.
+  void setChannelPinned(String serverKey, String channelId, bool pinned) {
+    final next = _toggled(
+      state.pinnedChannels,
+      ServerEntityKey(serverKey, channelId).encoded,
+      pinned,
+    );
+    if (next != null) _update(state.copyWith(pinnedChannels: next));
+  }
+
+  void setHideMutedChannels(String serverKey, String spaceId, bool hide) {
+    final next = _toggled(
+      state.hideMutedChannels,
+      ServerEntityKey(serverKey, spaceId).encoded,
+      hide,
+    );
+    if (next != null) _update(state.copyWith(hideMutedChannels: next));
+  }
+
+  void setVoiceNamesHidden(String serverKey, String channelId, bool hide) {
+    final next = _toggled(
+      state.hiddenVoiceNames,
+      ServerEntityKey(serverKey, channelId).encoded,
+      hide,
+    );
+    if (next != null) _update(state.copyWith(hiddenVoiceNames: next));
+  }
+
+  /// Times the status just set on [serverKey] ("For 1 Hour"); null keeps it
+  /// until changed.
+  void setStatusExpiry(String serverKey, DateTime? until) {
+    final next = Map<String, int>.from(state.statusExpiries);
+    until == null
+        ? next.remove(serverKey)
+        : next[serverKey] = until.millisecondsSinceEpoch;
+    if (mapEquals(next, state.statusExpiries)) return;
+    _update(state.copyWith(statusExpiries: next));
+  }
+
+  /// Times the custom status just set on [serverKey]; null keeps it.
+  void setCustomStatusExpiry(String serverKey, DateTime? until) {
+    final next = Map<String, int>.from(state.customStatusExpiries);
+    until == null
+        ? next.remove(serverKey)
+        : next[serverKey] = until.millisecondsSinceEpoch;
+    if (mapEquals(next, state.customStatusExpiries)) return;
+    _update(state.copyWith(customStatusExpiries: next));
   }
 
   void toggleSpaceMuted(String serverKey, String spaceId) => setSpaceMuted(

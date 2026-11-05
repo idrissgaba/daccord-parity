@@ -454,14 +454,7 @@ class _SpaceIconImage extends StatelessWidget {
   final String? cdnUrl;
   final double size;
 
-  String get _initials {
-    final name = space.name.trim();
-    if (name.isEmpty) return '?';
-    final parts = name.split(RegExp(r'\s+'));
-    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts[1].substring(0, 1))
-        .toUpperCase();
-  }
+  String get _initials => accordSpaceInitials(space.name);
 
   @override
   Widget build(BuildContext context) {

@@ -51,3 +51,13 @@ String? _resolveSpaceMedia(
         );
   return versioned ? spaceMediaCache.resolve(url) : url;
 }
+
+/// A space's initials for an icon without an image: the first letter of its
+/// first two words ("Vale Makers" → "VM"), or "?" for no name.
+String accordSpaceInitials(String rawName) {
+  final name = rawName.trim();
+  if (name.isEmpty) return '?';
+  final parts = name.split(RegExp(r'\s+'));
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return (parts.first.substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
+}

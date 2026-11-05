@@ -403,44 +403,36 @@ class _DmConversationState extends ConsumerState<_DmConversation> {
   }
 
   void _showUserProfile(AccordUser user) {
-    showAccordUserProfile(context, user, cdnUrl: ref.readCdnUrl());
+    showAccordMemberPopout(context, userId: user.id);
   }
 
   void _showUserMenu(AccordUser user, [Offset? position]) {
-    final others = _others(_channel, widget.selfId);
-    showAccordDmUserContextMenu(
+    showUserContextMenu(
       context,
       ref,
-      user,
+      userId: user.id,
+      user: user,
       globalPosition: position,
-      currentDmUserId: others.length == 1 ? others.first.id : null,
     );
   }
 
-  Widget _groupOptions(BonfireThemeExtension colors) => PopupMenuButton<String>(
+  Widget _groupOptions(BonfireThemeExtension colors) => AccordMenuButton(
     tooltip: 'Group options',
-    icon: Icon(AppIcons.moreVert, size: 20, color: colors.gray),
-    onSelected: (value) {
-      switch (value) {
-        case 'members':
-          _showMembers();
-        case 'add':
-          _addMember();
-        case 'rename':
-          _rename();
-        case 'leave':
-          _leave();
-      }
-    },
-    itemBuilder: (context) => [
-      const PopupMenuItem(value: 'members', child: Text('View members')),
-      const PopupMenuItem(value: 'add', child: Text('Add member')),
-      const PopupMenuItem(value: 'rename', child: Text('Rename group')),
-      PopupMenuItem(
-        value: 'leave',
-        child: Text('Leave group', style: TextStyle(color: colors.red)),
+    entries: () => [
+      AccordMenuEntry(label: 'View Members', onSelected: _showMembers),
+      AccordMenuEntry(label: 'Add Member', onSelected: _addMember),
+      AccordMenuEntry(label: 'Rename Group', onSelected: _rename),
+      const AccordMenuEntry.divider(),
+      AccordMenuEntry(
+        label: 'Leave Group',
+        destructive: true,
+        onSelected: _leave,
       ),
     ],
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Icon(AppIcons.moreVert, size: 20, color: colors.gray),
+    ),
   );
 }
 

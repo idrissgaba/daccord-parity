@@ -11,6 +11,7 @@ import 'package:bonfire/shared/components/label_pill.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
 
 /// Instance-admin "Users" tab: paginated user list with search, admin-flag
 /// toggle, disable/enable, password reset and delete. Mirrors the reference
@@ -258,37 +259,35 @@ class _UserRow extends StatelessWidget {
         ],
       ),
       subtitle: Text(user.id, style: theme.textTheme.bodySmall),
-      trailing: PopupMenuButton<String>(
-        enabled: !busy,
-        icon: const Icon(AppIcons.moreVert, size: 18),
-        onSelected: (value) {
-          switch (value) {
-            case 'admin':
-              onSetAdmin(!user.isAdmin);
-            case 'disable':
-              onToggleDisabled();
-            case 'reset':
-              onResetPassword();
-            case 'delete':
-              onDelete();
-          }
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: 'admin',
-            child: Text(user.isAdmin ? 'Remove admin' : 'Make admin'),
-          ),
-          PopupMenuItem(
-            value: 'disable',
-            child: Text(user.disabled ? 'Enable account' : 'Disable account'),
-          ),
-          if (!user.bot)
-            const PopupMenuItem(value: 'reset', child: Text('Reset password')),
-          PopupMenuItem(
-            value: 'delete',
-            child: Text('Delete user', style: TextStyle(color: colors.red)),
-          ),
-        ],
+      trailing: AccordMenuButton(
+        tooltip: 'More',
+        entries: () => busy
+            ? const []
+            : [
+                AccordMenuEntry(
+                  label: user.isAdmin ? 'Remove Admin' : 'Make Admin',
+                  onSelected: () => onSetAdmin(!user.isAdmin),
+                ),
+                AccordMenuEntry(
+                  label: user.disabled ? 'Enable Account' : 'Disable Account',
+                  onSelected: onToggleDisabled,
+                ),
+                if (!user.bot)
+                  AccordMenuEntry(
+                    label: 'Reset Password',
+                    onSelected: onResetPassword,
+                  ),
+                const AccordMenuEntry.divider(),
+                AccordMenuEntry(
+                  label: 'Delete User',
+                  destructive: true,
+                  onSelected: onDelete,
+                ),
+              ],
+        child: const Padding(
+          padding: EdgeInsets.all(8),
+          child: Icon(AppIcons.moreVert, size: 18),
+        ),
       ),
     );
   }

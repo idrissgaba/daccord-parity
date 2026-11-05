@@ -254,9 +254,10 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
       channel: widget.channel,
       spaceId: spaceId,
       canManageChannels: widget.canManageChannels,
+      canInvite: widget.onInvite != null,
       globalPosition: position,
-      // Touch has no hover, so the sheet carries the join/disconnect action.
-      leadingEntries: [
+      onOpenChat: widget.onTap,
+      touchLeadingEntries: [
         if (_isVoice && !connected)
           AccordMenuEntry(
             label: 'Join Voice',
@@ -571,6 +572,14 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
             channelId: channel.id,
             spaceId: widget.spaceId,
             onOpenChannel: widget.onTap,
+            namesHidden: ref.watch(
+              settingsControllerProvider.select(
+                (s) => s.hidesVoiceNames(
+                  ref.readActiveServerKey() ?? '',
+                  channel.id,
+                ),
+              ),
+            ),
           ),
           if (connectedHere && widget.onInvite != null)
             _InviteToVoiceRow(onTap: widget.onInvite!),

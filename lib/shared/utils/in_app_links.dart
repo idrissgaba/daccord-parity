@@ -14,6 +14,12 @@ String messageLink({
     'daccord://navigate/${Uri.encodeComponent(spaceId)}/'
     '${Uri.encodeComponent(channelId)}?msg=${Uri.encodeQueryComponent(messageId)}';
 
+/// Builds the link to [channelId] of [spaceId] ("Copy Link"); it opens the
+/// channel.
+String channelLink({required String spaceId, required String channelId}) =>
+    'daccord://navigate/${Uri.encodeComponent(spaceId)}/'
+    '${Uri.encodeComponent(channelId)}';
+
 class InAppLinks {
   InAppLinks._();
 

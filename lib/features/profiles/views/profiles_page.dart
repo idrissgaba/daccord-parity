@@ -11,6 +11,7 @@ import 'package:bonfire/features/profiles/views/app_restart.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
 
 /// Opens the device-profiles management page (create / switch / rename / delete
 /// / casually PIN-lock local profiles). Ports the reference's
@@ -199,30 +200,28 @@ class _ProfileTile extends StatelessWidget {
           context,
         ).textTheme.bodySmall!.copyWith(color: colors.gray),
       ),
-      trailing: PopupMenuButton<String>(
-        onSelected: (v) {
-          switch (v) {
-            case 'switch':
-              onSwitch();
-            case 'rename':
-              onRename();
-            case 'pin':
-              onTogglePin();
-            case 'delete':
-              onDelete?.call();
-          }
-        },
-        itemBuilder: (_) => [
-          if (!isActive)
-            const PopupMenuItem(value: 'switch', child: Text('Switch to')),
-          const PopupMenuItem(value: 'rename', child: Text('Rename')),
-          PopupMenuItem(
-            value: 'pin',
-            child: Text(profile.hasPin ? 'Remove PIN' : 'Set PIN'),
+      trailing: AccordMenuButton(
+        tooltip: 'More',
+        entries: () => [
+          if (!isActive) AccordMenuEntry(label: 'Switch To', onSelected: onSwitch),
+          AccordMenuEntry(label: 'Rename', onSelected: onRename),
+          AccordMenuEntry(
+            label: profile.hasPin ? 'Remove PIN' : 'Set PIN',
+            onSelected: onTogglePin,
           ),
-          if (onDelete != null)
-            const PopupMenuItem(value: 'delete', child: Text('Delete')),
+          if (onDelete != null) ...[
+            const AccordMenuEntry.divider(),
+            AccordMenuEntry(
+              label: 'Delete',
+              destructive: true,
+              onSelected: onDelete,
+            ),
+          ],
         ],
+        child: const Padding(
+          padding: EdgeInsets.all(8),
+          child: Icon(AppIcons.moreVert, size: 20),
+        ),
       ),
     );
   }

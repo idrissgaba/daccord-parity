@@ -21,6 +21,7 @@ import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
 
 part 'space_events/event_editor.dart';
 
@@ -427,62 +428,55 @@ class _EventCardState extends ConsumerState<EventCard> {
                       icon: const Icon(AppIcons.eventAvailable, size: 18),
                     ),
                     if (widget.canManage)
-                      PopupMenuButton<String>(
+                      AccordMenuButton(
                         key: ValueKey('event-menu-${event.id}'),
                         tooltip: 'Manage event',
-                        enabled: !_busy,
-                        onSelected: (action) {
-                          switch (action) {
-                            case 'start':
-                              _setStatus('active', 'Could not start the event');
-                            case 'end':
-                              _setStatus(
-                                'completed',
-                                'Could not end the event',
-                              );
-                            case 'cancel':
-                              _setStatus(
-                                'canceled',
-                                'Could not cancel the event',
-                              );
-                            case 'edit':
-                              showEventEditor(
-                                context,
-                                spaceId: event.spaceId,
-                                existing: event,
-                              );
-                            case 'delete':
-                              _delete();
-                          }
-                        },
-                        itemBuilder: (_) => [
-                          if (!event.isActive)
-                            const PopupMenuItem(
-                              value: 'start',
-                              child: Text('Start now'),
-                            ),
-                          if (event.isActive)
-                            const PopupMenuItem(
-                              value: 'end',
-                              child: Text('End event'),
-                            ),
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Edit'),
-                          ),
-                          if (!event.isActive)
-                            const PopupMenuItem(
-                              value: 'cancel',
-                              child: Text('Cancel event'),
-                            ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Text(
-                              'Delete',
-                              style: TextStyle(color: colors.red),
-                            ),
-                          ),
-                        ],
+                        entries: () => _busy
+                            ? const []
+                            : [
+                                if (!event.isActive)
+                                  AccordMenuEntry(
+                                    label: 'Start Now',
+                                    onSelected: () => _setStatus(
+                                      'active',
+                                      'Could not start the event',
+                                    ),
+                                  ),
+                                if (event.isActive)
+                                  AccordMenuEntry(
+                                    label: 'End Event',
+                                    onSelected: () => _setStatus(
+                                      'completed',
+                                      'Could not end the event',
+                                    ),
+                                  ),
+                                AccordMenuEntry(
+                                  label: 'Edit',
+                                  onSelected: () => showEventEditor(
+                                    context,
+                                    spaceId: event.spaceId,
+                                    existing: event,
+                                  ),
+                                ),
+                                if (!event.isActive)
+                                  AccordMenuEntry(
+                                    label: 'Cancel Event',
+                                    onSelected: () => _setStatus(
+                                      'canceled',
+                                      'Could not cancel the event',
+                                    ),
+                                  ),
+                                const AccordMenuEntry.divider(),
+                                AccordMenuEntry(
+                                  label: 'Delete',
+                                  destructive: true,
+                                  onSelected: _delete,
+                                ),
+                              ],
+                        child: const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Icon(AppIcons.moreVert, size: 20),
+                        ),
                       ),
                   ],
                 ),

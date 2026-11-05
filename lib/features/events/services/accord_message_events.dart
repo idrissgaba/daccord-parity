@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:accordkit/accordkit.dart';
+import 'package:bonfire/features/channels/controllers/accord_channels.dart';
 import 'package:bonfire/features/channels/controllers/dm_channels.dart';
 import 'package:bonfire/features/channels/controllers/read_state.dart';
+import 'package:bonfire/features/events/controllers/presence.dart';
+import 'package:bonfire/features/member/controllers/accord_members.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/messaging/controllers/accord_messages.dart';
 import 'package:bonfire/features/messaging/controllers/forum_posts.dart';
@@ -16,6 +19,7 @@ import 'package:bonfire/features/notifications/services/notification.dart';
 import 'package:bonfire/features/notifications/services/sound.dart';
 import 'package:bonfire/features/notifications/utils/notification_gate.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
+import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
 import 'package:bonfire/features/user/controllers/blocked_users.dart';
 import 'package:collection/collection.dart';
@@ -49,7 +53,24 @@ void bindMessageEvents(
     client.onMessageCreate.listen((message) {
       final active = isActive();
       final isOwn = isSelf(message.authorId);
-      final mentionsMe = mentionsSelf(message.mentions);
+      final settingsNow = ref.read(settingsControllerProvider);
+      // A role mention counts as one unless the space suppresses them
+      // ("Suppress All Role @mentions").
+      final roleMention =
+          message.spaceId != null &&
+          message.mentionRoles.isNotEmpty &&
+          !settingsNow.suppressesRolesIn(serverKey, message.spaceId!) &&
+          (ref
+                      .read(
+                        accordMembersControllerProvider(
+                          serverKey,
+                          message.spaceId!,
+                        ),
+                      )?[currentUserId]
+                      ?.roles ??
+                  const <String>[])
+              .any(message.mentionRoles.contains);
+      final mentionsMe = mentionsSelf(message.mentions) || roleMention;
       final isVisibleChannel =
           active && isAccordChannelVisible(serverKey, message.channelId);
       final settings = ref.read(settingsControllerProvider);
@@ -61,13 +82,29 @@ void bindMessageEvents(
           .read(blockedUsersControllerProvider(serverKey))
           .contains(message.authorId);
       if (blockedAuthor && isDirectMessage) return;
+      final suppressEveryone =
+          settings.suppressEveryone ||
+          (message.spaceId != null &&
+              settings.suppressesEveryoneIn(serverKey, message.spaceId!));
       final countsAsMention =
           !blockedAuthor &&
           MessageNotificationGate.countsAsMention(
             mentionsMe: mentionsMe,
             mentionEveryone: message.mentionEveryone,
-            suppressEveryone: settings.suppressEveryone,
+            suppressEveryone: suppressEveryone,
           );
+      // Channel, then category, then space level; a space nobody set falls
+      // back to its own `default_notifications`.
+      final channelLevel = isDirectMessage
+          ? settings.channelNotificationLevel(serverKey, message.channelId)
+          : effectiveLevelFor(ref, serverKey, message.spaceId!, message.channelId);
+      // Do Not Disturb: "You will not receive desktop notifications".
+      final selfDnd =
+          accordPresenceStatus(
+                ref.read(presenceControllerProvider(serverKey)),
+                currentUserId,
+              ) ==
+              'dnd';
       final spaceMuted =
           !isDirectMessage &&
           settings.isSpaceMuted(serverKey, message.spaceId!);
@@ -157,18 +194,15 @@ void bindMessageEvents(
       // active connection, which owns that pointer.
       final notify = MessageNotificationGate.shouldNotify(
         notificationsEnabled:
-            settings.notificationsEnabled && !settings.streamerMode,
+            settings.notificationsEnabled && !settings.streamerMode && !selfDnd,
         fromBlockedUser: blockedAuthor,
-        suppressEveryone: settings.suppressEveryone,
+        suppressEveryone: suppressEveryone,
         isOwnMessage: isOwn,
         isVisibleChannel: isVisibleChannel,
         mentionsMe: mentionsMe,
         mentionEveryone: message.mentionEveryone,
         spaceMuted: spaceMuted,
-        channelLevel: settings.channelNotificationLevel(
-          serverKey,
-          message.channelId,
-        ),
+        channelLevel: channelLevel,
         isDirectMessage: isDirectMessage,
       );
       if (notify) {
@@ -196,10 +230,10 @@ void bindMessageEvents(
       // chimes like a mention.
       if (settings.soundsEnabled &&
           !spaceMuted &&
+          !selfDnd &&
           !isOwn &&
           !blockedAuthor &&
-          settings.channelNotificationLevel(serverKey, message.channelId) !=
-              'nothing') {
+          channelLevel != 'nothing') {
         soundManager.playForMessage(
           isMention: countsAsMention || isDirectMessage,
           isVisibleChannel: isVisibleChannel,
@@ -549,4 +583,35 @@ void bindMessageEvents(
           .userTyping(userId);
     }),
   );
+}
+
+/// The notification level that decides a message in [channelId] of
+/// [spaceId]: the channel's own, else its category's, else the space's, else
+/// the space's `default_notifications` — what the channel menus show as
+/// "Use category default".
+String? effectiveLevelFor(
+  Ref ref,
+  String serverKey,
+  String spaceId,
+  String channelId,
+) {
+  final settings = ref.read(settingsControllerProvider);
+  final channels = ref.read(accordChannelsControllerProvider(serverKey, spaceId));
+  final parentId = channels?.firstWhereOrNull((c) => c.id == channelId)?.parentId;
+  final explicit = settings.effectiveNotificationLevel(
+    serverKey,
+    channelId,
+    categoryId: parentId,
+    spaceId: spaceId,
+  );
+  if (explicit != null) return explicit;
+  final space = ref
+      .read(spacesControllerProvider)
+      ?.firstWhereOrNull((s) => s.id == spaceId);
+  return switch (space?.defaultNotifications) {
+    'mentions' => null,
+    'nothing' => 'nothing',
+    null => null,
+    _ => 'all',
+  };
 }

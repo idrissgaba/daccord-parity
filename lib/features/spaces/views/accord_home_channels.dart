@@ -133,9 +133,7 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
         );
   }
 
-  /// The space menu under its name, as in other chat apps: invite, settings,
-  /// create channel or category, mark as read, then the per-server entries
-  /// (mute, hide, leave) shared with the rail's menu.
+  /// The space menu under its name ([_spaceHeaderMenuEntries]).
   Future<void> _openSpaceMenu(
     BuildContext anchorContext, {
     required AccordSpace space,
@@ -146,80 +144,40 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
   }) {
     final serverKey = ref.read(connectionsControllerProvider).activeKey;
     if (serverKey == null) return Future.value();
+    // Centred under the column's header, as the reference client's dropdown.
+    final column = context.findRenderObject() as RenderBox?;
     final box = anchorContext.findRenderObject() as RenderBox?;
-    final anchor = box == null
+    final anchor = box == null || column == null
         ? null
-        : box.localToGlobal(Offset(0, box.size.height));
-    const duplicated = {'Invite people', 'Space settings'};
+        : Offset(
+            column.localToGlobal(Offset(column.size.width / 2, 0)).dx,
+            box.localToGlobal(Offset(0, box.size.height + 4)).dy,
+          );
     return showAccordContextMenu(
       context,
       globalPosition: anchor,
+      anchorX: 0.5,
       title: space.name,
-      entries: [
-        if (canInvite)
-          AccordMenuEntry(
-            label: 'Invite people',
-            icon: AppIcons.personAddOutlined,
-            onSelected: () => showAccordInvites(context, spaceId: space.id),
-          ),
-        if (canManage)
-          AccordMenuEntry(
-            label: 'Space settings',
-            icon: AppIcons.settingsOutlined,
-            onSelected: () =>
-                showAccordSpaceSettings(context, spaceId: space.id),
-          ),
-        if (canManageChannels) ...[
-          AccordMenuEntry(
-            label: 'Create channel',
-            icon: AppIcons.addCircleOutline,
-            onSelected: () =>
-                showCreateChannelDialog(context, spaceId: space.id),
-          ),
-          AccordMenuEntry(
-            label: 'Create category',
-            icon: AppIcons.createNewFolderOutlined,
-            onSelected: () => showCreateChannelDialog(
-              context,
-              spaceId: space.id,
-              initialType: 'category',
-            ),
-          ),
-          if (channels != null)
-            AccordMenuEntry(
-              label: 'Reorder channels',
-              icon: AppIcons.reorder,
-              onSelected: () => showAccordChannelReorder(
-                context,
-                spaceId: space.id,
-                channels: channels,
-              ),
-            ),
-        ],
-        AccordMenuEntry(
-          label: 'Mark as read',
-          icon: AppIcons.markChatReadOutlined,
-          enabled: channels != null,
-          onSelected: () {
-            for (final channel in channels ?? const <AccordChannel>[]) {
-              if (channel.type == 'category') continue;
-              markChannelRead(
-                ref,
-                channel.id,
-                fallbackMessageId: channel.lastMessageId,
-              );
-            }
-          },
-        ),
-        const AccordMenuEntry.divider(),
-        for (final entry in _serverActionEntries(
-          context,
-          ref,
-          space,
-          serverKey,
-        ))
-          if (!duplicated.contains(entry.label)) entry,
-      ],
+      entries: _spaceHeaderMenuEntries(
+        context,
+        ref,
+        space,
+        serverKey,
+        channels: channels,
+        anchor: anchor,
+      ),
+    );
+  }
+
+  /// Right-click on the empty part of the channel list.
+  void _openChannelListMenu(AccordSpace space, Offset position) {
+    final serverKey = ref.read(connectionsControllerProvider).activeKey;
+    if (serverKey == null) return;
+    showAccordContextMenu(
+      context,
+      globalPosition: position,
+      title: space.name,
+      entries: _channelListMenuEntries(context, ref, space, serverKey),
     );
   }
 
@@ -268,6 +226,49 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
         AccordPermission.manageChannels,
       );
       canInvite = accordHasPermission(perms, AccordPermission.createInvites);
+    }
+
+    // "Pin Channel to Top" lifts channels above the list; "Hide Muted
+    // Channels" drops muted ones (and a muted category's), the open one
+    // excepted — both local preferences.
+    final serverKey = ref.watch(
+      connectionsControllerProvider.select((s) => s.activeKey),
+    );
+    final pinnedKeys = ref.watch(
+      settingsControllerProvider.select((s) => s.pinnedChannels),
+    );
+    final hideMuted =
+        id != null &&
+        serverKey != null &&
+        ref.watch(
+          settingsControllerProvider.select(
+            (s) => s.hidesMutedChannels(serverKey, id),
+          ),
+        );
+    final mutedIds = hideMuted
+        ? ref.watch(mutedChannelsControllerProvider(serverKey)).value ??
+              const <String>{}
+        : const <String>{};
+    final pinned = <AccordChannel>[];
+    List<AccordChannel>? listed = channels;
+    if (channels != null && serverKey != null) {
+      final byKey = {
+        for (final c in channels) ServerEntityKey(serverKey, c.id).encoded: c,
+      };
+      for (final key in pinnedKeys) {
+        final c = byKey[key];
+        if (c != null && c.type != 'category') pinned.add(c);
+      }
+      final pinnedIds = {for (final c in pinned) c.id};
+      bool hidden(AccordChannel c) =>
+          c.id != selectedChannelId &&
+          (mutedIds.contains(c.id) ||
+              (c.parentId != null && mutedIds.contains(c.parentId)));
+      listed = [
+        for (final c in channels)
+          if (!pinnedIds.contains(c.id) && !(c.type != 'category' && hidden(c)))
+            c,
+      ];
     }
 
     final header = _SpaceHeader(
@@ -329,13 +330,38 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
           if (id != null)
             WelcomeScreenGate(spaceId: id, onOpenChannel: onSelect),
           if (id != null) SpaceEventsEntry(spaceId: id),
+          if (pinned.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final channel in pinned)
+                    _channelTile(
+                      context,
+                      channel,
+                      spaceId: id,
+                      selected: channel.id == selectedChannelId,
+                      canManageChannels: canManageChannels,
+                      canInvite: canInvite,
+                      onTap: () => onSelect(channel.id),
+                    ),
+                ],
+              ),
+            ),
           Expanded(
-            child: channels == null
+            child: GestureDetector(
+              // Right-click on the list's empty part (rows take their own).
+              behavior: HitTestBehavior.translucent,
+              onSecondaryTapUp: space == null
+                  ? null
+                  : (d) => _openChannelListMenu(space, d.globalPosition),
+              child: listed == null
                 ? _emptyState(context, spaceId: id)
                 : (canManageChannels && id != null)
                 ? _ChannelDragList(
                     spaceId: id,
-                    channels: channels,
+                    channels: listed,
                     selectedChannelId: selectedChannelId,
                     onSelect: onSelect,
                     collapsed: collapsed,
@@ -347,16 +373,17 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
                     children: _buildChannelEntries(
                       context,
                       spaceId: id,
-                      channels: channels,
+                      channels: listed,
                       selectedChannelId: selectedChannelId,
                       onSelect: onSelect,
                       canManageChannels: canManageChannels,
                       canInvite: canInvite,
                       collapsed: collapsed,
                       onToggleCollapsed: _toggleCollapsed,
-                      unread: _visibleUnreadChannelIds(ref, channels),
+                      unread: _visibleUnreadChannelIds(ref, listed),
                     ),
                   ),
+            ),
           ),
         ],
       ),
@@ -365,7 +392,7 @@ class _ChannelListState extends ConsumerState<_ChannelList> {
 }
 
 /// The 49 px header of the channel column: the space name (16 px semibold)
-/// with a caret that opens the space menu and turns into a cross while it is
+/// with a caret that opens the space menu and points up while it is
 /// open, and the invite button at the right; a hairline underneath.
 class _SpaceHeader extends StatefulWidget {
   const _SpaceHeader({
@@ -444,7 +471,7 @@ class _SpaceHeaderState extends State<_SpaceHeader> {
                       if (widget.onMenu != null) ...[
                         const SizedBox(width: 4),
                         Icon(
-                          _menuOpen ? AppIcons.close : AppIcons.expandMore,
+                          _menuOpen ? AppIcons.expandLess : AppIcons.expandMore,
                           key: const Key('space-header-caret'),
                           size: 14,
                           color: colors.dirtyWhite,

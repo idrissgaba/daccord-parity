@@ -32,6 +32,7 @@ class VoiceParticipantList extends ConsumerWidget {
     required this.channelId,
     required this.spaceId,
     this.onOpenChannel,
+    this.namesHidden = false,
   });
 
   final String channelId;
@@ -40,6 +41,10 @@ class VoiceParticipantList extends ConsumerWidget {
   /// Opens the channel's call view (the channel row's own tap), used by the
   /// stream card's "Watch Stream".
   final VoidCallback? onOpenChannel;
+
+  /// "Hide Names" in the channel's menu: participants show as a row of
+  /// avatars under the channel instead of one named row each.
+  final bool namesHidden;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -155,6 +160,42 @@ class VoiceParticipantList extends ConsumerWidget {
       }
       await voice.setWatchingStream(userId, true);
       onOpenChannel?.call();
+    }
+
+    if (namesHidden) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(36, 2, 8, 4),
+        child: Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: [
+            for (final row in rows)
+              Tooltip(
+                message: row.display.name,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: speaking.contains(row.voiceState.userId)
+                        ? Border.all(
+                            color: BonfireThemeExtension.of(context).green,
+                            width: 2,
+                          )
+                        : null,
+                  ),
+                  child: AccordMemberAvatar(
+                    avatarUrl: row.display.avatarUrl,
+                    initial: accordInitial(row.display.name),
+                    radius: speaking.contains(row.voiceState.userId) ? 10 : 12,
+                    backgroundColor: row.display.color,
+                    initialStyle: const TextStyle(fontSize: 10),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
     }
 
     return Column(
