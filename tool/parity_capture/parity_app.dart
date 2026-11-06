@@ -10,7 +10,13 @@
 // --no-tree-shake-icons -o build/parity`, serve `build/parity`, open
 // `/?scene=messages`, `/?scene=dm` or `/?scene=friends`; add
 // `&preview=r-everyone` to see the menus of a plain member, `&open=shortcuts`
-// or `&open=switcher` for Ctrl+/ and Ctrl+K. Nothing here is shipped.
+// or `&open=switcher` for Ctrl+/ and Ctrl+K. Lot E: `/?scene=voice` sits in
+// the `Workbench` voice channel with `#general` open, `/?scene=call` shows its
+// call view; the space has soundboard sounds (and the second space a few,
+// which show locked), `&crowd=1` seats three more people in the call and
+// `&play=<user id>` makes that person play a sound (the emoji rising over
+// their tile), held for a minute; `&sounds=0` empties the space's soundboard.
+// Nothing here is shipped.
 
 import 'dart:convert';
 
@@ -29,12 +35,17 @@ import 'package:bonfire/features/profiles/services/profile_store.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
+import 'package:bonfire/features/soundboard/controllers/soundboard_activity.dart';
+import 'package:bonfire/features/soundboard/controllers/soundboard_sounds.dart';
 import 'package:bonfire/features/spaces/controllers/role_preview.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/spaces/views/accord_home.dart';
 import 'package:bonfire/features/spaces/views/keyboard_shortcuts_dialog.dart';
 import 'package:bonfire/features/spaces/views/quick_switcher.dart';
 import 'package:bonfire/features/user/views/accord_direct_messages.dart';
+import 'package:bonfire/features/voice/controllers/voice.dart';
+import 'package:bonfire/features/voice/controllers/voice_states.dart';
+import 'package:bonfire/features/voice/services/voice_session.dart';
 import 'package:bonfire/shared/components/app_shell.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -190,10 +201,68 @@ final Map<String, dynamic> _dm = {
   ],
 };
 
+Map<String, dynamic> _sound(
+  String id,
+  String spaceId,
+  String name,
+  String? emoji,
+) => {
+  'id': id,
+  'space_id': spaceId,
+  'name': name,
+  'audio_url': '/sounds/$spaceId/$id.ogg',
+  'volume': 1.0,
+  'emoji_name': ?emoji,
+  'creator_id': seedSelfId,
+  'created_at': '2026-11-01 10:00:00',
+  'updated_at': '2026-11-01 10:00:00',
+};
+
+/// The space's soundboard, named like the reference client's built-in sounds
+/// so the two pickers line up card for card.
+final List<Map<String, dynamic>> _valeSounds = [
+  _sound('snd-quack', seedSpaceId, 'quack', '\u{1F986}'),
+  _sound('snd-airhorn', seedSpaceId, 'airhorn', '\u{1F4E2}'),
+  _sound('snd-cricket', seedSpaceId, 'cricket', '\u{1F997}'),
+  _sound('snd-golfclap', seedSpaceId, 'golf clap', '\u{1F44F}'),
+  _sound('snd-sadhorn', seedSpaceId, 'sad horn', '\u{1F3BA}'),
+  _sound('snd-badumtss', seedSpaceId, 'ba dum tss', '\u{1F941}'),
+];
+
+final List<Map<String, dynamic>> _tideSounds = [
+  _sound('snd-boing', seedSecondSpaceId, 'boing', null),
+  _sound('snd-cap', seedSecondSpaceId, 'cap', '\u{1F611}'),
+  _sound('snd-jellyfish', seedSecondSpaceId, 'jellyfish', '\u{1F612}'),
+];
+
+/// Set once the app is up: a play request makes us the one playing.
+ProviderContainer? _container;
+
 MockClient _transport() {
   final seeded = buildSeededTransport();
   return MockClient((request) async {
     final path = request.url.path;
+    if (request.method == 'GET' &&
+        path.endsWith('/spaces/$seedSpaceId/soundboard')) {
+      // `&sounds=0`: an empty soundboard (its settings page's empty state).
+      if (Uri.base.queryParameters['sounds'] == '0') return _json([]);
+      return _json(_valeSounds);
+    }
+    if (request.method == 'GET' &&
+        path.endsWith('/spaces/$seedSecondSpaceId/soundboard')) {
+      return _json(_tideSounds);
+    }
+    if (request.method == 'POST' && path.endsWith('/play')) {
+      final soundId = request.url.pathSegments.reversed.elementAt(1);
+      final sound = _valeSounds.firstWhere(
+        (s) => s['id'] == soundId,
+        orElse: () => _valeSounds.first,
+      );
+      _container
+          ?.read(soundboardActivityControllerProvider.notifier)
+          .start(seedSelfId, AccordSound.fromJson(sound));
+      return _json(const <String, dynamic>{});
+    }
     if (request.method == 'GET' &&
         path.endsWith('/channels/$seedGeneralChannelId/messages')) {
       return _json(_general.reversed.toList());
@@ -232,16 +301,45 @@ http.Response _json(Object body) => http.Response(
   headers: {'content-type': 'application/json'},
 );
 
+/// Connected to `Workbench` without a LiveKit session: the tiles fall back to
+/// avatars, which is what a camera-off call shows.
+class _InVoice extends VoiceController {
+  _InVoice(this.serverKey);
+  final String serverKey;
+
+  @override
+  VoiceConnection build() => VoiceConnection(
+    channelId: seedVoiceChannelId,
+    spaceId: seedSpaceId,
+    serverKey: serverKey,
+    sessionState: VoiceSessionState.connected,
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupHive();
-  await ProfileStore.settingsBox.put(
-    'settings',
-    const AccordSettings().toJson(),
-  );
-  await ProfileStore.settingsBox.delete('open-tabs');
   final scene = Uri.base.queryParameters['scene'] ?? 'messages';
   final server = AccordServer.fromBaseUrl('https://vale.example');
+  final voiceScene = scene == 'voice' || scene == 'call';
+  final settingsKey = '$seedSelfId@${server.baseUrl}';
+  await ProfileStore.settingsBox.put(
+    'settings',
+    AccordSettings(
+      // Three sounds already played, for the picker's "Frequently Used".
+      soundUsage: voiceScene
+          ? {
+              for (final (i, id) in const [
+                'snd-quack',
+                'snd-airhorn',
+                'snd-cricket',
+              ].indexed)
+                soundSettingsKey(settingsKey, id): 3 - i,
+            }
+          : const {},
+    ).toJson(),
+  );
+  await ProfileStore.settingsBox.delete('open-tabs');
   final client = AccordClient(
     token: 'parity-token',
     tokenType: 'Bearer',
@@ -261,8 +359,11 @@ Future<void> main() async {
       accordAuthProvider.overrideWithValue(
         AccordAuthLoggedIn(client: client, session: session),
       ),
+      if (voiceScene)
+        voiceControllerProvider.overrideWith(() => _InVoice(session.key)),
     ],
   );
+  _container = container;
   final key = session.key;
   final spaces = [for (final s in seedSpaces) AccordSpace.fromJson(s)];
   container.read(connectionsControllerProvider.notifier)
@@ -297,6 +398,46 @@ Future<void> main() async {
           name: 'general',
         ),
       );
+  if (voiceScene) {
+    final crowd = Uri.base.queryParameters['crowd'] == '1';
+    container
+        .read(voiceStatesControllerProvider(key).notifier)
+        .seedChannel(seedVoiceChannelId, [
+          for (final entry in seedVoiceParticipants.entries)
+            if (crowd || entry.key == seedSelfId)
+              AccordVoiceState(
+                userId: entry.key,
+                spaceId: seedSpaceId,
+                channelId: seedVoiceChannelId,
+                selfMute: entry.value['self_mute'] ?? false,
+              ),
+        ]);
+    if (scene == 'call') {
+      container
+          .read(openTabsControllerProvider.notifier)
+          .open(
+            OpenTab(
+              channelId: seedVoiceChannelId,
+              spaceId: seedSpaceId,
+              serverKey: key,
+              name: 'Workbench',
+            ),
+          );
+    }
+    final player = Uri.base.queryParameters['play'];
+    if (player != null) {
+      Future<void>.delayed(const Duration(milliseconds: 2500), () {
+        container
+            .read(soundboardActivityControllerProvider.notifier)
+            .start(
+              player,
+              AccordSound.fromJson(_valeSounds.first),
+              duration: const Duration(minutes: 1),
+              exact: true,
+            );
+      });
+    }
+  }
   if (Uri.base.queryParameters['typing'] == '1') {
     Future<void>.delayed(const Duration(seconds: 2), () {
       container

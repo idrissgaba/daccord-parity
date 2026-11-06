@@ -524,5 +524,30 @@ void main() {
       final s = AccordSound.fromJson({'name': 's', 'volume': 1});
       expect(s.volume, 1.0);
     });
+
+    test('sound emoji and space', () {
+      final s = AccordSound.fromJson({
+        'id': '9',
+        'space_id': '1',
+        'name': 'quack',
+        'emoji_name': '🦆',
+        'emoji_id': '',
+      });
+      expect(s.emojiName, '🦆');
+      expect(s.emojiId, isNull);
+      expect(s.spaceId, '1');
+      expect(s.toJson()['emoji_name'], '🦆');
+    });
+
+    test('gateway soundboard event wraps the sound', () {
+      final s = AccordSound.fromJson({
+        'space_id': '1',
+        'sound': {'id': '9', 'name': 'quack', 'emoji_id': '77'},
+      });
+      expect(s.id, '9');
+      expect(s.name, 'quack');
+      expect(s.emojiId, '77');
+      expect(s.spaceId, '1');
+    });
   });
 }

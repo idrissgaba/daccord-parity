@@ -112,6 +112,8 @@ class AccordSettings {
     this.screenShareAudio = true,
     this.recentEmoji = const [],
     this.favoriteGifs = const [],
+    this.favoriteSounds = const [],
+    this.soundUsage = const <String, int>{},
     this.masterServerUrl = defaultMasterServerUrl,
     this.channelNotifications = const <String, String>{},
     this.userVolumes = const <String, int>{},
@@ -295,6 +297,15 @@ class AccordSettings {
 
   /// GIF links starred in the picker's GIF tab, most-recent first.
   final List<String> favoriteGifs;
+
+  /// Soundboard sounds starred in the soundboard picker (server-qualified
+  /// sound IDs, see `ServerEntityKey`), most-recent first.
+  final List<String> favoriteSounds;
+
+  /// How often each soundboard sound was played from this profile
+  /// (server-qualified sound ID → count), behind the picker's
+  /// "Frequently Used" row.
+  final Map<String, int> soundUsage;
 
   /// Master-server directory URL used to browse public spaces (unauthenticated).
   final String masterServerUrl;
@@ -517,6 +528,8 @@ class AccordSettings {
     bool? screenShareAudio,
     List<String>? recentEmoji,
     List<String>? favoriteGifs,
+    List<String>? favoriteSounds,
+    Map<String, int>? soundUsage,
     String? masterServerUrl,
     Map<String, String>? channelNotifications,
     Map<String, int>? userVolumes,
@@ -603,6 +616,8 @@ class AccordSettings {
       screenShareAudio: screenShareAudio ?? this.screenShareAudio,
       recentEmoji: recentEmoji ?? this.recentEmoji,
       favoriteGifs: favoriteGifs ?? this.favoriteGifs,
+      favoriteSounds: favoriteSounds ?? this.favoriteSounds,
+      soundUsage: soundUsage ?? this.soundUsage,
       masterServerUrl: masterServerUrl ?? this.masterServerUrl,
       channelNotifications: channelNotifications ?? this.channelNotifications,
       userVolumes: userVolumes ?? this.userVolumes,
@@ -877,6 +892,8 @@ class AccordSettings {
     'screenShareAudio': screenShareAudio,
     'recentEmoji': recentEmoji,
     'favoriteGifs': favoriteGifs,
+    'favoriteSounds': favoriteSounds,
+    'soundUsage': soundUsage,
     'masterServerUrl': masterServerUrl,
     'channelNotifications': channelNotifications,
     'userVolumes': userVolumes,
@@ -978,6 +995,15 @@ class AccordSettings {
         for (final e in (json['favoriteGifs'] as List? ?? const []))
           e.toString(),
       ],
+      favoriteSounds: [
+        for (final e in (json['favoriteSounds'] as List? ?? const []))
+          e.toString(),
+      ],
+      soundUsage: {
+        for (final entry in (json['soundUsage'] as Map? ?? const {}).entries)
+          if (entry.value is num)
+            entry.key.toString(): (entry.value as num).toInt(),
+      },
       masterServerUrl: (master == null || master.isEmpty)
           ? defaultMasterServerUrl
           : master,

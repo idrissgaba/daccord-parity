@@ -173,11 +173,15 @@ List<AccordMenuEntry> _serverSettingsSubmenu(
         label: 'Emoji',
         onSelected: () => showAccordEmojiManagement(context, spaceId: id),
       ),
-    if (f.has(AccordPermission.manageSoundboard))
+    if (f.has(AccordPermission.manageSoundboard) ||
+        f.has(AccordPermission.createExpressions))
       AccordMenuEntry(
         label: 'Soundboard',
-        onSelected: () =>
-            showAccordSoundboard(context, spaceId: id, canManage: true),
+        onSelected: () => showSpaceSoundboardSettings(
+          context,
+          serverKey: f.serverKey,
+          spaceId: id,
+        ),
       ),
     if (f.has(AccordPermission.manageRoles))
       AccordMenuEntry(

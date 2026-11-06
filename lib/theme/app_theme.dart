@@ -216,6 +216,25 @@ ThemeData buildAppTheme(AppThemePreset preset, {Color? accent}) {
           onError: _onColor(palette.red),
           surface: palette.background,
         ),
+    // The reference client's tooltip: a near-black bubble (white on the
+    // light theme) with 14/600 text, 8 px corners and a hairline edge, rather
+    // than Material's inverse grey chip.
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: brightness == Brightness.light
+            ? Colors.white
+            : const Color(0xFF111214),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: palette.hairline),
+      ),
+      textStyle: TextStyle(
+        fontFamily: kAppFontFamily,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: palette.dirtyWhite,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    ),
     extensions: [palette],
   );
 }

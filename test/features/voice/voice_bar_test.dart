@@ -106,8 +106,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(AppIcons.graphicEq), findsOneWidget);
-    expect(find.byTooltip('Soundboard'), findsOneWidget);
+    expect(find.byIcon(AppIcons.celebration), findsOneWidget);
+    expect(find.byKey(const Key('voice-bar-soundboard')), findsOneWidget);
   });
 
   testWidgets('hides soundboard button without use_soundboard', (tester) async {
@@ -119,7 +119,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(AppIcons.graphicEq), findsNothing);
+    expect(find.byIcon(AppIcons.celebration), findsNothing);
   });
 
   testWidgets('hides soundboard button in a DM voice call (null spaceId)', (
@@ -132,6 +132,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(AppIcons.graphicEq), findsNothing);
+    expect(find.byIcon(AppIcons.celebration), findsNothing);
   });
 }

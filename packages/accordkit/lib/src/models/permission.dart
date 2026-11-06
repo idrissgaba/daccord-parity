@@ -33,6 +33,7 @@ class AccordPermission {
   static const String manageEmojis = 'manage_emojis';
   static const String manageSoundboard = 'manage_soundboard';
   static const String useSoundboard = 'use_soundboard';
+  static const String createExpressions = 'create_expressions';
   static const String useCommands = 'use_commands';
   static const String manageEvents = 'manage_events';
   static const String manageThreads = 'manage_threads';
@@ -76,6 +77,7 @@ class AccordPermission {
         manageEmojis,
         manageSoundboard,
         useSoundboard,
+        createExpressions,
         useCommands,
         manageEvents,
         manageThreads,
@@ -158,6 +160,9 @@ class AccordPermission {
         return 'Allows managing soundboard sounds';
       case useSoundboard:
         return 'Allows playing soundboard sounds';
+      case createExpressions:
+        return 'Allows adding custom emoji, stickers and sounds, and editing '
+            'or removing the ones they added';
       case useCommands:
         return 'Allows using bot and slash commands';
       case manageEvents:

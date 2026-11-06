@@ -47,6 +47,7 @@ abstract final class AppIcons {
   static const IconData casino = PhosphorIconsFill.diceFive;
   static const IconData chatBubble = PhosphorIconsFill.chatCircle;
   static const IconData chatBubbleOutline = PhosphorIconsFill.chatCircle;
+  static const IconData celebration = PhosphorIconsFill.confetti;
   static const IconData check = PhosphorIconsBold.check;
   static const IconData checkBox = PhosphorIconsFill.checkSquare;
   static const IconData checkBoxOutlineBlank = PhosphorIconsBold.square;
@@ -276,6 +277,7 @@ abstract final class AppIcons {
   static const IconData closeCircle = PhosphorIconsFill.xCircle;
   static const IconData scrollDown = PhosphorIconsBold.arrowDown;
   static const IconData star = PhosphorIconsFill.star;
+  static const IconData starBorder = PhosphorIconsBold.star;
   static const IconData fileText = PhosphorIconsFill.fileText;
   static const IconData fileArchive = PhosphorIconsFill.fileZip;
 }

@@ -27,6 +27,8 @@ import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
 import 'package:bonfire/features/voice/services/soundboard_player.dart';
+import 'package:bonfire/features/soundboard/controllers/soundboard_activity.dart';
+import 'package:bonfire/features/soundboard/controllers/soundboard_sounds.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:flutter/foundation.dart';
@@ -604,38 +606,95 @@ VoidCallback handleAccordEvents(
   );
 
   // ── Soundboard ───────────────────────────────────────────────────────────
-  // The server only broadcasts the play to the space; each client in the
-  // sender's voice channel plays the clip itself.
+  // The server broadcasts the play to the space; each client in the sender's
+  // voice channel plays the clip itself and shows the sound's emoji on the
+  // sender's tile for as long as it lasts.
   subs.add(
     client.onSoundboardPlay.listen((data) {
       final sound = data['sound'];
       if (sound is! Map<String, dynamic>) return;
       final senderId = data['user_id']?.toString();
+      final spaceId = data['space_id']?.toString();
+      final eventChannelId = data['channel_id']?.toString();
       final voice = ref.read(voiceControllerProvider);
       final cache = ref.read(voiceStatesControllerProvider(serverKey));
       final volumes = ref
           .read(settingsControllerProvider)
           .userVolumesFor(serverKey);
+      final senderChannelId = senderId == null
+          ? null
+          : _channelOf(cache, senderId);
+      final show = SoundboardPlayer.shouldShow(
+        eventServerKey: serverKey,
+        spaceId: spaceId,
+        senderId: senderId,
+        myUserId: currentUserId,
+        voiceServerKey: voice.serverKey,
+        voiceSpaceId: voice.spaceId,
+        voiceChannelId: voice.channelId,
+        eventChannelId: eventChannelId,
+        senderChannelId: senderChannelId,
+      );
+      if (!show || senderId == null) return;
+      final parsed = AccordSound.fromJson(sound)..spaceId ??= spaceId;
+      final activity = ref.read(soundboardActivityControllerProvider.notifier);
+      activity.start(senderId, parsed);
       final play = SoundboardPlayer.shouldPlay(
         eventServerKey: serverKey,
-        spaceId: data['space_id']?.toString(),
+        spaceId: spaceId,
         senderId: senderId,
         myUserId: currentUserId,
         voiceServerKey: voice.serverKey,
         voiceSpaceId: voice.spaceId,
         voiceChannelId: voice.channelId,
         deafened: voice.selfDeaf || voice.serverDeaf,
-        senderChannelId: senderId == null ? null : _channelOf(cache, senderId),
-        senderLocallyMuted: senderId != null && volumes[senderId] == 0,
+        senderChannelId: senderChannelId,
+        senderLocallyMuted: volumes[senderId] == 0,
+        eventChannelId: eventChannelId,
       );
       if (!play) return;
-      final parsed = AccordSound.fromJson(sound);
-      soundboardPlayer.play(
-        AccordCDN.resolvePath(parsed.audioUrl, cdnUrl: client.config.cdnUrl),
-        gain: parsed.volume,
-      );
+      soundboardPlayer
+          .play(
+            AccordCDN.resolvePath(
+              parsed.audioUrl,
+              cdnUrl: client.config.cdnUrl,
+            ),
+            gain: parsed.volume,
+          )
+          .then((length) {
+            if (length != null && ref.mounted) {
+              activity.setDuration(senderId, parsed, length);
+            }
+          });
     }),
   );
+  void soundsChanged(String? spaceId, void Function(SoundboardSoundsController c) apply) {
+    if (spaceId == null || spaceId.isEmpty) return;
+    // Only mirror into a list somebody already loaded; an unloaded one
+    // fetches the current state when first watched.
+    final provider = soundboardSoundsControllerProvider(serverKey, spaceId);
+    if (!ref.exists(provider)) return;
+    apply(ref.read(provider.notifier));
+  }
+
+  subs
+    ..add(
+      client.onSoundboardCreate.listen(
+        (sound) => soundsChanged(sound.spaceId, (c) => c.upsert(sound)),
+      ),
+    )
+    ..add(
+      client.onSoundboardUpdate.listen(
+        (sound) => soundsChanged(sound.spaceId, (c) => c.upsert(sound)),
+      ),
+    )
+    ..add(
+      client.onSoundboardDelete.listen((data) {
+        final soundId = data['sound_id']?.toString();
+        if (soundId == null) return;
+        soundsChanged(data['space_id']?.toString(), (c) => c.remove(soundId));
+      }),
+    );
 
   final turnNotifications = ref.read(experienceTurnsProvider.notifier);
   return () {

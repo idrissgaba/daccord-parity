@@ -21,7 +21,7 @@ import 'package:bonfire/features/spaces/views/accord_ban_list.dart';
 import 'package:bonfire/features/spaces/views/accord_emoji_management.dart';
 import 'package:bonfire/features/spaces/views/accord_reports.dart';
 import 'package:bonfire/features/spaces/views/accord_role_management.dart';
-import 'package:bonfire/features/spaces/views/accord_soundboard.dart';
+import 'package:bonfire/features/soundboard/views/soundboard_settings_page.dart';
 import 'package:bonfire/features/spaces/views/accord_transfer_ownership.dart';
 import 'package:bonfire/features/spaces/views/accord_webhooks.dart';
 import 'package:bonfire/features/messaging/views/stickers.dart';
@@ -435,14 +435,11 @@ class _SpaceSettingsState extends ConsumerState<_SpaceSettings> {
       perms,
       AccordPermission.manageEmojis,
     );
-    final canUseSoundboard = accordHasPermission(
-      perms,
-      AccordPermission.useSoundboard,
-    );
-    final canManageSoundboard = accordHasPermission(
-      perms,
-      AccordPermission.manageSoundboard,
-    );
+    // Server Settings › Soundboard is for those who add or manage sounds,
+    // like the reference client's Create / Manage Expressions.
+    final canOpenSoundboard =
+        accordHasPermission(perms, AccordPermission.manageSoundboard) ||
+        accordHasPermission(perms, AccordPermission.createExpressions);
     final canManageWebhooks = accordHasPermission(
       perms,
       AccordPermission.manageWebhooks,
@@ -572,7 +569,7 @@ class _SpaceSettingsState extends ConsumerState<_SpaceSettings> {
               canViewAuditLog ||
               canModerate ||
               canManageEmojis ||
-              canUseSoundboard ||
+              canOpenSoundboard ||
               canManageWebhooks) ...[
             const Divider(height: 24),
             _ManagementSection(
@@ -581,8 +578,8 @@ class _SpaceSettingsState extends ConsumerState<_SpaceSettings> {
               canViewAuditLog: canViewAuditLog,
               canModerate: canModerate,
               canManageEmojis: canManageEmojis,
-              canUseSoundboard: canUseSoundboard,
-              canManageSoundboard: canManageSoundboard,
+              canOpenSoundboard: canOpenSoundboard,
+              serverKey: ref.watchActiveServerKey() ?? '',
               canManageWebhooks: canManageWebhooks,
             ),
           ],

@@ -1,3 +1,4 @@
+import 'package:bonfire/shared/components/accord_slider.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/shared/components/settings_scaffold.dart';
 import 'package:bonfire/shared/components/section_header.dart';
@@ -395,6 +396,34 @@ class _VoiceSettingsScreenState extends ConsumerState<VoiceSettingsScreen> {
             ),
             value: settings.screenShareMotionPriority,
             onChanged: controller.setScreenShareMotionPriority,
+          ),
+          const Divider(height: 24),
+          // The reference client's Voice & Video › Soundboard: the same value
+          // as the soundboard's own volume card.
+          SectionHeader('Soundboard'),
+          ListTile(
+            key: const Key('soundboard-volume-setting'),
+            title: const Text('Soundboard Volume'),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Control how loud sounds are for you personally.',
+                    style: theme.textTheme.bodySmall!.copyWith(
+                      color: colors.gray,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AccordSlider(
+                    value: settings.soundboardVolume,
+                    onChanged: controller.setSoundboardVolume,
+                    semanticLabel: 'Soundboard volume',
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

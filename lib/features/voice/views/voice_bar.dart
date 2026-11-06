@@ -6,7 +6,7 @@ import 'package:bonfire/features/experiences/views/arcade.dart';
 import 'package:bonfire/features/member/utils/permissions.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
-import 'package:bonfire/features/spaces/views/accord_soundboard.dart';
+import 'package:bonfire/features/soundboard/views/soundboard_picker.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/services/voice_session.dart';
 import 'package:bonfire/features/voice/utils/audio_output_support.dart';
@@ -82,7 +82,6 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
 
     final spaceId = voice.spaceId;
     var canUseSoundboard = false;
-    var canManageSoundboard = false;
     if (spaceId != null) {
       final space = ref.watch(
         spacesControllerProvider.select(
@@ -93,10 +92,6 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
       canUseSoundboard = accordHasPermission(
         perms,
         AccordPermission.useSoundboard,
-      );
-      canManageSoundboard = accordHasPermission(
-        perms,
-        AccordPermission.manageSoundboard,
       );
     }
 
@@ -266,15 +261,20 @@ class _VoiceBarState extends ConsumerState<VoiceBar> {
               ],
               if (canUseSoundboard && spaceId != null) ...[
                 const SizedBox(width: 4),
-                _VoiceButton(
-                  key: const Key('voice-bar-soundboard'),
-                  icon: AppIcons.graphicEq,
-                  tooltip: 'Soundboard',
-                  active: false,
-                  onPressed: () => showAccordSoundboard(
-                    context,
+                Expanded(
+                  child: SoundboardTrigger(
+                    serverKey: serverKey,
                     spaceId: spaceId,
-                    canManage: canManageSoundboard,
+                    placement: SoundboardPlacement.right,
+                    builder: (context, onPressed, open) => _VoiceButton(
+                      key: const Key('voice-bar-soundboard'),
+                      icon: AppIcons.celebration,
+                      tooltip: '',
+                      active: false,
+                      highlighted: open,
+                      expanded: false,
+                      onPressed: onPressed,
+                    ),
                   ),
                 ),
               ],
@@ -479,6 +479,8 @@ class _VoiceButton extends StatelessWidget {
     required this.tooltip,
     required this.active,
     required this.onPressed,
+    this.highlighted = false,
+    this.expanded = true,
   });
 
   final IconData icon;
@@ -486,14 +488,23 @@ class _VoiceButton extends StatelessWidget {
   final bool active;
   final VoidCallback onPressed;
 
+  /// Its popover is open: drawn in the hover tint.
+  final bool highlighted;
+
+  /// Takes its share of the row (false when the caller already wraps it).
+  final bool expanded;
+
   @override
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
-    return Expanded(
-      child: Tooltip(
+    final button = Tooltip(
         message: tooltip,
         child: Material(
-          color: active ? colors.green : colors.hover,
+          color: active
+              ? colors.green
+              : highlighted
+              ? colors.selection
+              : colors.hover,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             onTap: onPressed,
@@ -509,7 +520,7 @@ class _VoiceButton extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
+      );
+    return expanded ? Expanded(child: button) : button;
   }
 }

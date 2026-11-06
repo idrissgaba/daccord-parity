@@ -20,7 +20,8 @@ import 'package:bonfire/features/experiences/views/arcade.dart';
 import 'package:bonfire/features/member/utils/permissions.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/spaces/views/accord_invites.dart';
-import 'package:bonfire/features/spaces/views/accord_soundboard.dart';
+import 'package:bonfire/features/soundboard/views/soundboard_avatar_cue.dart';
+import 'package:bonfire/features/soundboard/views/soundboard_picker.dart';
 import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:collection/collection.dart';
 import 'package:bonfire/features/voice/views/voice_moderation_menu.dart';
@@ -208,12 +209,22 @@ class _VoiceChannelViewState extends ConsumerState<VoiceChannelView> {
 
     // The bar stays in the tree while hidden: a pointer can only click it
     // after entering the view, which shows it, and keyboard users keep it.
-    final barVisible = _pointerInside || !shouldUseDesktopLayout(context);
+    // The soundboard opened from the bar keeps the bar up, as on the
+    // reference client, though its popover now takes the pointer.
     final bar = connectedHere
-        ? AnimatedOpacity(
-            key: const Key('voice-control-bar'),
-            opacity: barVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 150),
+        ? ValueListenableBuilder<bool>(
+            valueListenable: soundboardPickerOpen,
+            builder: (context, pickerOpen, child) => AnimatedOpacity(
+              key: const Key('voice-control-bar'),
+              opacity:
+                  _pointerInside ||
+                      pickerOpen ||
+                      !shouldUseDesktopLayout(context)
+                  ? 1
+                  : 0,
+              duration: const Duration(milliseconds: 150),
+              child: child,
+            ),
             child: _ControlBar(
               channelId: widget.channelId,
               spaceId: widget.spaceId,

@@ -153,9 +153,11 @@ class _ConnectedBody extends ConsumerWidget {
             )
             ?.values ??
         const [];
-    final speaking = ref.watch(
-      voiceControllerProvider.select((v) => v.speakingUserIds),
-    );
+    // Playing a soundboard sound rings the tile like speaking does.
+    final speaking = {
+      ...ref.watch(voiceControllerProvider.select((v) => v.speakingUserIds)),
+      ...watchSoundboardPlayers(ref),
+    };
     final members = spaceId == null
         ? null
         : ref.watch(
@@ -828,16 +830,29 @@ class _VideoTileState extends State<_VideoTile> {
                 )
               else
                 Center(
-                  child: AccordMemberAvatar(
-                    avatarUrl: tile.avatarUrl,
-                    initial: initial,
-                    radius: widget.compact ? 20 : 40,
-                    backgroundColor: tile.avatarColor,
-                    initialStyle: TextStyle(
-                      fontSize: widget.compact ? 14 : 28,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    alignment: Alignment.center,
+                    children: [
+                      AccordMemberAvatar(
+                        avatarUrl: tile.avatarUrl,
+                        initial: initial,
+                        radius: widget.compact ? 20 : 40,
+                        backgroundColor: tile.avatarColor,
+                        initialStyle: TextStyle(
+                          fontSize: widget.compact ? 14 : 28,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      // The soundboard sound being played: its emoji rises
+                      // over the avatar.
+                      if (!tile.isScreen)
+                        SoundboardAvatarCue(
+                          userId: tile.userId,
+                          size: widget.compact ? 40 : 80,
+                        ),
+                    ],
                   ),
                 ),
               // The pointer resting on a video tile shades its top and

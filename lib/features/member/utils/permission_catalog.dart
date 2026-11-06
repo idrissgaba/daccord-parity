@@ -70,6 +70,7 @@ const accordPermissionGroups = <({String label, List<String> permissions})>[
       AccordPermission.manageRoles,
       AccordPermission.manageWebhooks,
       AccordPermission.manageEmojis,
+      AccordPermission.createExpressions,
       AccordPermission.manageEvents,
     ],
   ),
@@ -78,5 +79,7 @@ const accordPermissionGroups = <({String label, List<String> permissions})>[
 /// Human-facing permission names shared by both editors.
 String accordPermissionLabel(String permission) => switch (permission) {
   AccordPermission.mentionEveryone => 'Mention @everyone, @here, and all roles',
+  // The reference client's name for adding emoji, stickers and sounds.
+  AccordPermission.createExpressions => 'Create Expressions',
   _ => titleCaseFromToken(permission),
 };

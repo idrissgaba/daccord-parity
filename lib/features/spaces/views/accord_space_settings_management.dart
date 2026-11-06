@@ -35,8 +35,8 @@ class _ManagementSection extends StatelessWidget {
     required this.canViewAuditLog,
     required this.canModerate,
     required this.canManageEmojis,
-    required this.canUseSoundboard,
-    required this.canManageSoundboard,
+    required this.canOpenSoundboard,
+    required this.serverKey,
     this.canManageWebhooks = false,
   });
 
@@ -45,8 +45,8 @@ class _ManagementSection extends StatelessWidget {
   final bool canViewAuditLog;
   final bool canModerate;
   final bool canManageEmojis;
-  final bool canUseSoundboard;
-  final bool canManageSoundboard;
+  final bool canOpenSoundboard;
+  final String serverKey;
   final bool canManageWebhooks;
 
   @override
@@ -112,16 +112,17 @@ class _ManagementSection extends StatelessWidget {
             trailing: const Icon(AppIcons.chevronRight),
             onTap: () => showStickerManagement(context, spaceId: spaceId),
           ),
-        if (canUseSoundboard)
+        if (canOpenSoundboard)
           ListTile(
-            leading: Icon(AppIcons.graphicEq, color: colors.dirtyWhite),
+            key: const Key('space-settings-soundboard'),
+            leading: Icon(AppIcons.celebration, color: colors.dirtyWhite),
             title: const Text('Soundboard'),
-            subtitle: const Text('Play and manage soundboard clips'),
+            subtitle: const Text('Upload, edit, and delete sounds'),
             trailing: const Icon(AppIcons.chevronRight),
-            onTap: () => showAccordSoundboard(
+            onTap: () => showSpaceSoundboardSettings(
               context,
+              serverKey: serverKey,
               spaceId: spaceId,
-              canManage: canManageSoundboard,
             ),
           ),
         if (canManageWebhooks)

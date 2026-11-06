@@ -28,6 +28,30 @@ class SoundboardPlayer {
   static double mpvVolume(double gain, double volume) =>
       (gain * volume * 100).clamp(0.0, 100.0).toDouble();
 
+  /// Whether a `soundboard.play` from [senderId] is shown here (the emoji on
+  /// their tile): while we sit in that voice channel of that space on that
+  /// connection. [eventChannelId] is the channel the server names (newer
+  /// servers); otherwise the sender's channel from the voice states.
+  static bool shouldShow({
+    required String eventServerKey,
+    required String? spaceId,
+    required String? senderId,
+    required String myUserId,
+    required String? voiceServerKey,
+    required String? voiceSpaceId,
+    required String? voiceChannelId,
+    required String? eventChannelId,
+    required String? senderChannelId,
+  }) {
+    if (voiceChannelId == null) return false;
+    if (voiceServerKey != eventServerKey) return false;
+    if (spaceId == null || spaceId != voiceSpaceId) return false;
+    if (senderId == null) return false;
+    if (eventChannelId != null) return eventChannelId == voiceChannelId;
+    if (senderId == myUserId) return true;
+    return senderChannelId == voiceChannelId;
+  }
+
   /// Whether a `soundboard.play` from [senderId] in [spaceId] is heard here:
   /// only while we sit in a voice channel of that space on that connection,
   /// not deafened, the sender is in the same channel (or is us), and we
@@ -43,20 +67,31 @@ class SoundboardPlayer {
     required bool deafened,
     required String? senderChannelId,
     required bool senderLocallyMuted,
+    String? eventChannelId,
   }) {
-    if (voiceChannelId == null || deafened) return false;
-    if (voiceServerKey != eventServerKey) return false;
-    if (spaceId == null || spaceId != voiceSpaceId) return false;
-    if (senderId == null) return false;
-    if (senderId == myUserId) return true;
-    return senderChannelId == voiceChannelId && !senderLocallyMuted;
+    if (deafened) return false;
+    final shown = shouldShow(
+      eventServerKey: eventServerKey,
+      spaceId: spaceId,
+      senderId: senderId,
+      myUserId: myUserId,
+      voiceServerKey: voiceServerKey,
+      voiceSpaceId: voiceSpaceId,
+      voiceChannelId: voiceChannelId,
+      eventChannelId: eventChannelId,
+      senderChannelId: senderChannelId,
+    );
+    return shown && (senderId == myUserId || !senderLocallyMuted);
   }
 
   /// Plays the clip at [url] with its own [gain], scaled by [volume].
-  Future<void> play(String url, {double gain = 1.0}) async {
-    if (SoundManager.silent || url.isEmpty) return;
+  /// Completes with the clip's length once the player knows it (null when
+  /// nothing plays or it can't tell within a moment), so the "who is playing"
+  /// cue can last as long as the sound.
+  Future<Duration?> play(String url, {double gain = 1.0}) async {
+    if (SoundManager.silent || url.isEmpty) return null;
     final level = mpvVolume(gain, volume);
-    if (level <= 0) return;
+    if (level <= 0) return null;
     try {
       final Player player;
       if (_pool.length < _poolSize) {
@@ -68,8 +103,16 @@ class SoundboardPlayer {
       }
       await player.setVolume(level);
       await player.open(Media(url));
+      final known = player.state.duration;
+      if (known > Duration.zero) return known;
+      return await player.stream.duration
+          .firstWhere((d) => d > Duration.zero)
+          .timeout(const Duration(milliseconds: 1500));
     } catch (e) {
-      debugPrint('SoundboardPlayer: playback failed: $e');
+      if (e is! TimeoutException && e is! StateError) {
+        debugPrint('SoundboardPlayer: playback failed: $e');
+      }
+      return null;
     }
   }
 }

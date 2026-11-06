@@ -1,3 +1,4 @@
+import 'package:bonfire/features/soundboard/views/soundboard_avatar_cue.dart';
 import 'package:bonfire/theme/app_icons.dart';
 import 'dart:async';
 
@@ -57,11 +58,18 @@ class VoiceParticipantList extends ConsumerWidget {
 
     // Speaking highlights only apply while we're connected to this channel —
     // the speaking set is derived from our own LiveKit room.
-    final speaking = ref.watch(
-      voiceControllerProvider.select(
-        (v) => v.channelId == channelId ? v.speakingUserIds : const <String>{},
-      ),
+    final inChannel = ref.watch(
+      voiceControllerProvider.select((v) => v.channelId == channelId),
     );
+    // Playing a soundboard sound rings the row like speaking does.
+    final speaking = !inChannel
+        ? const <String>{}
+        : {
+            ...ref.watch(
+              voiceControllerProvider.select((v) => v.speakingUserIds),
+            ),
+            ...watchSoundboardPlayers(ref),
+          };
 
     // The Accord voice state carries no AFK field, so remote members are read
     // from presence (`idle`). Our own row uses the voice controller's flag so it

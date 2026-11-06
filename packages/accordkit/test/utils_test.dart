@@ -66,8 +66,12 @@ void main() {
       expect(AccordPermission.has(['ban_members'], 'ban_members'), isTrue);
     });
 
-    test('all contains 40 entries and descriptions exist', () {
-      expect(AccordPermission.all(), hasLength(40));
+    test('all contains 41 entries and descriptions exist', () {
+      expect(AccordPermission.all(), hasLength(41));
+      expect(
+        AccordPermission.description(AccordPermission.createExpressions),
+        isNotEmpty,
+      );
       expect(AccordPermission.description('administrator'), isNotEmpty);
       expect(AccordPermission.description('not_a_perm'), isEmpty);
     });

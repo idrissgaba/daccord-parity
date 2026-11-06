@@ -64,9 +64,6 @@ class _ControlBar extends ConsumerWidget {
     final canUseSoundboard =
         spaceId != null &&
         accordHasPermission(permissions, AccordPermission.useSoundboard);
-    final canManageSoundboard =
-        spaceId != null &&
-        accordHasPermission(permissions, AccordPermission.manageSoundboard);
     final muted = voice.selfMute || !voice.canSpeak;
     final blockedReason = voice.speakBlockedReason;
     final popOutTrack = canPopOutStream ? _popOutTrack(notifier.session) : null;
@@ -237,14 +234,17 @@ class _ControlBar extends ConsumerWidget {
                         ),
                       ),
                     if (canUseSoundboard)
-                      _BarButton(
-                        key: const Key('voice-soundboard'),
-                        icon: AppIcons.graphicEq,
-                        tooltip: 'Soundboard',
-                        onPressed: () => showAccordSoundboard(
-                          context,
-                          spaceId: spaceId!,
-                          canManage: canManageSoundboard,
+                      SoundboardTrigger(
+                        serverKey: serverKey,
+                        spaceId: spaceId!,
+                        placement: SoundboardPlacement.above,
+                        label: 'Open Soundboard',
+                        builder: (context, onPressed, open) => _BarButton(
+                          key: const Key('voice-soundboard'),
+                          icon: AppIcons.celebration,
+                          tooltip: '',
+                          highlighted: open,
+                          onPressed: onPressed,
                         ),
                       ),
                     _BarButton(
@@ -455,11 +455,15 @@ class _BarButton extends StatelessWidget {
     required this.onPressed,
     this.onPressedAt,
     this.tint,
+    this.highlighted = false,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
+
+  /// Its popover is open (soundboard): drawn in the hover tint.
+  final bool highlighted;
 
   /// Replaces [onPressed] with a handler given the button's anchor (menus).
   final void Function(Offset? anchor)? onPressedAt;
@@ -472,7 +476,9 @@ class _BarButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: tintColor?.withValues(alpha: 0.2) ?? Colors.transparent,
+        color:
+            tintColor?.withValues(alpha: 0.2) ??
+            (highlighted ? colors.hover : Colors.transparent),
         child: InkWell(
           onTap: onPressedAt == null
               ? onPressed

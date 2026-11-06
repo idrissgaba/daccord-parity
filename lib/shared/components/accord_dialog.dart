@@ -21,6 +21,7 @@ class AccordDialog extends StatelessWidget {
     this.onPrimary,
     this.secondaryLabel = 'Cancel',
     this.tone = AccordDialogTone.primary,
+    this.primaryEnabled = true,
   });
 
   final String title;
@@ -30,6 +31,10 @@ class AccordDialog extends StatelessWidget {
   final VoidCallback? onPrimary;
   final String secondaryLabel;
   final AccordDialogTone tone;
+
+  /// When false the confirming button is dimmed and inert (a form that is
+  /// not complete yet, like "Upload a Sound" before a file and a name).
+  final bool primaryEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +51,7 @@ class AccordDialog extends StatelessWidget {
       required Color background,
       required Color foreground,
       required Color border,
-      required VoidCallback onPressed,
+      required VoidCallback? onPressed,
       Key? key,
     }) => Expanded(
       child: SizedBox(
@@ -57,6 +62,8 @@ class AccordDialog extends StatelessWidget {
           style: TextButton.styleFrom(
             backgroundColor: background,
             foregroundColor: foreground,
+            disabledBackgroundColor: background.withValues(alpha: 0.5),
+            disabledForegroundColor: foreground.withValues(alpha: 0.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
               side: BorderSide(color: border),
@@ -129,8 +136,10 @@ class AccordDialog extends StatelessWidget {
                         background: confirmColor,
                         foreground: Colors.white,
                         border: Colors.white.withValues(alpha: 0.08),
-                        onPressed:
-                            onPrimary ?? () => Navigator.of(context).pop(true),
+                        onPressed: !primaryEnabled
+                            ? null
+                            : onPrimary ??
+                                  () => Navigator.of(context).pop(true),
                       ),
                     ],
                   ),

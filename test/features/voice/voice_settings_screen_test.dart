@@ -79,6 +79,11 @@ void main() {
 
   testWidgets('screen-share quality is its own section, labelled apart from '
       'the camera', (tester) async {
+    // Tall enough for the camera and screen-share groups to be built together
+    // whatever sections follow them.
+    tester.view.physicalSize = const Size(1200, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       _host(const AccordSettings(videoFps: 30, screenShareFps: 60)),
     );
@@ -103,5 +108,22 @@ void main() {
         .widgetList<DropdownButton<int>>(find.byType(DropdownButton<int>))
         .toList();
     expect(dropdowns.map((d) => d.value), containsAll(<int>[30, 60]));
+  });
+
+  testWidgets('the soundboard volume has its own section', (tester) async {
+    tester.view.physicalSize = const Size(1200, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(_host(const AccordSettings(soundboardVolume: 0.4)));
+    await tester.pump();
+    expect(find.text('SOUNDBOARD'), findsOneWidget);
+    expect(find.byKey(const Key('soundboard-volume-setting')), findsOneWidget);
+    final slider = tester.widget<Slider>(
+      find.descendant(
+        of: find.byKey(const Key('soundboard-volume-setting')),
+        matching: find.byType(Slider),
+      ),
+    );
+    expect(slider.value, 0.4);
   });
 }

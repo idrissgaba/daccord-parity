@@ -632,6 +632,39 @@ class SettingsController extends _$SettingsController {
     _update(state.copyWith(recentEmoji: next));
   }
 
+  /// Stars or un-stars a soundboard sound ([key] = server-qualified sound ID)
+  /// in the soundboard picker's Favorites.
+  void toggleFavoriteSound(String key) {
+    if (key.isEmpty) return;
+    final current = state.favoriteSounds;
+    _update(
+      state.copyWith(
+        favoriteSounds: current.contains(key)
+            ? [
+                for (final k in current)
+                  if (k != key) k,
+              ]
+            : [key, ...current],
+      ),
+    );
+  }
+
+  /// Counts one play of a soundboard sound ([key] = server-qualified sound
+  /// ID) for the picker's "Frequently Used" row. Keeps the
+  /// [_maxSoundUsage] most played.
+  void recordSoundPlayed(String key) {
+    if (key.isEmpty) return;
+    final next = Map<String, int>.from(state.soundUsage);
+    next[key] = (next[key] ?? 0) + 1;
+    if (next.length > _maxSoundUsage) {
+      final weakest = next.entries.reduce((a, b) => a.value <= b.value ? a : b);
+      if (weakest.key != key) next.remove(weakest.key);
+    }
+    _update(state.copyWith(soundUsage: next));
+  }
+
+  static const _maxSoundUsage = 50;
+
   /// Stars or un-stars a GIF link in the picker's Favourites.
   void toggleFavoriteGif(String url) {
     if (url.isEmpty) return;

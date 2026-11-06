@@ -13,6 +13,7 @@ void main() {
       bool deafened = false,
       String? senderChannelId = 'voice',
       bool senderLocallyMuted = false,
+      String? eventChannelId,
     }) => SoundboardPlayer.shouldPlay(
       eventServerKey: eventServerKey,
       spaceId: spaceId,
@@ -24,6 +25,7 @@ void main() {
       deafened: deafened,
       senderChannelId: senderChannelId,
       senderLocallyMuted: senderLocallyMuted,
+      eventChannelId: eventChannelId,
     );
 
     test('plays a peer sound in our voice channel', () {
@@ -55,6 +57,33 @@ void main() {
 
     test('is silent for a locally muted sender', () {
       expect(decide(senderLocallyMuted: true), isFalse);
+    });
+
+    test('trusts the channel the server names over the voice states', () {
+      expect(decide(senderChannelId: null, eventChannelId: 'voice'), isTrue);
+      expect(decide(eventChannelId: 'other'), isFalse);
+      expect(decide(senderId: 'me', eventChannelId: 'other'), isFalse);
+    });
+  });
+
+  group('SoundboardPlayer.shouldShow', () {
+    bool show({String? voiceChannelId = 'voice', String? senderChannelId}) =>
+        SoundboardPlayer.shouldShow(
+          eventServerKey: 'me@server',
+          spaceId: 'space',
+          senderId: 'peer',
+          myUserId: 'me',
+          voiceServerKey: 'me@server',
+          voiceSpaceId: 'space',
+          voiceChannelId: voiceChannelId,
+          eventChannelId: null,
+          senderChannelId: senderChannelId,
+        );
+
+    test('shows a peer in our channel even when we would not hear it', () {
+      expect(show(senderChannelId: 'voice'), isTrue);
+      expect(show(senderChannelId: 'other'), isFalse);
+      expect(show(voiceChannelId: null, senderChannelId: 'voice'), isFalse);
     });
   });
 

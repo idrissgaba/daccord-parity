@@ -16,7 +16,7 @@ import 'package:bonfire/features/spaces/views/accord_audit_log.dart';
 import 'package:bonfire/features/spaces/views/accord_ban_list.dart';
 import 'package:bonfire/features/spaces/views/accord_emoji_management.dart';
 import 'package:bonfire/features/spaces/views/accord_role_management.dart';
-import 'package:bonfire/features/spaces/views/accord_soundboard.dart';
+import 'package:bonfire/features/soundboard/views/soundboard_settings_page.dart';
 import 'package:bonfire/features/spaces/views/accord_webhooks.dart';
 import 'package:bonfire/features/user/controllers/self_presence.dart';
 import 'package:bonfire/features/channels/views/channel_management.dart';
