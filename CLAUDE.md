@@ -74,7 +74,9 @@ tool/
   parity_capture/  # Discord-parity capture harness (`parity_app.dart`): the real app
                    #   on store_capture's offline fixture with messages covering lot B
                    #   (`?scene=messages|dm|friends`, `&typing=1`, `&preview=<roleId>`
-                   #   for a plain member's menus, `&open=shortcuts|switcher`). Build with
+                   #   for a plain member's menus, `&open=shortcuts|switcher`; lot H:
+                   #   `?scene=unread` for unread / muted channels and a DM tile,
+                   #   `&open=inbox[&tab=mentions]`). Build with
                    #   `flutter build web -t tool/parity_capture/parity_app.dart
                    #   --no-tree-shake-icons --release -o build/parity`. Never shipped.
 docs/              # product + technical specs (see below)
@@ -211,6 +213,24 @@ Read-state updates live in `accord_message_events.dart`; READY cursors are
 parsed in `accord_ready_sync.dart`. Use `ReadStateController.acknowledge` for
 local reads so retries, monotonic cursors and notification dismissal stay
 consistent. Details: `docs/notification-read-state-audit.md`.
+
+Indicators (lot H of `DISCORD_PARITY.md`): `UnreadIndicatorGate` decides what
+lights. A server-side channel mute (`MutedChannelsController`, widened to a
+muted category's channels by `effectiveMutedChannels`) dims the row
+(`#96979E` at 50 %) and drops its pill, the space's pill, the inbox entry and
+the taskbar dot, but its mentions still count (`mentionsCountTowardSpace`).
+Every unread DM message counts in the red badge; unread DMs get a rail tile
+under Home (`_UnreadDmTiles`), and Home's badge counts incoming friend requests
+(`FriendIdsController`, synced with the blocked list). Badges use
+`kMentionBadgeColor` (`theme.dart`). The web tab title reads "(N) Daccord" /
+"• Daccord" (`unreadTitlePrefix`), gated with the taskbar badge by
+`unreadBadgeEnabled`. The Inbox (`notifications/views/inbox_popover.dart`,
+Ctrl+I; Ctrl+Shift+E marks its top channel read) lists unread channels/DMs and
+the mentions `InboxMentionsController` collects (gateway + unread scan; Accord
+has no recent-mentions endpoint); jumps go through `pendingDeepLinkProvider`.
+"Notify me when…" switches (`notifyFriendsOnline`, `notifyFriendStreams`,
+`notifyEvents`) are applied in `accord_event_handler.dart` through
+`FriendActivityNotificationGate`.
 
 ## AutoMod
 

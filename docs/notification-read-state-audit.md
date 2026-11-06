@@ -19,6 +19,8 @@ reconnect hydration, and read acknowledgements between devices.
 | The home route could overwrite the visible DM pointer while rebuilding beneath its dialog. | The home route updates visibility only while it is the current route. |
 | The global badge looked up raw IDs in settings stored under server-qualified keys. | Global aggregation applies each connection's own mute and channel settings. |
 | Channels set to “nothing” suppressed banners and highlighting but could still chime. | Incoming-message sounds honor the same per-channel suppression. |
+| Server-side channel mutes were ignored by every indicator: a muted channel stayed white with its pill and lit its space and the taskbar (2026-11-06, Discord-parity lot H). | `UnreadIndicatorGate` takes the channel's mute (and its category's, via `effectiveMutedChannels`): no pill, no space pill, no taskbar dot, no inbox entry; its mentions still count, as the reference client keeps them. |
+| Unread direct messages only counted explicit mentions. | Every unread DM message counts toward the red badge (rail tile under Home, taskbar), as in the reference client. |
 
 ## Server follow-up
 

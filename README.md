@@ -373,8 +373,11 @@ uploads through the AutoMod controls. See [the client AutoMod guide](docs/automo
 for permissions, video sampling, private evidence, and cooldown behavior.
 
 Read positions synchronize across connected devices, with retries for failed
-acknowledgements and replay suppression for notifications. See the
-[read-state audit](docs/notification-read-state-audit.md) for behavior and limits.
+acknowledgements and replay suppression for notifications. Muted channels stay
+dimmed without unread markers but keep their mention counts, unread DMs get a
+tile in the server rail, and the Inbox (Ctrl+I) lists unread channels and recent
+mentions. See the [read-state audit](docs/notification-read-state-audit.md) for
+behavior and limits.
 
 Space image edits preview the selected crop immediately and refresh saved icons
 and banners in the current session. Channel administration is available from the
