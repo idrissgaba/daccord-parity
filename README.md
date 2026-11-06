@@ -1,5 +1,16 @@
 # Daccord — Flutter Client
 
+> **This is an independent fork.** `daccord-parity` is a separate app derived from
+> [Daccord](https://github.com/DaccordProject/daccord) (itself a fork of
+> [Bonfire](https://github.com/OpenBonfire/bonfire)). It is not maintained by, or
+> affiliated with, the DaccordProject team. Its goal is a Discord-like experience on
+> Daccord/Accord servers: layout, messages, calls and screen sharing, menus,
+> soundboard, settings, notifications and unread state follow the reference client
+> lot by lot (see [`DISCORD_PARITY.md`](DISCORD_PARITY.md)), using only free fonts,
+> icons and sounds. It still talks only to Accord servers and stays under the
+> GPL-3.0 license of the projects it comes from. Report issues for this fork here,
+> not upstream.
+
 ### Communication without compromise.
 
 **Daccord** is the free, open-source alternative to Discord — chat, voice, and video with native apps you control. This repository is the **Flutter client**: a fast, beautiful, cross-platform app that talks to *your* server, not someone else's cloud.
