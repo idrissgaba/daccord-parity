@@ -115,6 +115,8 @@ enum SettingsPage {
     [
       SettingsSub('notifications-overview', 'Overview'),
       SettingsSub('notifications-sounds', 'Sounds'),
+      SettingsSub('notifications-badges', 'Badges'),
+      SettingsSub('notifications-advanced', 'Advanced'),
     ],
   ),
   voiceVideo(

@@ -181,6 +181,12 @@ class _DraggableSpace extends StatelessWidget {
   final channelLevels = ref
       .read(settingsControllerProvider)
       .channelNotificationsFor(serverKey);
+  // A muted channel (or one in a muted category) never lights the pill.
+  final mutedChannels = effectiveMutedChannels(
+    ref.watch(mutedChannelsControllerProvider(serverKey)).value ??
+        const <String>{},
+    ref.watch(accordChannelsControllerProvider(serverKey, spaceId)),
+  );
   return ref.watch(
     readStateControllerProvider(serverKey).select(
       (readState) => (
@@ -188,6 +194,7 @@ class _DraggableSpace extends StatelessWidget {
           spaceId,
           spaceMuted: spaceMuted,
           channelLevels: channelLevels,
+          mutedChannels: mutedChannels,
         ),
         mentions: readState.visibleMentionsInSpace(
           spaceId,
@@ -374,10 +381,12 @@ class _RailTile extends StatelessWidget {
                               child: builder(hovered),
                             ),
                     ),
+                    // The 16 px badge sits in the tile's corner; its 2 px ring
+                    // (the reference client's 20 px mask) spills past it.
                     if (mentions > 0)
                       Positioned(
-                        right: -4,
-                        bottom: -4,
+                        right: -2,
+                        bottom: -2,
                         child: _MentionBadge(
                           count: mentions,
                           ring: colors.foreground,
@@ -498,7 +507,6 @@ class _RailIconTile extends StatelessWidget {
     required this.onTap,
     this.iconSize = 20,
     this.selected = false,
-    this.hasUnread = false,
     this.mentionCount = 0,
     this.activeColor,
   });
@@ -508,7 +516,6 @@ class _RailIconTile extends StatelessWidget {
   final VoidCallback onTap;
   final double iconSize;
   final bool selected;
-  final bool hasUnread;
   final int mentionCount;
 
   /// Hover / selection fill; defaults to the accent.
@@ -521,7 +528,7 @@ class _RailIconTile extends StatelessWidget {
       message: tooltip,
       child: _RailTile(
         selected: selected,
-        unread: hasUnread,
+        unread: false,
         mentions: mentionCount,
         onTap: onTap,
         activeColor: activeColor ?? colors.primary,
@@ -548,34 +555,16 @@ class _DirectMessagesButton extends ConsumerWidget {
     final connections = ref.watch(
       connectionsControllerProvider.select((state) => state.connections),
     );
-    // The stored map, not a per-server copy, so other settings writes don't
-    // rebuild this tile.
-    ref.watch(settingsControllerProvider.select((s) => s.channelNotifications));
-    final settings = ref.read(settingsControllerProvider);
-    var hasUnread = false;
-    var mentions = 0;
+    // Unread conversations get their own tiles below ([_UnreadDmTiles]); the
+    // Home button counts the friend requests waiting for an answer, as in
+    // the reference client.
+    var requests = 0;
     for (final connection in connections) {
-      final levels = settings.channelNotificationsFor(connection.key);
-      final summary = ref.watch(
-        readStateControllerProvider(connection.key).select((snapshot) {
-          var unread = false;
-          var count = 0;
-          for (final entry in snapshot.entries.values) {
-            if (entry.spaceId != null ||
-                !UnreadIndicatorGate.countsTowardSpace(
-                  spaceMuted: false,
-                  channelLevel: levels[entry.channelId],
-                )) {
-              continue;
-            }
-            unread = true;
-            count += entry.mentions;
-          }
-          return (hasUnread: unread, mentions: count);
-        }),
+      requests += ref.watch(
+        friendIdsControllerProvider(
+          connection.key,
+        ).select((s) => s.pendingIncoming),
       );
-      hasUnread = hasUnread || summary.hasUnread;
-      mentions += summary.mentions;
     }
     return _RailIconTile(
       key: const Key('rail-direct-messages'),
@@ -583,11 +572,184 @@ class _DirectMessagesButton extends ConsumerWidget {
       icon: AppIcons.chatBubble,
       iconSize: 24,
       selected: selected,
-      hasUnread: hasUnread,
-      mentionCount: mentions,
+      mentionCount: requests,
       onTap: onTap,
     );
   }
+}
+
+/// One tile per direct message with unread messages, under the Home button
+/// (newest first): the other person's avatar (a group glyph for a group),
+/// the unread pill and the red count of unread messages. A click opens the
+/// conversation. Read from the active connection.
+class _UnreadDmTiles extends ConsumerStatefulWidget {
+  const _UnreadDmTiles();
+
+  @override
+  ConsumerState<_UnreadDmTiles> createState() => _UnreadDmTilesState();
+}
+
+class _UnreadDmTilesState extends ConsumerState<_UnreadDmTiles> {
+  String? _fetchedFor;
+
+  /// The DM list is only fetched by the DM home; an unread DM needs it here.
+  void _ensureChannels(String serverKey) {
+    if (_fetchedFor == serverKey) return;
+    _fetchedFor = serverKey;
+    final client = ref.clientForKey(serverKey);
+    if (client == null) return;
+    unawaited(
+      client.users.listChannels().then((result) {
+        final data = result.data;
+        if (!mounted || !result.ok || data is! List) return;
+        final controller = ref.read(
+          dmChannelsControllerProvider(serverKey).notifier,
+        );
+        if (ref.read(dmChannelsControllerProvider(serverKey)) == null) {
+          controller.setChannels(data.whereType<AccordChannel>().toList());
+        }
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final serverKey = ref.watch(
+      connectionsControllerProvider.select((s) => s.activeKey),
+    );
+    if (serverKey == null) return const SizedBox.shrink();
+    ref.watch(settingsControllerProvider.select((s) => s.channelNotifications));
+    final levels = ref
+        .read(settingsControllerProvider)
+        .channelNotificationsFor(serverKey);
+    final unread = ref.watch(
+      readStateControllerProvider(serverKey).select(
+        (snapshot) => [
+          for (final e in snapshot.entries.values)
+            if (e.spaceId == null &&
+                UnreadIndicatorGate.countsTowardSpace(
+                  spaceMuted: false,
+                  channelLevel: levels[e.channelId],
+                ))
+              e,
+        ],
+      ),
+    );
+    if (unread.isEmpty) return const SizedBox.shrink();
+    final channels = ref.watch(dmChannelsControllerProvider(serverKey));
+    if (channels == null) {
+      _ensureChannels(serverKey);
+      return const SizedBox.shrink();
+    }
+    final byId = {for (final c in channels) c.id: c};
+    final selfId = ref.watch(
+      connectionsControllerProvider.select(
+        (s) => s.connectionFor(serverKey)?.session.userId,
+      ),
+    );
+    final cdnUrl = ref.watchCdnUrl();
+    final users = ref.watch(accordUsersControllerProvider(serverKey));
+    final entries =
+        [
+          for (final e in unread)
+            if (byId[e.channelId] != null) e,
+        ]..sort(
+          (a, b) => compareMessageIds(
+            b.lastMessageId ?? '0',
+            a.lastMessageId ?? '0',
+          ),
+        );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final entry in entries)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _UnreadDmTile(
+              key: Key('rail-unread-dm-${entry.channelId}'),
+              channel: byId[entry.channelId]!,
+              selfId: selfId,
+              users: users,
+              cdnUrl: cdnUrl,
+              mentions: entry.mentions,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _UnreadDmTile extends StatelessWidget {
+  const _UnreadDmTile({
+    super.key,
+    required this.channel,
+    required this.selfId,
+    required this.users,
+    required this.cdnUrl,
+    required this.mentions,
+  });
+
+  final AccordChannel channel;
+  final String? selfId;
+  final Map<String, AccordUser> users;
+  final String? cdnUrl;
+  final int mentions;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final others = [
+      for (final u in channel.recipients ?? const <AccordUser>[])
+        if (u.id != selfId) users[u.id] ?? u,
+    ];
+    final group = channel.type == 'group_dm' || others.length > 1;
+    final other = others.length == 1 ? others.first : null;
+    final title = dmChannelTitle(
+      channel,
+      selfId,
+      fallback: 'Direct message',
+      users: users,
+    );
+    final avatarUrl = other == null ? null : accordAvatarUrl(other, cdnUrl);
+    return RailTooltip(
+      message: title,
+      child: _RailTile(
+        selected: false,
+        unread: true,
+        mentions: mentions,
+        onTap: () => dmHome.open(channel),
+        activeColor: colors.primary,
+        restColor: accordIdColor(other?.id ?? channel.id),
+        builder: (_) => group || avatarUrl == null
+            ? Icon(
+                group ? AppIcons.group : null,
+                size: 20,
+                color: accordOnColor(accordIdColor(other?.id ?? channel.id)),
+              ).withInitial(group ? null : accordInitial(title))
+            : CachedNetworkImage(
+                imageUrl: avatarUrl,
+                width: _kRailTileSize,
+                height: _kRailTileSize,
+                fit: BoxFit.cover,
+                errorWidget: (_, _, _) => const SizedBox.shrink(),
+              ),
+      ),
+    );
+  }
+}
+
+extension on Icon {
+  /// The initial letter instead of the glyph when there is no icon.
+  Widget withInitial(String? initial) => initial == null
+      ? this
+      : Text(
+          initial,
+          style: TextStyle(
+            color: color,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        );
 }
 
 /// The "Add a Server" (+) affordance at the foot of the rail's space list.

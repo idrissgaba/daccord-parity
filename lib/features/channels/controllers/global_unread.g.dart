@@ -67,4 +67,4 @@ final class GlobalUnreadProvider
   }
 }
 
-String _$globalUnreadHash() => r'5ae18eab3fc0a002cc4b1679c7db78617f31e6f9';
+String _$globalUnreadHash() => r'084cc819f2caeb719199bdc1b07c910fc9ef1f9d';

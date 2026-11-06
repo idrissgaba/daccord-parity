@@ -23,6 +23,9 @@ import 'package:bonfire/features/notifications/services/sound.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
 import 'package:bonfire/features/user/controllers/blocked_users.dart';
+import 'package:bonfire/features/user/controllers/friend_ids.dart';
+import 'package:bonfire/features/notifications/utils/notification_gate.dart';
+import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/voice/controllers/call.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/controllers/voice_states.dart';
@@ -207,9 +210,32 @@ VoidCallback handleAccordEvents(
   // [selfDomain] lets the cache key bare wire IDs like qualified member IDs.
   subs.add(
     client.onPresenceUpdate.listen((presence) {
+      final previous = accordPresenceStatus(
+        ref.read(presenceControllerProvider(serverKey)),
+        presence.userId,
+      );
       ref
           .read(presenceControllerProvider(serverKey).notifier)
           .upsert(presence, homeDomain: selfDomain);
+      // "Notify me when… Friends come online".
+      if (FriendActivityNotificationGate.cameOnline(
+            previous,
+            presence.status,
+          ) &&
+          _shouldNotifyFriendActivity(
+            ref,
+            serverKey,
+            presence.userId,
+            currentUserId,
+            optedIn: ref.read(settingsControllerProvider).notifyFriendsOnline,
+          )) {
+        unawaited(
+          showFriendActivityNotification(
+            title: _friendName(ref, serverKey, presence.userId),
+            body: 'is now online',
+          ),
+        );
+      }
     }),
   );
 
@@ -275,7 +301,35 @@ VoidCallback handleAccordEvents(
       if (isActive()) {
         final cache = ref.read(voiceStatesControllerProvider(serverKey));
         final previousChannel = _channelOf(cache, vs.userId);
+        final wasStreaming = previousChannel != null &&
+            (cache[previousChannel]?[vs.userId]?.selfStream ?? false);
         ref.read(voiceStatesControllerProvider(serverKey).notifier).upsert(vs);
+        // "Notify me when… People I know start streaming".
+        if (vs.selfStream &&
+            !wasStreaming &&
+            vs.channelId != null &&
+            _shouldNotifyFriendActivity(
+              ref,
+              serverKey,
+              vs.userId,
+              me,
+              optedIn: ref.read(settingsControllerProvider).notifyFriendStreams,
+            )) {
+          final channel = vs.spaceId == null
+              ? null
+              : ref
+                    .read(accordChannelsControllerProvider(serverKey, vs.spaceId!))
+                    ?.where((c) => c.id == vs.channelId)
+                    .firstOrNull;
+          unawaited(
+            showFriendActivityNotification(
+              title: _friendName(ref, serverKey, vs.userId),
+              body: channel?.name == null
+                  ? 'started streaming'
+                  : 'started streaming in ${channel!.name}',
+            ),
+          );
+        }
         soundManager.playForVoiceState(
           isSelf: vs.userId == me,
           joinedChannel: vs.channelId,
@@ -376,10 +430,12 @@ VoidCallback handleAccordEvents(
               .read(spaceEventsControllerProvider(serverKey, spaceId))
               ?.where((e) => e.id == next.id)
               .firstOrNull;
+          // "Notify me when… A server has an upcoming event".
           if (next.isActive &&
               previous != null &&
               !previous.isActive &&
-              previous.interested == true) {
+              previous.interested == true &&
+              ref.read(settingsControllerProvider).notifyEvents) {
             unawaited(
               showEventNotification(
                 title: 'Starting now: ${next.name}',
@@ -707,6 +763,41 @@ VoidCallback handleAccordEvents(
 }
 
 /// The channel ID [userId] currently appears in within [cache], or null.
+/// Whether a friend's activity ([userId] on [serverKey]) may notify: see
+/// [FriendActivityNotificationGate.shouldNotify].
+bool _shouldNotifyFriendActivity(
+  Ref ref,
+  String serverKey,
+  String userId,
+  String? currentUserId, {
+  required bool optedIn,
+}) {
+  final settings = ref.read(settingsControllerProvider);
+  return FriendActivityNotificationGate.shouldNotify(
+    optedIn: optedIn,
+    notificationsEnabled: settings.notificationsEnabled,
+    streamerMode: settings.streamerMode,
+    selfDnd:
+        currentUserId != null &&
+        accordPresenceStatus(
+              ref.read(presenceControllerProvider(serverKey)),
+              currentUserId,
+            ) ==
+            'dnd',
+    isFriend: ref
+        .read(friendIdsControllerProvider(serverKey))
+        .friendIds
+        .contains(userId),
+    isSelf: userId == currentUserId,
+  );
+}
+
+/// A friend's name for a notification title.
+String _friendName(Ref ref, String serverKey, String userId) => accordUserName(
+  ref.read(accordUsersControllerProvider(serverKey).notifier).cached(userId),
+  fallback: 'A friend',
+);
+
 String? _channelOf(
   Map<String, Map<String, AccordVoiceState>> cache,
   String userId,

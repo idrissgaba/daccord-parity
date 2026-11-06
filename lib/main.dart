@@ -9,6 +9,7 @@ import 'package:bonfire/features/notifications/controllers/background_connection
 import 'package:bonfire/features/notifications/services/notification.dart';
 import 'package:bonfire/features/notifications/services/sound.dart';
 import 'package:bonfire/features/voice/services/soundboard_player.dart';
+import 'package:bonfire/features/channels/controllers/global_unread.dart';
 import 'package:bonfire/features/notifications/services/taskbar_badge.dart';
 import 'package:bonfire/features/onboarding/views/onboarding_tour.dart';
 import 'package:bonfire/features/updates/views/release_notes_dialog.dart';
@@ -432,6 +433,7 @@ class _MainWindowState extends ConsumerState<MainWindow> {
           uiSaturation: s.uiSaturation,
           reducedMotion: s.reducedMotion,
           disabledSounds: s.disabledSounds,
+          unreadBadgeEnabled: s.unreadBadgeEnabled,
         ),
       ),
     );
@@ -456,8 +458,14 @@ class _MainWindowState extends ConsumerState<MainWindow> {
           : Color(settings.accentColor!),
     );
 
+    // The web tab title carries the unread state, as the reference client's
+    // web app does: "(3) Daccord", "• Daccord". Only the prefix is watched.
+    final titlePrefix = kIsWeb && settings.unreadBadgeEnabled
+        ? ref.watch(globalUnreadProvider.select(unreadTitlePrefix))
+        : '';
+
     return MaterialApp.router(
-      title: 'Daccord',
+      title: '${titlePrefix}Daccord',
       theme: theme,
       darkTheme: theme,
       routerConfig: routerController,

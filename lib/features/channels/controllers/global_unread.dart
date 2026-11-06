@@ -1,3 +1,4 @@
+import 'package:bonfire/features/channels/controllers/muted_channels.dart';
 import 'package:bonfire/features/channels/controllers/read_state.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
@@ -48,12 +49,14 @@ class GlobalUnread {
 /// entries carry no [ReadEntry.spaceId] and so can't be space-muted; only their
 /// per-channel level applies.
 ///
-/// [mutedSpaces] mirrors `AccordSettings.mutedSpaces` and [channelLevels]
-/// mirrors `AccordSettings.channelNotifications`.
+/// [mutedSpaces] mirrors `AccordSettings.mutedSpaces`, [channelLevels]
+/// mirrors `AccordSettings.channelNotifications` and [mutedChannels] the
+/// server-side channel mutes ([effectiveMutedChannels]).
 GlobalUnread foldGlobalUnread(
   Iterable<ReadStateSnapshot> snapshots, {
   Iterable<String> mutedSpaces = const <String>[],
   Map<String, String> channelLevels = const <String, String>{},
+  Set<String> mutedChannels = const <String>{},
 }) {
   final muted = mutedSpaces is Set<String> ? mutedSpaces : mutedSpaces.toSet();
   var hasUnread = false;
@@ -61,14 +64,24 @@ GlobalUnread foldGlobalUnread(
   for (final snapshot in snapshots) {
     for (final entry in snapshot.entries.values) {
       final spaceId = entry.spaceId;
-      if (!UnreadIndicatorGate.countsTowardSpace(
-        spaceMuted: spaceId != null && muted.contains(spaceId),
-        channelLevel: channelLevels[entry.channelId],
+      final spaceMuted = spaceId != null && muted.contains(spaceId);
+      final level = channelLevels[entry.channelId];
+      if (UnreadIndicatorGate.countsTowardSpace(
+        spaceMuted: spaceMuted,
+        channelLevel: level,
+        channelMuted: mutedChannels.contains(entry.channelId),
       )) {
-        continue;
+        hasUnread = true;
       }
-      hasUnread = true;
-      mentions += entry.mentions;
+      // A muted channel's mentions still count, as on its rail icon.
+      if (entry.mentions > 0 &&
+          UnreadIndicatorGate.mentionsCountTowardSpace(
+            spaceMuted: spaceMuted,
+            channelLevel: level,
+          )) {
+        hasUnread = true;
+        mentions += entry.mentions;
+      }
     }
   }
   return GlobalUnread(hasUnread: hasUnread, mentionCount: mentions);
@@ -103,6 +116,9 @@ GlobalUnread globalUnread(Ref ref) {
             entry.spaceId!,
       },
       channelLevels: settings.channelNotificationsFor(connection.key),
+      mutedChannels:
+          ref.watch(mutedChannelsControllerProvider(connection.key)).value ??
+          const <String>{},
     );
     hasUnread = hasUnread || unread.hasUnread;
     mentions += unread.mentionCount;

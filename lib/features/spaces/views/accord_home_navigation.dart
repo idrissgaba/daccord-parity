@@ -406,6 +406,22 @@ mixin _HomeNavigation on ConsumerState<AccordHomeScreen> {
         _pressKeyed(const Key('channel-header-pins'));
       case HomeShortcut.toggleInbox:
         _pressKeyed(const Key('home-title-bar-inbox'));
+      case HomeShortcut.markTopInboxRead:
+        final serverKey = ref.read(connectionsControllerProvider).activeKey;
+        if (serverKey == null) return;
+        final top = inboxUnreadEntries(
+          ref,
+          serverKey,
+          watch: false,
+        ).firstOrNull;
+        if (top != null) {
+          markChannelRead(
+            ref,
+            top.channelId,
+            serverKey: serverKey,
+            fallbackMessageId: top.lastMessageId,
+          );
+        }
       case HomeShortcut.toggleMembers:
         setState(() => _memberListVisible = !_memberListVisible);
       case HomeShortcut.emojiPicker:

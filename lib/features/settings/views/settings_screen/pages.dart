@@ -12,7 +12,7 @@ class _SettingsPageBody extends StatelessWidget {
     return switch (page) {
       SettingsPage.account => const _AccountPage(),
       SettingsPage.dataPrivacy => const PrivacySettingsScreen(embedded: true),
-      SettingsPage.notifications => const _NotificationsPage(),
+      SettingsPage.notifications => _NotificationsPage(onOpenPage: onOpenPage),
       SettingsPage.voiceVideo => VoiceVideoSettingsPage(
         onOpenNotifications: () => onOpenPage(SettingsPage.notifications),
       ),
@@ -254,80 +254,186 @@ class _Value extends StatelessWidget {
 // Notifications
 // ---------------------------------------------------------------------------
 
-/// The message and call sounds; the voice ones live under Voice & Video ›
-/// Sounds, as in the reference client.
-const List<String> kNotificationSoundNames = [
-  'message_received',
-  'mention_received',
-  'message_sent',
-  'ringtone',
-  'ring_outgoing',
-];
-
+/// Settings › Notifications, as the reference client lays it out: Overview
+/// (desktop notifications, "Notify me when…"), Sounds (message and call
+/// sounds; the voice ones live under Voice & Video › Sounds), Badges, and
+/// Advanced behind "Show Advanced Notification Settings" (Accord's own
+/// switches). Email has no Accord equivalent.
 class _NotificationsPage extends ConsumerWidget {
-  const _NotificationsPage();
+  const _NotificationsPage({required this.onOpenPage});
+
+  final ValueChanged<SettingsPage> onOpenPage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = BonfireThemeExtension.of(context);
     final settings = ref.watch(settingsControllerProvider);
     final controller = ref.read(settingsControllerProvider.notifier);
+    final labels = {for (final (n, l) in SoundManager.userSounds) n: l};
+    final notify = settings.notificationsEnabled;
     return _Sections([
-      _Section(
+      SettingsAnchor(
         id: 'notifications-overview',
-        title: 'Overview',
-        children: [
-          SettingsSwitchRow(
-            key: const Key('settings-desktop-notifications'),
-            label: 'Enable Desktop Notifications',
-            description:
-                "If you're looking for per-channel or per-server "
-                'notifications, right-click the desired server icon and '
-                'select Notification Settings.',
-            value: settings.notificationsEnabled,
-            onChanged: controller.setNotificationsEnabled,
-          ),
-          SettingsSwitchRow(
-            label: 'Suppress @everyone and @here',
-            description: 'Never notify for @everyone and @here mentions.',
-            value: settings.suppressEveryone,
-            onChanged: settings.notificationsEnabled
-                ? controller.setSuppressEveryone
-                : null,
-          ),
-          // Android sideload builds only — see
-          // [isBackgroundConnectionAvailable] (#306).
-          if (isBackgroundConnectionAvailable)
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SettingsSectionTitle('Overview'),
             SettingsSwitchRow(
-              key: const Key('background-connection-switch'),
-              label: 'Stay connected in the background',
+              key: const Key('settings-desktop-notifications'),
+              label: 'Enable Desktop Notifications',
               description:
-                  'Keeps notifications arriving while the app is closed. '
-                  'Shows a permanent notification and uses more battery.',
-              value: settings.backgroundConnection,
-              onChanged: controller.setBackgroundConnection,
+                  "If you're looking for per-channel or per-server "
+                  'notifications, right-click the desired server icon and '
+                  'select Notification Settings.',
+              value: settings.notificationsEnabled,
+              onChanged: controller.setNotificationsEnabled,
             ),
-        ],
+            const SizedBox(height: 24),
+            Text(
+              'Notify me when...',
+              style: SettingsText.label(
+                colors,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 24),
+            SettingsRows(
+              children: [
+                SettingsSwitchRow(
+                  key: const Key('settings-notify-streams'),
+                  label: 'People I know start streaming',
+                  value: settings.notifyFriendStreams,
+                  onChanged: notify ? controller.setNotifyFriendStreams : null,
+                ),
+                SettingsSwitchRow(
+                  key: const Key('settings-notify-friends-online'),
+                  label: 'Friends come online',
+                  value: settings.notifyFriendsOnline,
+                  onChanged: notify ? controller.setNotifyFriendsOnline : null,
+                ),
+                SettingsSwitchRow(
+                  key: const Key('settings-notify-events'),
+                  label: 'A server has an upcoming event',
+                  value: settings.notifyEvents,
+                  onChanged: notify ? controller.setNotifyEvents : null,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      SettingsAnchor(
+        id: 'notifications-sounds',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SettingsSectionTitle('Sounds'),
+            SettingsRows(
+              gap: 35,
+              divided: true,
+              children: [
+                SettingsSoundRow(
+                  name: 'message_received',
+                  label: 'New Message',
+                ),
+                SettingsSoundRow(
+                  key: const Key('settings-sound-current-channel'),
+                  name: 'message_received',
+                  label: "New Message in the channel I'm currently reading",
+                  value: settings.soundInCurrentChannel,
+                  onChanged: controller.setSoundInCurrentChannel,
+                ),
+                // Accord's own sounds, beside the message one they relate to.
+                for (final name in const ['mention_received', 'message_sent'])
+                  if (labels[name] case final label?)
+                    SettingsSoundRow(name: name, label: label),
+                SettingsSoundRow(name: 'ringtone', label: 'Incoming Ring'),
+                _SliderRow(
+                  label: 'Sound Volume',
+                  value: settings.sfxVolume,
+                  onChanged: settings.soundsEnabled
+                      ? controller.setSfxVolume
+                      : null,
+                ),
+                SettingsSwitchRow(
+                  key: const Key('settings-sounds-disabled'),
+                  label: 'Disable All Notification Sounds',
+                  description:
+                      'Disables all notification sounds, including voice and '
+                      'video sound effects. Your individual sound preferences '
+                      'will be saved and restored if you turn this on.',
+                  value: !settings.soundsEnabled,
+                  onChanged: (off) => controller.setSoundsEnabled(!off),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Related Settings',
+              style: SettingsText.label(colors).copyWith(color: colors.gray),
+            ),
+            const SizedBox(height: 16),
+            SettingsLinkCard(
+              icon: AppIcons.mic,
+              title: 'Voice & Video',
+              description:
+                  "Enable/disable sounds that play when you're in a call, "
+                  'like Mute, Unmute, Deafen and more.',
+              onTap: () => onOpenPage(SettingsPage.voiceVideo),
+            ),
+          ],
+        ),
       ),
       _Section(
-        id: 'notifications-sounds',
-        title: 'Sounds',
+        id: 'notifications-badges',
+        title: 'Badges',
         children: [
           SettingsSwitchRow(
-            key: const Key('settings-sounds-enabled'),
-            label: 'Enable Sounds',
-            description: 'Play sound effects for messages, calls and voice.',
-            value: settings.soundsEnabled,
-            onChanged: controller.setSoundsEnabled,
+            key: const Key('settings-unread-badge'),
+            label: 'Enable Unread Message Badge',
+            description:
+                'Shows a red badge on the app icon when you have unread '
+                'messages.',
+            value: settings.unreadBadgeEnabled,
+            onChanged: controller.setUnreadBadgeEnabled,
           ),
-          _SliderRow(
-            label: 'Sound Volume',
-            value: settings.sfxVolume,
-            onChanged: settings.soundsEnabled ? controller.setSfxVolume : null,
-          ),
-          for (final (name, label) in SoundManager.userSounds)
-            if (kNotificationSoundNames.contains(name))
-              SettingsSoundRow(name: name, label: label),
         ],
+      ),
+      SettingsAnchor(
+        id: 'notifications-advanced',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SettingsSectionTitle('Advanced'),
+            SettingsExpander(
+              key: const Key('settings-notifications-advanced'),
+              label: 'Show Advanced Notification Settings',
+              description: isBackgroundConnectionAvailable
+                  ? 'Suppress @everyone and @here, background connection'
+                  : 'Suppress @everyone and @here',
+              children: [
+                SettingsSwitchRow(
+                  label: 'Suppress @everyone and @here',
+                  description: 'Never notify for @everyone and @here mentions.',
+                  value: settings.suppressEveryone,
+                  onChanged: notify ? controller.setSuppressEveryone : null,
+                ),
+                // Android sideload builds only — see
+                // [isBackgroundConnectionAvailable] (#306).
+                if (isBackgroundConnectionAvailable)
+                  SettingsSwitchRow(
+                    key: const Key('background-connection-switch'),
+                    label: 'Stay connected in the background',
+                    description:
+                        'Keeps notifications arriving while the app is '
+                        'closed. Shows a permanent notification and uses more '
+                        'battery.',
+                    value: settings.backgroundConnection,
+                    onChanged: controller.setBackgroundConnection,
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     ]);
   }

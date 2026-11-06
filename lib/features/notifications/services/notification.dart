@@ -154,6 +154,35 @@ Future<void> showEventNotification({
   }
 }
 
+/// Settings › Notifications › "Notify me when…": a friend came online or
+/// started streaming. No-op on web or before [initializeNotifications].
+Future<void> showFriendActivityNotification({
+  required String title,
+  required String body,
+}) async {
+  if (UniversalPlatform.isWeb || !_initialized) return;
+  const details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'friends',
+      'Friends',
+      channelDescription: 'Friends coming online or starting a stream.',
+    ),
+    iOS: DarwinNotificationDetails(),
+    macOS: DarwinNotificationDetails(),
+    linux: LinuxNotificationDetails(),
+  );
+  try {
+    await flutterLocalNotificationsPlugin.show(
+      _nextNotificationId++,
+      title,
+      body,
+      details,
+    );
+  } catch (error) {
+    debugPrint('Failed to show notification: $error');
+  }
+}
+
 /// Shows a single mention notification with [title] and [body]. Safe to call on
 /// any platform — no-ops on web or before [initializeNotifications].
 Future<void> showMentionNotification({

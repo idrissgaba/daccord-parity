@@ -51,7 +51,7 @@ final class TaskbarBadgeControllerProvider
 }
 
 String _$taskbarBadgeControllerHash() =>
-    r'6901e28292b6e7444a649e73f4886aba99efe4e5';
+    r'6050fa8c6078ee2176226f1cf12b1eb52a869e4d';
 
 /// Mirrors [globalUnreadProvider] onto the OS taskbar/dock icon, live —
 /// including while the window is minimised or backgrounded. Kept alive by a

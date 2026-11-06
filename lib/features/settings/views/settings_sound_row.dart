@@ -12,10 +12,22 @@ const Color _kLinkColor = Color(0xFF4D96EE);
 /// One sound effect as the reference client lists it: its name, a "Preview
 /// Sound" link under it, and a switch.
 class SettingsSoundRow extends ConsumerWidget {
-  const SettingsSoundRow({super.key, required this.name, required this.label});
+  const SettingsSoundRow({
+    super.key,
+    required this.name,
+    required this.label,
+    this.value,
+    this.onChanged,
+  });
 
   final String name;
   final String label;
+
+  /// A switch other than the sound's own on/off (with [onChanged]): "New
+  /// Message in the channel I'm currently reading" previews the message
+  /// sound but switches a separate preference.
+  final bool? value;
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,9 +49,9 @@ class SettingsSoundRow extends ConsumerWidget {
         ),
       ),
       trailing: AccordSwitch(
-        value: !settings.disabledSounds.contains(name),
+        value: value ?? !settings.disabledSounds.contains(name),
         onChanged: enabled
-            ? (on) => controller.setSoundEnabled(name, on)
+            ? (onChanged ?? (on) => controller.setSoundEnabled(name, on))
             : null,
       ),
     );

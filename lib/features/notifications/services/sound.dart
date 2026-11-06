@@ -294,12 +294,16 @@ class SoundManager {
     required bool enabled,
     required double volume,
     bool isMemberJoin = false,
+    bool chimeInVisibleChannel = false,
   }) {
     // Disabled or muted: never chime, regardless of the message.
     if (!enabled || volume <= 0.0) return null;
     if (isMemberJoin) return 'member_join';
-    // The currently-open channel never chimes (you can see the message).
-    if (isVisibleChannel) return null;
+    // The currently-open channel chimes only with "New Message in the channel
+    // I'm currently reading" (you can see the message).
+    if (isVisibleChannel) {
+      return chimeInVisibleChannel ? 'message_received' : null;
+    }
     if (isMention) return 'mention_received';
     if (!focused) return 'message_received';
     return null;
@@ -310,6 +314,7 @@ class SoundManager {
     required bool isMention,
     required bool isVisibleChannel,
     bool isMemberJoin = false,
+    bool chimeInVisibleChannel = false,
   }) {
     final name = soundForMessage(
       isMention: isMention,
@@ -318,6 +323,7 @@ class SoundManager {
       enabled: enabled,
       volume: volume,
       isMemberJoin: isMemberJoin,
+      chimeInVisibleChannel: chimeInVisibleChannel,
     );
     if (name != null) play(name);
   }

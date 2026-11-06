@@ -76,3 +76,32 @@ class MessageNotificationGate {
     );
   }
 }
+
+/// Settings › Notifications › "Notify me when…": a friend comes online or
+/// starts streaming.
+class FriendActivityNotificationGate {
+  const FriendActivityNotificationGate._();
+
+  /// Whether [userId] going from [previousStatus] to [status] says they came
+  /// online (any status but `offline`, from `offline`).
+  static bool cameOnline(String previousStatus, String status) =>
+      previousStatus == 'offline' && status != 'offline';
+
+  /// Whether a friend's activity should raise a notification. [optedIn] is
+  /// the row's own switch; DND, Streamer Mode and the desktop switch silence
+  /// these like every other notification.
+  static bool shouldNotify({
+    required bool optedIn,
+    required bool notificationsEnabled,
+    required bool streamerMode,
+    required bool selfDnd,
+    required bool isFriend,
+    required bool isSelf,
+  }) =>
+      optedIn &&
+      notificationsEnabled &&
+      !streamerMode &&
+      !selfDnd &&
+      isFriend &&
+      !isSelf;
+}

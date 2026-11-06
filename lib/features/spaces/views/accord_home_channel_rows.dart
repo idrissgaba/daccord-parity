@@ -1,5 +1,9 @@
 part of 'accord_home.dart';
 
+/// A muted channel's name and glyph: `#96979E` at 50 % opacity, as measured
+/// on the reference client.
+const Color _kMutedChannelTint = Color(0x8096979E);
+
 /// Height of a channel row's link (its list item adds a 1 px margin above and
 /// below), its corner radius, and its horizontal inset in the column.
 const double _kChannelRowHeight = 32;
@@ -336,7 +340,15 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
     // A channel set to `nothing` is silenced outright: no pill, no badge, no
     // bright name (its unread state is kept, so restoring the level restores
     // the indicator). A muted *space* still shows unread inside itself — that
-    // mute only suppresses the rail roll-up.
+    // mute only suppresses the rail roll-up. A muted channel (or one in a
+    // muted category) is dimmed and loses its pill, but keeps its mentions.
+    final mutedIds = activeKey == null
+        ? const <String>{}
+        : ref.watch(mutedChannelsControllerProvider(activeKey)).value ??
+              const <String>{};
+    final muted =
+        mutedIds.contains(channel.id) ||
+        (channel.parentId != null && mutedIds.contains(channel.parentId));
     final level = activeKey == null
         ? null
         : ref.watch(
@@ -353,6 +365,7 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
                 unread: readState.isUnreadVisible(
                   channel.id,
                   channelLevels: channelLevels,
+                  mutedChannels: {if (muted) channel.id},
                 ),
                 mentions: readState.visibleMentionCount(
                   channel.id,
@@ -376,15 +389,22 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
           )
         : 0;
 
-    // Rest: muted grey. Unread or selected: white. Hover: lighter grey.
+    // Rest: grey name and glyph. Unread: white name, lighter glyph. Selected:
+    // both white. Hover: lighter grey. Muted: a mid grey at half opacity (the
+    // reference client's `#96979E` at 50 %), selected or not.
     final bright = widget.selected || unread;
     final tint = !enabled
         ? colors.gray.withValues(alpha: 0.6)
+        : muted && !widget.selected
+        ? _kMutedChannelTint
         : bright
         ? colors.dirtyWhite
         : _hovered
         ? colors.dirtyWhite.withValues(alpha: 0.85)
         : colors.gray;
+    final glyphTint = unread && !widget.selected && !muted
+        ? colors.interactive
+        : tint;
 
     // Desktop: the action icons show on hover and on the selected row; touch
     // has no hover, so they stay on the selected row only.
@@ -430,7 +450,7 @@ class _ChannelTileState extends ConsumerState<_ChannelTile> {
                         Icon(
                           _glyph,
                           size: 20,
-                          color: connectedHere ? colors.green : tint,
+                          color: connectedHere ? colors.green : glyphTint,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -727,7 +747,7 @@ class _MentionBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xFFF23F43),
+        color: kMentionBadgeColor,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
@@ -736,7 +756,7 @@ class _MentionBadge extends StatelessWidget {
           color: Colors.white,
           fontSize: 12,
           height: 1,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

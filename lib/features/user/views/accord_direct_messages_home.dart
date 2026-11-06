@@ -817,16 +817,20 @@ class _FriendsPageState extends ConsumerState<_FriendsPage> {
                   if (badge > 0) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      constraints: const BoxConstraints(minWidth: 16),
+                      height: 16,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: colors.red,
+                        color: kMentionBadgeColor,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '$badge',
                         style: const TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          height: 1,
+                          fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
                       ),

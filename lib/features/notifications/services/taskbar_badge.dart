@@ -1,6 +1,8 @@
 import 'package:bonfire/features/channels/controllers/global_unread.dart';
+import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:universal_platform/universal_platform.dart';
 
@@ -59,7 +61,13 @@ class TaskbarBadgeController extends _$TaskbarBadgeController {
     // message (a visible flicker on Windows, an extra bus round-trip on Linux).
     // The startup push below covers the case it would have handled — a badge
     // outliving the state that produced it.
-    final unread = ref.watch(globalUnreadProvider);
+    // Notifications › Badges › Enable Unread Message Badge.
+    final badgeOn = ref.watch(
+      settingsControllerProvider.select((s) => s.unreadBadgeEnabled),
+    );
+    final unread = badgeOn
+        ? ref.watch(globalUnreadProvider)
+        : const GlobalUnread();
     // Rebuilds are cheap but platform round-trips aren't (Windows redraws an
     // icon; Linux hits the session bus), and the fold can re-emit an identical
     // value whenever an unrelated connection changes.
@@ -71,4 +79,12 @@ class TaskbarBadgeController extends _$TaskbarBadgeController {
     _pushed = unread;
     pushTaskbarBadge(unread);
   }
+}
+
+/// The tab title's unread prefix on the web, as the reference client's web
+/// app writes it: "(3) " with mentions, "• " with unread messages only.
+String unreadTitlePrefix(GlobalUnread unread) {
+  if (unread.mentionCount > 0) return '(${unread.mentionCount}) ';
+  if (unread.hasUnread) return '• ';
+  return '';
 }

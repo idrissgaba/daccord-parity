@@ -159,7 +159,14 @@ class SettingsRow extends StatelessWidget {
               Text(label, style: SettingsText.label(colors)),
               if (description != null) ...[
                 const SizedBox(height: 4),
-                Text(description!, style: SettingsText.description(colors)),
+                // The reference client wraps descriptions at 572 px.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 572),
+                  child: Text(
+                    description!,
+                    style: SettingsText.description(colors),
+                  ),
+                ),
               ],
               if (descriptionWidget != null) ...[
                 const SizedBox(height: 4),
@@ -213,18 +220,38 @@ class SettingsSwitchRow extends StatelessWidget {
 
 /// Lays [children] out 32 px apart — the reference client's row rhythm.
 class SettingsRows extends StatelessWidget {
-  const SettingsRows({super.key, required this.children, this.gap = 32});
+  const SettingsRows({
+    super.key,
+    required this.children,
+    this.gap = 32,
+    this.divided = false,
+  });
 
   final List<Widget> children;
   final double gap;
 
+  /// A hairline in the middle of each gap, as the reference client draws
+  /// between its notification sounds.
+  final bool divided;
+
   @override
   Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (final (i, child) in children.indexed) ...[
-          if (i > 0) SizedBox(height: gap),
+          if (i > 0)
+            if (divided)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: (gap - 1) / 2),
+                child: ColoredBox(
+                  color: colors.hairline,
+                  child: const SizedBox(height: 1),
+                ),
+              )
+            else
+              SizedBox(height: gap),
           child,
         ],
       ],

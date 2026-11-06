@@ -98,7 +98,7 @@ final class ReadStateControllerProvider
 }
 
 String _$readStateControllerHash() =>
-    r'433a26cfa251eee33762ddf35ec40df0493557d0';
+    r'572cec3f3bd9543605f984c33cb9d30dacca66c3';
 
 /// Client-side read/unread tracker, one instance per connected server (keyed by
 /// `serverKey`, i.e. `userId@baseUrl`) so snowflake IDs that collide across

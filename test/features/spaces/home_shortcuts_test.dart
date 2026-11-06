@@ -333,6 +333,10 @@ void main() {
       );
       expect(match(LogicalKeyboardKey.keyP, control: true), HomeShortcut.togglePins);
       expect(match(LogicalKeyboardKey.keyI, control: true), HomeShortcut.toggleInbox);
+      expect(
+        match(LogicalKeyboardKey.keyE, control: true, shift: true),
+        HomeShortcut.markTopInboxRead,
+      );
       expect(match(LogicalKeyboardKey.keyU, control: true), HomeShortcut.toggleMembers);
       expect(match(LogicalKeyboardKey.keyE, control: true), HomeShortcut.emojiPicker);
       expect(match(LogicalKeyboardKey.keyG, control: true), HomeShortcut.gifPicker);

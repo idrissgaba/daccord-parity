@@ -37,6 +37,7 @@ enum HomeShortcut {
   createGroupDm,
   togglePins,
   toggleInbox,
+  markTopInboxRead,
   emojiPicker,
   gifPicker,
   stickerPicker,
@@ -362,6 +363,13 @@ const List<HomeShortcutBinding> homeShortcutBindings = [
     label: 'Toggle inbox pop-out',
   ),
   HomeShortcutBinding(
+    HomeShortcut.markTopInboxRead,
+    LogicalKeyboardKey.keyE,
+    control: true,
+    shift: true,
+    label: 'Mark top inbox channel read',
+  ),
+  HomeShortcutBinding(
     HomeShortcut.emojiPicker,
     LogicalKeyboardKey.keyE,
     control: true,
@@ -428,8 +436,7 @@ class KeyboardComboCard {
 /// The dialog's cards, section by section, in the reference client's order.
 /// Omitted (no equivalent here): the whole "Messages" section (keys on a
 /// focused message), "Speak Message" (text-to-speech), "Create a thread"
-/// (needs a focused message), "Mark top inbox channel read" (the inbox has no
-/// list yet), "Scroll chat up or down" / "Jump to oldest unread message"
+/// (needs a focused message), "Scroll chat up or down" / "Jump to oldest unread message"
 /// (the message list keeps its scroll position private), "Open context
 /// menu" (Shift+F10, no focused-element menu), and the two easter eggs.
 const List<KeyboardComboCard> keyboardComboCards = [
@@ -532,6 +539,11 @@ const List<KeyboardComboCard> keyboardComboCards = [
     ShortcutSection.chat,
     'Toggle inbox pop-out',
     actions: [HomeShortcut.toggleInbox],
+  ),
+  KeyboardComboCard(
+    ShortcutSection.chat,
+    'Mark top inbox channel read',
+    actions: [HomeShortcut.markTopInboxRead],
   ),
   KeyboardComboCard(
     ShortcutSection.chat,

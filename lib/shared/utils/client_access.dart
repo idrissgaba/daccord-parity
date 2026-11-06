@@ -25,6 +25,13 @@ extension AccordClientWidgetRef on WidgetRef {
   AccordClient? get accordClient =>
       read(accordAuthProvider.select(_clientFromState));
 
+  /// [serverKey]'s client: the active one straight from the session, any
+  /// other from the connection registry.
+  AccordClient? clientForKey(String serverKey) =>
+      serverKey == readActiveServerKey()
+      ? accordClient
+      : read(accordAuthProvider.notifier).clientForKey(serverKey);
+
   String? watchActiveServerKey() =>
       watch(connectionsControllerProvider.select((state) => state.activeKey));
 

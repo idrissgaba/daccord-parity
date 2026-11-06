@@ -15,6 +15,7 @@ import 'package:bonfire/features/messaging/controllers/typing.dart';
 import 'package:bonfire/features/messaging/controllers/withdrawn_attachments.dart';
 import 'package:bonfire/features/messaging/utils/attachment_withdrawal.dart';
 import 'package:bonfire/features/messaging/utils/emoji_catalog.dart';
+import 'package:bonfire/features/notifications/controllers/inbox_mentions.dart';
 import 'package:bonfire/features/notifications/services/notification.dart';
 import 'package:bonfire/features/notifications/services/sound.dart';
 import 'package:bonfire/features/notifications/utils/notification_gate.dart';
@@ -179,15 +180,34 @@ void bindMessageEvents(
       if (isOwn || isVisibleChannel) {
         tracker.acknowledge(client, message.channelId, message.id);
       } else if (fresh) {
+        // Every unread direct message counts in the red badge (the DM's rail
+        // tile and the taskbar), as in the reference client.
         tracker.markUnread(
           message.channelId,
           spaceId: message.spaceId,
-          isMention: countsAsMention,
+          isMention: countsAsMention || (isDirectMessage && !blockedAuthor),
           messageId: message.id,
         );
       }
       // Keep cache updates for replays, but suppress duplicate alerts.
       if (!fresh) return;
+
+      // The inbox's Mentions tab (space messages only; its filter decides on
+      // @everyone and role mentions).
+      if (!isOwn && !blockedAuthor && !isDirectMessage) {
+        final kind = mentionsSelf(message.mentions)
+            ? InboxMentionKind.direct
+            : roleMention
+            ? InboxMentionKind.role
+            : message.mentionEveryone
+            ? InboxMentionKind.everyone
+            : null;
+        if (kind != null) {
+          ref
+              .read(inboxMentionsControllerProvider(serverKey).notifier)
+              .record(message, kind);
+        }
+      }
 
       // Notifications fire on every connection, opened channel or not; DMs
       // notify without a mention. Only the visible-channel skip is scoped to the
@@ -238,6 +258,7 @@ void bindMessageEvents(
           isMention: countsAsMention || isDirectMessage,
           isVisibleChannel: isVisibleChannel,
           isMemberJoin: message.type == 'member_join',
+          chimeInVisibleChannel: settings.soundInCurrentChannel,
         );
       }
     }),
@@ -357,6 +378,9 @@ void bindMessageEvents(
       if (channelId == null || messageId == null) return;
       // A deleted message can't show a placeholder; drop its held uploads.
       pendingUploads.clearForMessage(messageId);
+      ref
+          .read(inboxMentionsControllerProvider(serverKey).notifier)
+          .remove(messageId);
       final dmChannels = ref.read(
         dmChannelsControllerProvider(serverKey).notifier,
       );

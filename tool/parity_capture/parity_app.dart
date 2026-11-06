@@ -21,6 +21,11 @@
 // `SpaceSettingsPages` key) the server settings, whose lists start empty;
 // `&open=profile` the Edit Profile modal, `&open=channel-settings` Edit
 // Channel on #general.
+// Lot H: `/?scene=unread` leaves #introductions, #show-and-tell (a mention),
+// #build-log (two) and Tidepool's #lobby unread, mutes #off-topic (unread,
+// one mention), and leaves Hana's DM unread (a rail tile); `&open=inbox`
+// opens the inbox (`&tab=mentions` its Mentions tab), whose Mentions list is
+// seeded with three messages.
 // Nothing here is shipped.
 
 import 'dart:convert';
@@ -31,11 +36,14 @@ import 'package:bonfire/features/authentication/models/accord_session.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/authentication/utils/hive.dart';
 import 'package:bonfire/features/channels/controllers/open_tabs.dart';
+import 'package:bonfire/features/channels/controllers/muted_channels.dart';
 import 'package:bonfire/features/channels/controllers/read_state.dart';
 import 'package:bonfire/features/channels/models/open_tab.dart';
 import 'package:bonfire/features/events/controllers/connection.dart';
 import 'package:bonfire/features/events/controllers/presence.dart';
 import 'package:bonfire/features/messaging/controllers/typing.dart';
+import 'package:bonfire/features/notifications/controllers/inbox_mentions.dart';
+import 'package:bonfire/features/notifications/views/inbox_popover.dart';
 import 'package:bonfire/features/profiles/services/profile_store.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
@@ -180,6 +188,91 @@ final List<Map<String, dynamic>> _general = [
   _msg('110', 'u-hana', '2026-11-04T09:41:00Z', 'and another one'),
 ];
 
+/// Lot H: what follows the read line in the unread channels.
+final Map<String, List<Map<String, dynamic>>> _unreadMessages = {
+  'c-introductions': [
+    _msg(
+      'i1',
+      'u-hana',
+      '2026-11-05T18:02:00Z',
+      'hi all, Hana here, I build little robots',
+      channelId: 'c-introductions',
+    ),
+    _msg(
+      'i2',
+      'u-hana',
+      '2026-11-05T18:03:00Z',
+      'mostly from old printer parts',
+      channelId: 'c-introductions',
+    ),
+  ],
+  'c-show-and-tell': [
+    _msg(
+      's1',
+      'u-june',
+      '2026-11-06T09:12:00Z',
+      'finished the walnut lamp, @mira what do you think?',
+      mentions: [seedSelfId],
+      reactions: [('🔥', 2, false)],
+      channelId: 'c-show-and-tell',
+    ),
+  ],
+  'c-build-log': [
+    _msg(
+      'b1',
+      'u-omar',
+      '2026-11-06T10:30:00Z',
+      '@mira the CNC bed is levelled',
+      mentions: [seedSelfId],
+      channelId: 'c-build-log',
+    ),
+    _msg(
+      'b2',
+      'u-omar',
+      '2026-11-06T10:31:00Z',
+      '@mira and the spindle runs true now',
+      mentions: [seedSelfId],
+      channelId: 'c-build-log',
+    ),
+  ],
+  'c-off-topic': [
+    _msg(
+      'o1',
+      'u-nadia',
+      '2026-11-06T08:00:00Z',
+      'anyone tried the new bakery? @mira',
+      mentions: [seedSelfId],
+      channelId: 'c-off-topic',
+    ),
+  ],
+  't-lobby': [
+    _msg(
+      'l1',
+      'u-hana',
+      '2026-11-06T11:00:00Z',
+      '@mira tournament tonight!',
+      mentions: [seedSelfId],
+      channelId: 't-lobby',
+    ),
+  ],
+  _dmChannelId: [
+    _msg(
+      'd3',
+      'u-hana',
+      '2026-11-06T11:20:00Z',
+      'see you at the workshop?',
+      channelId: _dmChannelId,
+    ),
+    _msg(
+      'd4',
+      'u-hana',
+      '2026-11-06T11:21:00Z',
+      'bring the calipers',
+      channelId: _dmChannelId,
+    ),
+  ],
+};
+
 final List<Map<String, dynamic>> _dmMessages = [
   _msg(
     'd1',
@@ -295,8 +388,20 @@ MockClient _transport() {
         ].any(path.endsWith)) {
       return _json([]);
     }
+    if (request.method == 'GET' && path.contains('/channels/')) {
+      final channelId = request.url.pathSegments.reversed.elementAt(1);
+      final unread = _unreadMessages[channelId];
+      if (unread != null && path.endsWith('/messages')) {
+        return _json(unread.reversed.toList());
+      }
+    }
     if (path.endsWith('/users/@me/channels')) return _json([_dm]);
-    if (path.endsWith('/users/@me/mutes')) return _json([]);
+    if (path.endsWith('/users/@me/mutes')) {
+      return _json([
+        if (Uri.base.queryParameters['scene'] == 'unread')
+          {'channel_id': 'c-off-topic'},
+      ]);
+    }
     if (path.endsWith('/users/@me/relationships')) {
       return _json([
         {
@@ -319,6 +424,22 @@ MockClient _transport() {
   });
 }
 
+/// The mounted element carrying [key], if any.
+BuildContext? _findKeyed(Key key) {
+  BuildContext? found;
+  void visit(Element element) {
+    if (found != null) return;
+    if (element.widget.key == key) {
+      found = element;
+      return;
+    }
+    element.visitChildren(visit);
+  }
+
+  WidgetsBinding.instance.rootElement?.visitChildren(visit);
+  return found;
+}
+
 http.Response _json(Object body) => http.Response(
   jsonEncode(body),
   200,
@@ -338,6 +459,32 @@ class _InVoice extends VoiceController {
     serverKey: serverKey,
     sessionState: VoiceSessionState.connected,
   );
+}
+
+/// Logged in on the fixture; [clientForKey] serves the panes that look a
+/// client up by connection (the inbox, the mutes, the user cache).
+class _Auth extends AccordAuth {
+  _Auth(this._client, this._session);
+  final AccordClient _client;
+  final AccordSession _session;
+
+  @override
+  AccordAuthState build() =>
+      AccordAuthLoggedIn(client: _client, session: _session);
+
+  @override
+  AccordClient? clientForKey(String key) =>
+      key == _session.key ? _client : null;
+}
+
+/// Lot H: `#off-topic` is muted in the unread scene.
+class _Mutes extends MutedChannelsController {
+  _Mutes(this.scene);
+  final String scene;
+
+  @override
+  Future<Set<String>> build(String serverKey) async =>
+      scene == 'unread' ? const {'c-off-topic'} : const <String>{};
 }
 
 Future<void> main() async {
@@ -380,11 +527,12 @@ Future<void> main() async {
   );
   final container = ProviderContainer(
     overrides: [
-      accordAuthProvider.overrideWithValue(
-        AccordAuthLoggedIn(client: client, session: session),
-      ),
+      accordAuthProvider.overrideWith(() => _Auth(client, session)),
       if (voiceScene)
         voiceControllerProvider.overrideWith(() => _InVoice(session.key)),
+      // The real controller reaches the client through the auth notifier,
+      // which a value override doesn't have.
+      mutedChannelsControllerProvider.overrideWith2((_) => _Mutes(scene)),
     ],
   );
   _container = container;
@@ -399,13 +547,55 @@ Future<void> main() async {
     for (final m in seedValeMembers)
       if (m.status != 'offline') AccordPresence(userId: m.id, status: m.status),
   ]);
-  container.read(readStateControllerProvider(key).notifier).hydrate(const [
-    ReadEntry(
+  container.read(readStateControllerProvider(key).notifier).hydrate([
+    const ReadEntry(
       channelId: seedGeneralChannelId,
       spaceId: seedSpaceId,
       lastMessageId: '110',
       lastReadMessageId: '108',
     ),
+    if (scene == 'unread') ...const [
+      ReadEntry(
+        channelId: 'c-introductions',
+        spaceId: seedSpaceId,
+        lastMessageId: 'i2',
+        lastReadMessageId: 'i0',
+      ),
+      ReadEntry(
+        channelId: 'c-show-and-tell',
+        spaceId: seedSpaceId,
+        mentions: 1,
+        lastMessageId: 's1',
+        lastReadMessageId: 's0',
+      ),
+      ReadEntry(
+        channelId: 'c-build-log',
+        spaceId: seedSpaceId,
+        mentions: 2,
+        lastMessageId: 'b2',
+        lastReadMessageId: 'b0',
+      ),
+      ReadEntry(
+        channelId: 'c-off-topic',
+        spaceId: seedSpaceId,
+        mentions: 1,
+        lastMessageId: 'o1',
+        lastReadMessageId: 'o0',
+      ),
+      ReadEntry(
+        channelId: 't-lobby',
+        spaceId: seedSecondSpaceId,
+        mentions: 1,
+        lastMessageId: 'l1',
+        lastReadMessageId: 'l0',
+      ),
+      ReadEntry(
+        channelId: _dmChannelId,
+        mentions: 2,
+        lastMessageId: 'd4',
+        lastReadMessageId: 'd2',
+      ),
+    ],
   ]);
   // Opening the channel acknowledges it; the cursor it leaves behind is what
   // draws the NEW line and the unread bar.
@@ -483,6 +673,26 @@ Future<void> main() async {
           ),
         );
   }
+  if (scene == 'unread') {
+    // The Mentions tab: what the gateway would have delivered this session.
+    final mentions = container.read(
+      inboxMentionsControllerProvider(key).notifier,
+    );
+    for (final (channel, id, kind) in const [
+      ('c-show-and-tell', 's1', InboxMentionKind.direct),
+      ('c-build-log', 'b2', InboxMentionKind.direct),
+      ('t-lobby', 'l1', InboxMentionKind.direct),
+    ]) {
+      final raw = _unreadMessages[channel]!.firstWhere((m) => m['id'] == id);
+      mentions.record(
+        AccordMessage.fromJson({
+          ...raw,
+          'space_id': channel.startsWith('t-') ? seedSecondSpaceId : seedSpaceId,
+        }),
+        kind,
+      );
+    }
+  }
   if (scene == 'dm' || scene == 'friends') {
     Future<void>.delayed(const Duration(milliseconds: 800), () {
       dmHome.open(scene == 'dm' ? AccordChannel.fromJson(_dm) : null);
@@ -520,6 +730,16 @@ Future<void> main() async {
           context,
           spaceId: seedSpaceId,
           page: Uri.base.queryParameters['page'],
+        );
+      }
+      // Lot H: `&open=inbox` (`&tab=mentions`), from the title bar's button.
+      if (open == 'inbox') {
+        final button = _findKeyed(const Key('home-title-bar-inbox'));
+        showInboxPopover(
+          button ?? context,
+          tab: Uri.base.queryParameters['tab'] == 'mentions'
+              ? InboxTab.mentions
+              : InboxTab.unread,
         );
       }
       // Lot G: `&open=settings&page=<SettingsPage name>`.

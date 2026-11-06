@@ -59,6 +59,7 @@ abstract final class AppIcons {
   static const IconData circleOutlined = PhosphorIconsBold.circle;
   static const IconData clear = PhosphorIconsBold.x;
   static const IconData close = PhosphorIconsBold.x;
+  static const IconData doneAll = PhosphorIconsBold.checks;
   static const IconData cloudOffOutlined = PhosphorIconsFill.cloudSlash;
   static const IconData code = PhosphorIconsBold.code;
   static const IconData contentCopy = PhosphorIconsFill.copy;
@@ -252,6 +253,7 @@ abstract final class AppIcons {
   static const IconData terminal = PhosphorIconsFill.terminal;
   static const IconData timerOffOutlined = PhosphorIconsFill.timer;
   static const IconData tray = PhosphorIconsFill.tray;
+  static const IconData tune = PhosphorIconsBold.slidersHorizontal;
   static const IconData threads = PhosphorIconsFill.treeStructure;
   static const IconData timerOutlined = PhosphorIconsFill.timer;
   static const IconData unfoldLess = PhosphorIconsBold.arrowsInLineVertical;

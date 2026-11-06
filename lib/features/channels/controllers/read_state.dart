@@ -28,7 +28,23 @@ class UnreadIndicatorGate {
   /// whole roll-up; [channelLevel] mirrors
   /// `AccordSettings.channelNotificationLevel` — `'nothing'` never contributes,
   /// `'mentions'` (the default, also `null`) and `'all'` do.
+  ///
+  /// [channelMuted] is the channel's server-side mute (or its category's): a
+  /// muted channel never lights the roll-up, but its mentions still count —
+  /// see [mentionsCountTowardSpace].
   static bool countsTowardSpace({
+    required bool spaceMuted,
+    String? channelLevel,
+    bool channelMuted = false,
+  }) {
+    if (spaceMuted || channelMuted) return false;
+    return channelLevel != AccordSettings.channelNotifNothing;
+  }
+
+  /// Whether an unread channel's mentions reach its space's badge (and the
+  /// taskbar). A channel mute does not hide them: the reference client keeps
+  /// the red count on a muted channel and on its server icon.
+  static bool mentionsCountTowardSpace({
     required bool spaceMuted,
     String? channelLevel,
   }) {
@@ -36,12 +52,27 @@ class UnreadIndicatorGate {
     return channelLevel != AccordSettings.channelNotifNothing;
   }
 
-  /// Whether an unread channel shows its pip in the channel list. Only the
-  /// per-channel level applies: a muted *space* still shows unread state
-  /// *inside* the space (muting greys the rail roll-up, it doesn't hide which
-  /// channels moved on), matching Discord.
-  static bool showsChannelPip({String? channelLevel}) =>
-      channelLevel != AccordSettings.channelNotifNothing;
+  /// Whether an unread channel shows its pip in the channel list. The
+  /// per-channel level and the channel's own mute apply: a muted *space*
+  /// still shows unread state *inside* the space (muting greys the rail
+  /// roll-up, it doesn't hide which channels moved on).
+  static bool showsChannelPip({String? channelLevel, bool channelMuted = false}) =>
+      !channelMuted && channelLevel != AccordSettings.channelNotifNothing;
+}
+
+/// [muted] (a server's channel and category mutes) widened to the channels
+/// whose category is muted, which inherit the mute. [channels] is the space's
+/// channel list when it is known.
+Set<String> effectiveMutedChannels(
+  Set<String> muted,
+  Iterable<AccordChannel>? channels,
+) {
+  if (muted.isEmpty || channels == null) return muted;
+  return {
+    ...muted,
+    for (final c in channels)
+      if (c.parentId != null && muted.contains(c.parentId)) c.id,
+  };
 }
 
 /// One unread channel: which space it belongs to (so the rail can roll a
@@ -95,14 +126,17 @@ class ReadStateSnapshot {
   // those two slices of settings rather than the whole object, so a draft
   // keystroke doesn't rebuild the rail.
 
-  /// [isUnread], minus channels the user silenced — the channel-list pip.
+  /// [isUnread], minus channels the user silenced or muted — the channel-list
+  /// pip. [mutedChannels] is [effectiveMutedChannels].
   bool isUnreadVisible(
     String channelId, {
     Map<String, String> channelLevels = const <String, String>{},
+    Set<String> mutedChannels = const <String>{},
   }) =>
       isUnread(channelId) &&
       UnreadIndicatorGate.showsChannelPip(
         channelLevel: channelLevels[channelId],
+        channelMuted: mutedChannels.contains(channelId),
       );
 
   /// [mentionCount], zeroed for channels the user silenced.
@@ -122,6 +156,7 @@ class ReadStateSnapshot {
     String spaceId, {
     required bool spaceMuted,
     Map<String, String> channelLevels = const <String, String>{},
+    Set<String> mutedChannels = const <String>{},
   }) {
     if (spaceMuted) return false;
     return entries.values.any(
@@ -130,12 +165,13 @@ class ReadStateSnapshot {
           UnreadIndicatorGate.countsTowardSpace(
             spaceMuted: spaceMuted,
             channelLevel: channelLevels[e.channelId],
+            channelMuted: mutedChannels.contains(e.channelId),
           ),
     );
   }
 
   /// Mention count for the rail badge, excluding muted spaces and silenced
-  /// channels.
+  /// channels (a muted channel's mentions still count).
   int visibleMentionsInSpace(
     String spaceId, {
     required bool spaceMuted,
@@ -145,7 +181,7 @@ class ReadStateSnapshot {
     var total = 0;
     for (final e in entries.values) {
       if (e.spaceId != spaceId) continue;
-      if (!UnreadIndicatorGate.countsTowardSpace(
+      if (!UnreadIndicatorGate.mentionsCountTowardSpace(
         spaceMuted: spaceMuted,
         channelLevel: channelLevels[e.channelId],
       )) {
@@ -201,6 +237,10 @@ class ReadStateController extends _$ReadStateController {
   }
 
   String? latestMessageId(String channelId) => _latest[channelId];
+
+  /// The newest message known read in [channelId], or null when none is
+  /// known (the inbox lists what follows it).
+  String? readThrough(String channelId) => _readThrough[channelId];
 
   /// The read position before the newest messages were acknowledged, or null
   /// when the last ack brought nothing new. See [_readBefore].

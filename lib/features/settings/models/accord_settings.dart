@@ -84,6 +84,14 @@ class AccordSettings {
     this.accentColor,
     this.notificationsEnabled = true,
     this.suppressEveryone = false,
+    this.notifyEvents = true,
+    this.notifyFriendsOnline = true,
+    this.notifyFriendStreams = true,
+    this.soundInCurrentChannel = false,
+    this.unreadBadgeEnabled = true,
+    this.inboxTipDismissed = false,
+    this.inboxIncludeEveryone = true,
+    this.inboxIncludeRoles = true,
     this.backgroundConnection = false,
     this.soundsEnabled = true,
     this.sfxVolume = 1.0,
@@ -187,6 +195,35 @@ class AccordSettings {
 
   /// When true, `@everyone` mentions never raise a notification.
   final bool suppressEveryone;
+
+  /// Notify me when... A server has an upcoming event: the "Starting now"
+  /// notification of an event the user is interested in.
+  final bool notifyEvents;
+
+  /// Notify me when… Friends come online: a desktop notification when a
+  /// friend goes from offline to online.
+  final bool notifyFriendsOnline;
+
+  /// Notify me when… People I know start streaming: a desktop notification
+  /// when a friend starts sharing their screen in a voice channel.
+  final bool notifyFriendStreams;
+
+  /// Sounds › New Message in the channel I'm currently reading: chime for a
+  /// message in the open channel too.
+  final bool soundInCurrentChannel;
+
+  /// Badges › Enable Unread Message Badge: the red badge on the app icon
+  /// (taskbar, dock, launcher; the tab title on the web).
+  final bool unreadBadgeEnabled;
+
+  /// The inbox's "Stay up to date" card was dismissed with "Got it!".
+  final bool inboxTipDismissed;
+
+  /// The inbox's Mentions filter: include @everyone and @here mentions.
+  final bool inboxIncludeEveryone;
+
+  /// The inbox's Mentions filter: include role mentions.
+  final bool inboxIncludeRoles;
 
   /// Android only: run a foreground service while backgrounded so the gateway
   /// connection (and with it message delivery + notifications) survives the
@@ -505,6 +542,14 @@ class AccordSettings {
     bool clearAccentColor = false,
     bool? notificationsEnabled,
     bool? suppressEveryone,
+    bool? notifyEvents,
+    bool? notifyFriendsOnline,
+    bool? notifyFriendStreams,
+    bool? soundInCurrentChannel,
+    bool? unreadBadgeEnabled,
+    bool? inboxTipDismissed,
+    bool? inboxIncludeEveryone,
+    bool? inboxIncludeRoles,
     bool? backgroundConnection,
     bool? soundsEnabled,
     double? sfxVolume,
@@ -588,6 +633,14 @@ class AccordSettings {
       accentColor: clearAccentColor ? null : (accentColor ?? this.accentColor),
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       suppressEveryone: suppressEveryone ?? this.suppressEveryone,
+      notifyEvents: notifyEvents ?? this.notifyEvents,
+      notifyFriendsOnline: notifyFriendsOnline ?? this.notifyFriendsOnline,
+      notifyFriendStreams: notifyFriendStreams ?? this.notifyFriendStreams,
+      soundInCurrentChannel: soundInCurrentChannel ?? this.soundInCurrentChannel,
+      unreadBadgeEnabled: unreadBadgeEnabled ?? this.unreadBadgeEnabled,
+      inboxTipDismissed: inboxTipDismissed ?? this.inboxTipDismissed,
+      inboxIncludeEveryone: inboxIncludeEveryone ?? this.inboxIncludeEveryone,
+      inboxIncludeRoles: inboxIncludeRoles ?? this.inboxIncludeRoles,
       backgroundConnection: backgroundConnection ?? this.backgroundConnection,
       soundsEnabled: soundsEnabled ?? this.soundsEnabled,
       sfxVolume: sfxVolume ?? this.sfxVolume,
@@ -871,6 +924,14 @@ class AccordSettings {
     'accentColor': accentColor,
     'notificationsEnabled': notificationsEnabled,
     'suppressEveryone': suppressEveryone,
+    'notifyEvents': notifyEvents,
+    'notifyFriendsOnline': notifyFriendsOnline,
+    'notifyFriendStreams': notifyFriendStreams,
+    'soundInCurrentChannel': soundInCurrentChannel,
+    'unreadBadgeEnabled': unreadBadgeEnabled,
+    'inboxTipDismissed': inboxTipDismissed,
+    'inboxIncludeEveryone': inboxIncludeEveryone,
+    'inboxIncludeRoles': inboxIncludeRoles,
     'backgroundConnection': backgroundConnection,
     'soundsEnabled': soundsEnabled,
     'sfxVolume': sfxVolume,
@@ -957,6 +1018,14 @@ class AccordSettings {
       accentColor: (json['accentColor'] as num?)?.toInt(),
       notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
       suppressEveryone: json['suppressEveryone'] as bool? ?? false,
+      notifyEvents: json['notifyEvents'] as bool? ?? true,
+      notifyFriendsOnline: json['notifyFriendsOnline'] as bool? ?? true,
+      notifyFriendStreams: json['notifyFriendStreams'] as bool? ?? true,
+      soundInCurrentChannel: json['soundInCurrentChannel'] as bool? ?? false,
+      unreadBadgeEnabled: json['unreadBadgeEnabled'] as bool? ?? true,
+      inboxTipDismissed: json['inboxTipDismissed'] as bool? ?? false,
+      inboxIncludeEveryone: json['inboxIncludeEveryone'] as bool? ?? true,
+      inboxIncludeRoles: json['inboxIncludeRoles'] as bool? ?? true,
       backgroundConnection: json['backgroundConnection'] as bool? ?? false,
       soundsEnabled: json['soundsEnabled'] as bool? ?? true,
       sfxVolume: (json['sfxVolume'] as num?)?.toDouble() ?? 1.0,

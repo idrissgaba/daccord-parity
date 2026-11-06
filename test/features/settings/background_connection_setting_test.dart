@@ -105,6 +105,13 @@ void main() {
     debugBackgroundConnectionAvailable = true;
     final settings = await _pumpTall(tester);
 
+    // It lives under Advanced, behind "Show Advanced Notification Settings".
+    expect(find.byKey(_switch), findsNothing);
+    await tester.ensureVisible(
+      find.byKey(const Key('settings-notifications-advanced')),
+    );
+    await tester.tap(find.text('Show Advanced Notification Settings'));
+    await tester.pumpAndSettle();
     expect(find.byKey(_switch), findsOneWidget);
     expect(tester.widget<SettingsSwitchRow>(find.byKey(_switch)).value, isFalse);
 
@@ -121,6 +128,11 @@ void main() {
     // Non-Android, or a store build whose manifest omits the service.
     debugBackgroundConnectionAvailable = false;
     await _pumpTall(tester);
+    await tester.ensureVisible(
+      find.byKey(const Key('settings-notifications-advanced')),
+    );
+    await tester.tap(find.text('Show Advanced Notification Settings'));
+    await tester.pumpAndSettle();
 
     expect(find.byKey(_switch), findsNothing);
     // The rest of the Notifications section is unaffected.

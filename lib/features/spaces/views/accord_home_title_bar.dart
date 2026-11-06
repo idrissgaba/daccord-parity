@@ -71,12 +71,17 @@ class HomeTitleBar extends StatelessWidget {
             bottom: 0,
             child: Row(
               children: [
-                _TitleBarButton(
-                  key: const Key('home-title-bar-inbox'),
-                  tooltip: 'Inbox',
-                  icon: AppIcons.tray,
-                  onPressed: () => showInboxPopover(context),
+                // The popover hangs from the button's own box.
+                Builder(
+                  builder: (buttonContext) => _TitleBarButton(
+                    key: const Key('home-title-bar-inbox'),
+                    tooltip: 'Inbox',
+                    icon: AppIcons.tray,
+                    onPressed: () => showInboxPopover(buttonContext),
+                  ),
                 ),
+                // Glyph centres 36 px apart, as in the reference client.
+                const SizedBox(width: 8),
                 _TitleBarButton(
                   key: const Key('home-title-bar-help'),
                   tooltip: 'Help',
@@ -89,7 +94,10 @@ class HomeTitleBar extends StatelessWidget {
                 if (ownsWindowFrame) ...[
                   const SizedBox(width: 8),
                   const _WindowButtons(),
-                ],
+                ] else
+                  // The reference client's help glyph is centred 24 px from
+                  // the edge (24 px boxes, 12 px apart, 12 px margin).
+                  const SizedBox(width: 10),
               ],
             ),
           ),
@@ -195,75 +203,4 @@ class _WindowButtonsState extends State<_WindowButtons> with WindowListener {
       ],
     );
   }
-}
-
-/// The inbox: unread and mentions are tracked by the notifications lot; until
-/// then the popover says so instead of pretending to be empty of news.
-Future<void> showInboxPopover(BuildContext context) {
-  final colors = BonfireThemeExtension.of(context);
-  final box = context.findRenderObject() as RenderBox?;
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-  final anchor = box == null || overlay == null
-      ? Offset.zero
-      : box.localToGlobal(
-          Offset(box.size.width, box.size.height),
-          ancestor: overlay,
-        );
-  return showDialog<void>(
-    context: context,
-    barrierColor: Colors.transparent,
-    builder: (context) => Stack(
-      children: [
-        Positioned(
-          right: 8,
-          top: anchor.dy + 4,
-          child: Material(
-            color: colors.raised,
-            elevation: 8,
-            borderRadius: BorderRadius.circular(8),
-            clipBehavior: Clip.antiAlias,
-            child: SizedBox(
-              width: 480,
-              height: 360,
-              child: Column(
-                children: [
-                  Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    alignment: Alignment.centerLeft,
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: colors.hairline),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(AppIcons.tray, size: 20, color: colors.dirtyWhite),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Inbox',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Nothing here yet',
-                        key: const Key('inbox-empty'),
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium!.copyWith(color: colors.gray),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
 }

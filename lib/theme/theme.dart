@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+/// The red of every mention / unread-count badge (channel row, rail icon,
+/// unread DM, inbox), as measured on the reference client: `#D22D39` behind
+/// white 12/600 text.
+const Color kMentionBadgeColor = Color(0xFFD22D39);
+
 @immutable
 class BonfireThemeExtension extends ThemeExtension<BonfireThemeExtension> {
   static BonfireThemeExtension of(BuildContext context) =>

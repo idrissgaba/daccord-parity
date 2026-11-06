@@ -106,6 +106,7 @@ class _SpaceRail extends ConsumerWidget {
         selected: selectedSpaceId == null,
         onTap: () => dmHome.open(dmHome.channel),
       ),
+      const _UnreadDmTiles(),
       // 8 px, the 1 px separator (32 wide), 8 px.
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),

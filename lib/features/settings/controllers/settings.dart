@@ -115,6 +115,22 @@ class SettingsController extends _$SettingsController {
   void setSuppressEveryone(bool suppress) =>
       _update(state.copyWith(suppressEveryone: suppress));
 
+  void setNotifyEvents(bool value) => _update(state.copyWith(notifyEvents: value));
+
+  void setNotifyFriendsOnline(bool value) => _update(state.copyWith(notifyFriendsOnline: value));
+
+  void setNotifyFriendStreams(bool value) => _update(state.copyWith(notifyFriendStreams: value));
+
+  void setSoundInCurrentChannel(bool value) => _update(state.copyWith(soundInCurrentChannel: value));
+
+  void setUnreadBadgeEnabled(bool value) => _update(state.copyWith(unreadBadgeEnabled: value));
+
+  void setInboxTipDismissed(bool value) => _update(state.copyWith(inboxTipDismissed: value));
+
+  void setInboxIncludeEveryone(bool value) => _update(state.copyWith(inboxIncludeEveryone: value));
+
+  void setInboxIncludeRoles(bool value) => _update(state.copyWith(inboxIncludeRoles: value));
+
   /// Turns the Android background-connection foreground service on or off.
   /// `BackgroundConnectionController` watches this and starts/stops the service.
   void setBackgroundConnection(bool enabled) =>

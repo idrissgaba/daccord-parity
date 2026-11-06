@@ -39,6 +39,7 @@ const List<String> _kVoiceSoundsMore = [
   'peer_leave',
   'stream_start',
   'stream_stop',
+  'ring_outgoing',
 ];
 
 /// Settings › Voice & Video, laid out as the reference client's page: Voice

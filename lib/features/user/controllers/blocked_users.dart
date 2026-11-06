@@ -1,4 +1,5 @@
 import 'package:accordkit/accordkit.dart';
+import 'package:bonfire/features/user/controllers/friend_ids.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -50,6 +51,21 @@ class BlockedUsersController extends _$BlockedUsersController {
   /// Replaces the set from a full relationship list (the Friends tab already
   /// holds one, so it re-uses this rather than fetching again).
   void sync(Iterable<AccordRelationship> relationships) {
+    ref
+        .read(friendIdsControllerProvider(serverKey).notifier)
+        .set(
+          FriendsSummary(
+            friendIds: {
+              for (final relationship in relationships)
+                if (relationship.type == accordFriendRelationship)
+                  if ((relationship.user?.id ?? '').isNotEmpty)
+                    relationship.user!.id,
+            },
+            pendingIncoming: relationships
+                .where((r) => r.type == accordPendingIncomingRelationship)
+                .length,
+          ),
+        );
     final next = <String>{
       for (final relationship in relationships)
         if (relationship.type == accordBlockedRelationship)
