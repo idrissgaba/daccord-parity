@@ -9,68 +9,104 @@ section: administration
 
 If you have admin permissions, you can manage your space's channels, roles, and settings.
 
-## Accessing Space Settings
+## Accessing Server Settings
 
-Right-click a space icon in the space bar and select **Space Settings** (or the equivalent admin option) to open the management panel.
+Right-click a space icon in the space bar (or click the space name above the
+channel list) and choose **Server Settings**, or one of its pages from the
+**Server Settings ›** submenu. The settings fill the window: the pages you may
+open are listed at the left, and the round **✕** (or **Escape**) closes them.
 
-## Icon and Banner
+| Group | Pages |
+|---|---|
+| — | Server Profile, Engagement |
+| Expression | Emoji, Stickers, Soundboard |
+| People | Members, Roles, Invites, Access |
+| Apps | Integrations, Arcade |
+| Moderation | Audit Log, Bans, AutoMod, Reports |
+| — | Transfer Ownership, Delete Server (owner only) |
 
-Upload an icon in **Overview**, apply the crop, then choose **Save settings**.
-The pending preview shows the selected crop immediately. Icons are exported as
-PNG up to 512 pixels; banners use a 16:9 crop up to 1024 pixels wide. Banner
-changes and removal save immediately, with **Save settings** available to retry
-an unsuccessful change. Saved replacements refresh the settings preview and
-space bar during the same session, even when the server reuses the image URL.
+Server Profile, Engagement and Access, as well as the role editor and a
+channel's Overview, keep your edits until you choose **Save Changes** in the
+"Careful – you have unsaved changes!" bar at the bottom; **Reset** undoes them.
+While edits are pending you cannot switch pages or close the settings — the bar
+flashes red instead.
+
+## Server Profile
+
+Change the name, icon, banner and description. The card at the right previews
+how the server looks in invites. Icons are exported as PNG up to 512 pixels;
+banners use a 16:9 crop up to 1024 pixels wide. The crops show in the preview
+immediately and are sent with **Save Changes**. Saved replacements refresh the
+settings preview and space bar during the same session, even when the server
+reuses the image URL.
+
+## Engagement and Access
+
+**Engagement** sets the system messages channel, the default notification
+level for new members, and opens the [welcome screen](#welcome-screen) editor.
+**Access** chooses whether people join by invite only or can find the server in
+Server Discovery, whether it is age-restricted, the rules channel, guest access,
+the verification level and the explicit media filter.
+
+## Emoji and Stickers
+
+Members with **Create Expressions** can upload emoji, stickers and sounds, and
+rename or delete their own; **Manage Expressions** manages everyone's.
+
+## Members
+
+**Members** lists everyone with when they joined and their roles; click a row
+(or its **…**) for the member menu — profile, roles, timeout, kick, ban.
 
 ## Channels
 
 ### Creating a Channel
 
-1. In space settings, go to the Channels section.
-2. Click **Create Channel**.
-3. Choose a channel type (text, voice, announcement, or forum).
-4. Enter a name and optionally assign it to a category.
-5. Click **Create**.
+Use **Create Channel** from the space name's menu or a category's **+**, pick a
+type, a name and, for leaf channels, a topic.
 
 ### Editing a Channel
 
-Click on a channel in the settings list to edit its name, topic, or other properties.
-
-### Deleting a Channel
-
-Select a channel and click **Delete**. This permanently removes the channel and all its messages.
+Hover a channel and click its gear (or right-click it and choose **Edit
+Channel**). Channel settings fill the window too: **Overview** (name, topic with
+its formatting toolbar, slowmode, content visibility, type), **Permissions**,
+**Invites** and **Integrations** for that channel, and **Delete Channel**.
 
 ### Categories
 
-Channels can be organized into categories. Create, rename, or delete categories from the Channels section.
+Channels can be organized into categories; a category's settings have
+Overview, Permissions and Delete Category.
 
 ## Roles
 
-Roles control what members can do in your space.
+Roles control what members can do in your space. **Roles** lists them with how
+many members have each, under **Default permissions** (`@everyone`).
 
-### Creating a Role
+### Creating and editing a role
 
-1. Go to the Roles section in space settings.
-2. Click **Create Role**.
-3. Set a name and color.
-4. Toggle individual permissions on or off.
-5. Save the role.
+1. Click **Create Role** (or a role's row).
+2. **Display**: set its name and colour, whether its members show separately,
+   and whether anyone can mention it.
+3. **Permissions**: switch each permission on or off (search the list, or
+   **Clear permissions**).
+4. **Manage Members**: add members to the role or remove them.
+5. Choose **Save Changes**.
 
-### Assigning Roles
-
-Right-click a member in the member list and select a role to assign or remove.
+The role column beside the editor lets you switch roles and drag them to
+reorder; the **…** menu views the server as that role or deletes it.
+`@everyone` only has Permissions.
 
 ### Channel Permissions
 
 You can set per-channel permission overrides for specific roles:
 
 1. Open the channel's settings.
-2. Go to Permissions.
+2. Go to **Permissions** and open **Advanced permissions**.
 3. Add a role and set permissions to **Allow**, **Inherit**, or **Deny** for each permission.
 
 ## Welcome Screen
 
-Open **Welcome screen** in space settings (needs Manage Space) to greet members
+Open **Welcome Screen** from Server Settings › Engagement (needs Manage Space) to greet members
 the first time they open the space. Write a short description and recommend up
 to five channels, each with an emoji and a reason to go there. Turn on **Show
 to new members** to enable it. Each member sees it once; tapping a recommended
@@ -82,17 +118,18 @@ See [Invites](invites.md) for details on inviting people to your server.
 
 ## Arcade
 
-Open **Arcade** in space settings to enable reviewed games and manage the
+Open **Arcade** in Server Settings to enable reviewed games and manage the
 space's Arcade. See [Managing Arcade](managing-arcade.md) for channel placement,
 notifications, idle cleanup, and custom extensions.
 
 ## Webhooks
 
 A webhook lets another service post into a text channel — monitoring alerts,
-download notifications, build results. In **Space Settings → Webhooks** (you
-need the Manage Webhooks permission):
+download notifications, build results. In **Server Settings → Integrations**
+(you need the Manage Webhooks permission; a channel's own Integrations page
+shows only its webhooks):
 
-1. Click **New webhook** and pick the channel it posts in.
+1. Click **Create Webhook** and pick the channel it posts in.
 2. Click the link icon to copy its URL, and paste it into the service's
    notification settings (services that support chat webhooks accept it as is).
 3. From the **⋮** menu you can rename it, move it to another channel, change its

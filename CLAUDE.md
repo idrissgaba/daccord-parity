@@ -302,9 +302,34 @@ player's call tile (`SoundboardAvatarCue`) and the speaking ring. Favourites
 and "Frequently Used" are local settings (`favoriteSounds`, `soundUsage`).
 Sounds carry `emoji_id`/`emoji_name`; `create_expressions` lets members add
 sounds and edit their own. Server Settings › Soundboard is
-`SoundboardSettingsPage` inside `SpaceSettingsFrame` (the full-screen settings
-frame lot G will extend). The app theme's tooltips use the reference client's
-dark bubble.
+`SoundboardSettingsView`, a page of the server settings (below). The app
+theme's tooltips use the reference client's dark bubble.
+
+Settings (lot G): user settings are the reference client's centred modal —
+`/settings` is a see-through `CustomTransitionPage` (`?page=<SettingsPage>`),
+opened with `showUserSettings` (`showVoiceSettings` targets Voice & Video);
+`AccordSettingsScreen` shows `settings_screen/modal.dart` from 760 px and a page
+list on phones (`narrow.dart`), both rendering `pages.dart`. Pages and their
+anchored sub-sections are the `SettingsPage` enum; a section wraps itself in
+`SettingsAnchor(id:)` so the sidebar can jump to it and follow the scroll.
+Shared form primitives (`AccordSwitch`, `AccordSelect` — its list is the single
+Accord menu —, `AccordRadioRow`, `AccordButton`, `SettingsRow`/`SettingsSwitchRow`,
+titles, dividers) live in `shared/components/settings_controls.dart`. The
+standalone Mic Test is `voice/services/mic_test.dart` (Web Audio on the web, a
+local WebRTC loopback elsewhere; never a second capture while in a call).
+Server settings are `SpaceSettingsScreen` (`showAccordSpaceSettings(page:)`,
+keys in `SpaceSettingsPages`) on `SpaceSettingsFrame` (`wide`, `scrollable`,
+`overlay`); Edit Channel is `ChannelSettingsScreen`
+(`channels/views/channel_management/settings_screen.dart`, opened by
+`showEditChannelDialog`). The former dialogs (roles, emoji, stickers, invites,
+webhooks, audit log, bans, reports) are their pages; their `show…` openers now
+open the settings on that page (`showAccordInvites` stays the invite dialog).
+Pending edits go through `shared/components/unsaved_changes_bar.dart`: a page
+reports `dirty` to the frame's `UnsavedChangesController`
+(`UnsavedChangesHost`/`UnsavedChangesScope`), `UnsavedChangesPopGuard` refuses
+the pop and `attemptLeave()` refuses page switches — the bar turns red and
+shakes. The profile editor (`showAccordProfileEdit`) is the Edit Profile modal
+with the bar's `profile` style; the account card and popouts open it.
 
 MCP's optional `space_management` group provides create/update space and
 create/update/delete/reorder channel tools. Its schemas and validated handlers

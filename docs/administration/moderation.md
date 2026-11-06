@@ -43,12 +43,11 @@ channel.
 
 ## Managing Bans
 
-1. Open space settings.
-2. Go to the **Bans** section.
-3. View the list of banned users.
-4. Select a user and click **Unban** to allow them to rejoin.
-
-You can unban multiple users at once using bulk selection.
+1. Open Server Settings.
+2. Go to **Bans** (the Server Ban List).
+3. Search by user ID or username.
+4. Click **Unban** to allow someone to rejoin; select several to unban them at
+   once.
 
 ## Reports
 
@@ -86,9 +85,9 @@ Admins and moderators can delete any message in channels they have permission to
 
 The audit log records all administrative actions taken in your space:
 
-1. Open space settings.
+1. Open Server Settings.
 2. Go to **Audit Log**.
-3. Browse actions by type (kicks, bans, channel changes, role changes, etc.).
-4. Use the filter and search to find specific events.
+3. Use **Filter by User** and **Filter by Action** to find specific events
+   (kicks, bans, channel changes, role changes, etc.).
 
 Each entry shows who performed the action, what was affected, and when it happened.

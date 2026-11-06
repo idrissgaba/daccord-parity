@@ -29,4 +29,4 @@ When someone receives an invite link:
 
 ## Managing Invites
 
-From the Invites section in space settings, admins can view all active invites and revoke any that are no longer needed.
+From **Server Settings → Invites**, admins see every active invite link (who made it, its code, uses and when it expires) and revoke one with the **✕** on its row; **Create Invite Link** chooses when the link expires, how many uses it allows and whether it grants temporary membership. A channel's own **Invites** page lists only that channel's links.
