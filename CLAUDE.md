@@ -49,7 +49,7 @@ The Accord server backend is [`accordserver`](https://github.com/DaccordProject/
 ```
 lib/
   features/        # feature modules: authentication, spaces, channels, messaging,
-    <feature>/     #   member, user, admin, server, events, voice, notifications,
+    <feature>/     #   member, user, admin, server, events, voice, soundboard, notifications,
       controllers/ #   settings, developer, profiles, updates, ...
       repositories/# data access (accordkit-backed)
       views/       # screens
@@ -291,6 +291,20 @@ statuses and custom statuses are local (`AccordSettings.muteExpiries`,
 notification level, then the space's `default_notifications`
 (`effectiveLevelFor`). The quick switcher (`spaces/views/quick_switcher.dart`)
 also opens from "Find or start a conversation"; Ctrl+/ is `keyboard_shortcuts_dialog.dart`.
+
+Soundboard (lot E): `lib/features/soundboard/`. `SoundboardTrigger` wraps the
+voice panel and call bar buttons (hover → "Suggested Sounds" card, click →
+`showSoundboardPicker`, a 531×520 popover; bottom sheet on touch).
+`SoundboardSoundsController` caches each space's sounds (gateway
+`soundboard.create/update/delete` keep it current); `soundboard.play` feeds
+`SoundboardActivityController`, which drives the emoji rising over the
+player's call tile (`SoundboardAvatarCue`) and the speaking ring. Favourites
+and "Frequently Used" are local settings (`favoriteSounds`, `soundUsage`).
+Sounds carry `emoji_id`/`emoji_name`; `create_expressions` lets members add
+sounds and edit their own. Server Settings › Soundboard is
+`SoundboardSettingsPage` inside `SpaceSettingsFrame` (the full-screen settings
+frame lot G will extend). The app theme's tooltips use the reference client's
+dark bubble.
 
 MCP's optional `space_management` group provides create/update space and
 create/update/delete/reorder channel tools. Its schemas and validated handlers

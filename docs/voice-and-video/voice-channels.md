@@ -25,7 +25,12 @@ The voice bar provides these controls:
 - **Deafen** -- Mute all incoming audio (also mutes your mic)
 - **Camera** -- Toggle your camera on/off
 - **Screen Share** -- Share your screen or a specific window
-- **Soundboard** -- Play audio clips into the channel
+- **Soundboard** -- Rest the pointer on it for suggested sounds, click it
+  for the full soundboard: search, favourites (the star on a sound), frequently
+  used sounds, a private preview, your own soundboard volume, and "Add Sound"
+  for members with Create Expressions. Whoever plays a sound gets its emoji
+  over their tile while it plays. The same button sits in the call view's
+  control bar.
 - **Settings** -- Open voice settings
 - **Disconnect** -- Leave the voice channel
 
