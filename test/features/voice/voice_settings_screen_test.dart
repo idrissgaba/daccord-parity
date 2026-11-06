@@ -1,12 +1,16 @@
+import 'dart:io';
+
 import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
 import 'package:bonfire/features/voice/controllers/voice.dart';
 import 'package:bonfire/features/voice/utils/audio_output_support.dart';
 import 'package:bonfire/features/voice/views/voice_settings_screen.dart';
 import 'package:bonfire/theme/app_theme.dart';
+import 'package:bonfire/shared/components/settings_controls.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_ce/hive.dart';
 
 /// Settings held in memory rather than Hive, so the page can be pumped without
 /// opening a box.
@@ -33,17 +37,22 @@ Widget _host(AccordSettings settings) => ProviderScope(
   ],
   child: MaterialApp(
     theme: buildAppTheme(AppThemePreset.dark),
-    home: const VoiceSettingsScreen(),
+    home: const Scaffold(
+      body: SingleChildScrollView(child: VoiceVideoSettingsPage()),
+    ),
   ),
 );
 
-/// Lays the whole (lazy) list out at once so a `findsNothing` means the control
-/// is absent rather than merely unbuilt.
-Future<void> _pumpTall(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(600, 6000);
+/// Lays the whole page out at once so a `findsNothing` means the control is
+/// absent rather than merely unbuilt.
+Future<void> _pumpTall(
+  WidgetTester tester, [
+  AccordSettings settings = const AccordSettings(),
+]) async {
+  tester.view.physicalSize = const Size(900, 6000);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(_host(const AccordSettings()));
+  await tester.pumpWidget(_host(settings));
   await tester.pump();
 }
 
@@ -51,14 +60,19 @@ void main() {
   group('output device picker (#306)', () {
     tearDown(() => debugCanPickAudioOutputDevice = null);
 
-    testWidgets('is offered where the platform can honour the choice', (
+    testWidgets('sits beside the microphone where the platform honours it', (
       tester,
     ) async {
       debugCanPickAudioOutputDevice = true;
       await _pumpTall(tester);
 
-      expect(find.text('OUTPUT DEVICE'), findsOneWidget);
-      expect(find.byKey(const Key('audio-output-dropdown')), findsOneWidget);
+      expect(find.text('Speaker'), findsOneWidget);
+      final mic = tester.getTopLeft(find.byKey(const Key('audio-input-dropdown')));
+      final speaker = tester.getTopLeft(
+        find.byKey(const Key('audio-output-dropdown')),
+      );
+      expect(speaker.dy, mic.dy, reason: 'side by side');
+      expect(speaker.dx, greaterThan(mic.dx));
     });
 
     testWidgets('is not offered where the write would be swallowed (iOS)', (
@@ -67,56 +81,120 @@ void main() {
       debugCanPickAudioOutputDevice = false;
       await _pumpTall(tester);
 
-      expect(find.text('OUTPUT DEVICE'), findsNothing);
       expect(find.byKey(const Key('audio-output-dropdown')), findsNothing);
       // The rest of the voice stack is untouched — only the one dead control
       // goes, never the feature.
-      expect(find.text('INPUT DEVICE'), findsOneWidget);
-      expect(find.text('Output volume'), findsOneWidget);
-      expect(find.text('CAMERA'), findsOneWidget);
+      expect(find.byKey(const Key('audio-input-dropdown')), findsOneWidget);
+      expect(find.text('Speaker Volume'), findsOneWidget);
+      expect(find.text('Camera'), findsWidgets);
     });
   });
 
-  testWidgets('screen-share quality is its own section, labelled apart from '
-      'the camera', (tester) async {
-    // Tall enough for the camera and screen-share groups to be built together
-    // whatever sections follow them.
-    tester.view.physicalSize = const Size(1200, 4000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      _host(const AccordSettings(videoFps: 30, screenShareFps: 60)),
-    );
-    await tester.pump();
+  testWidgets('the page has the reference sections in order', (tester) async {
+    await _pumpTall(tester);
+    final titles = ['Voice', 'Camera', 'Streaming', 'Sounds', 'Soundboard',
+      'Advanced'];
+    double top(String t) => tester
+        .getTopLeft(
+          find.byWidgetPredicate(
+            (w) => w is SettingsSectionTitle && w.text == t,
+          ),
+        )
+        .dy;
+    for (var i = 1; i < titles.length; i++) {
+      expect(top(titles[i]), greaterThan(top(titles[i - 1])), reason: titles[i]);
+    }
+    expect(find.byKey(const Key('mic-test-button')), findsOneWidget);
+    expect(find.byKey(const Key('mic-test-meter')), findsOneWidget);
+    expect(find.byKey(const Key('input-sensitivity-slider')), findsOneWidget);
+    expect(find.byKey(const Key('camera-test-button')), findsOneWidget);
+  });
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('screen-share-motion-switch')),
-      300,
-    );
+  testWidgets('Custom shows the per-filter controls', (
+    tester,
+  ) async {
+    await _pumpTall(tester);
+    expect(find.byKey(const Key('echo-cancellation-switch')), findsOneWidget);
+    expect(find.byKey(const Key('noise-suppression-select')), findsOneWidget);
+  });
 
-    // Both groups are on the page, and every control says which one it belongs
-    // to — the old shared "Resolution"/"Frame rate" rows were ambiguous.
-    expect(find.text('SCREEN SHARE'), findsOneWidget);
-    expect(find.text('Camera resolution'), findsOneWidget);
-    expect(find.text('Camera frame rate'), findsOneWidget);
-    expect(find.text('Screen share resolution'), findsOneWidget);
-    expect(find.text('Screen share frame rate'), findsOneWidget);
+  testWidgets('Studio hides the per-filter controls', (tester) async {
+    await _pumpTall(
+      tester,
+      const AccordSettings(voiceInputProfile: VoiceInputProfile.studio),
+    );
+    expect(find.byKey(const Key('echo-cancellation-switch')), findsNothing);
+    expect(find.byKey(const Key('noise-suppression-select')), findsNothing);
+  });
+
+  group('the input profile drives the three filters', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = Directory.systemTemp.createTempSync('accord-profile-test');
+      Hive.init(tempDir.path);
+      await Hive.openBox('accord-settings');
+    });
+
+    tearDown(() async {
+      await Hive.deleteBoxFromDisk('accord-settings');
+      await Hive.close();
+      if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+    });
+
+    test('Studio turns them off, Voice Isolation on, Custom leaves them', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final controller = container.read(settingsControllerProvider.notifier);
+
+      controller.setVoiceInputProfile(VoiceInputProfile.studio);
+      var s = container.read(settingsControllerProvider);
+      expect(s.voiceInputProfile, VoiceInputProfile.studio);
+      expect(
+        [s.voiceNoiseSuppression, s.voiceEchoCancellation,
+          s.voiceAutoGainControl],
+        [false, false, false],
+      );
+
+      controller.setVoiceInputProfile(VoiceInputProfile.custom);
+      s = container.read(settingsControllerProvider);
+      expect(s.voiceNoiseSuppression, isFalse, reason: 'Custom keeps them');
+
+      controller.setVoiceInputProfile(VoiceInputProfile.voiceIsolation);
+      s = container.read(settingsControllerProvider);
+      expect(
+        [s.voiceNoiseSuppression, s.voiceEchoCancellation,
+          s.voiceAutoGainControl],
+        [true, true, true],
+      );
+      // Persisted, as a restart would read it.
+      expect(
+        Hive.box('accord-settings').get('settings'),
+        containsPair('voiceInputProfile', 'voiceIsolation'),
+      );
+    });
+  });
+
+  testWidgets('camera and stream quality each keep their own value', (
+    tester,
+  ) async {
+    await _pumpTall(
+      tester,
+      const AccordSettings(videoFps: 30, screenShareFps: 60),
+    );
+    final camera = tester.widget<AccordSelect<int>>(
+      find.byKey(const Key('camera-fps-dropdown')),
+    );
+    final stream = tester.widget<AccordSelect<int>>(
+      find.byKey(const Key('screen-share-fps-dropdown')),
+    );
+    expect(camera.value, 30);
+    expect(stream.value, 60);
     expect(find.byKey(const Key('screen-share-motion-switch')), findsOneWidget);
-
-    // The two frame-rate pickers show their own value, not a shared one.
-    final dropdowns = tester
-        .widgetList<DropdownButton<int>>(find.byType(DropdownButton<int>))
-        .toList();
-    expect(dropdowns.map((d) => d.value), containsAll(<int>[30, 60]));
   });
 
   testWidgets('the soundboard volume has its own section', (tester) async {
-    tester.view.physicalSize = const Size(1200, 4000);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(_host(const AccordSettings(soundboardVolume: 0.4)));
-    await tester.pump();
-    expect(find.text('SOUNDBOARD'), findsOneWidget);
+    await _pumpTall(tester, const AccordSettings(soundboardVolume: 0.4));
     expect(find.byKey(const Key('soundboard-volume-setting')), findsOneWidget);
     final slider = tester.widget<Slider>(
       find.descendant(

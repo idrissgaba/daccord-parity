@@ -14,7 +14,7 @@ class _FakeSettingsController extends SettingsController {
   AccordSettings build() => const AccordSettings();
 }
 
-Widget _host({double textScale = 1.0}) => ProviderScope(
+Widget _host({double textScale = 1.0, SettingsPage? page}) => ProviderScope(
   overrides: [
     settingsControllerProvider.overrideWith(_FakeSettingsController.new),
   ],
@@ -26,7 +26,7 @@ Widget _host({double textScale = 1.0}) => ProviderScope(
       ).copyWith(textScaler: TextScaler.linear(textScale)),
       child: child!,
     ),
-    home: const AccordSettingsScreen(),
+    home: Scaffold(body: AccordSettingsScreen(initialPage: page)),
   ),
 );
 
@@ -34,197 +34,152 @@ Future<void> _pumpAt(
   WidgetTester tester,
   Size size, {
   double textScale = 1.0,
+  SettingsPage? page,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(_host(textScale: textScale));
-  await tester.pump();
+  await tester.pumpWidget(_host(textScale: textScale, page: page));
+  await tester.pumpAndSettle();
 }
 
+Finder _modal() => find.byKey(const ValueKey('settings-modal'));
 Finder _sidebar() => find.byKey(const ValueKey('settings-sidebar'));
-Finder _contentColumn() =>
-    find.byKey(const ValueKey('settings-content-column'));
+Finder _nav(SettingsPage page) =>
+    find.byKey(ValueKey('settings-nav-${page.name}'));
+Finder _title(String text) => find.text(text);
 
-/// `SectionHeader` uppercases its label, so section headings never collide with
-/// the sidebar's mixed-case category labels.
-Finder _section(String title) => find.text(title.toUpperCase());
-
-Future<void> _selectCategory(WidgetTester tester, String label) async {
-  await tester.tap(find.descendant(of: _sidebar(), matching: find.text(label)));
+Future<void> _open(WidgetTester tester, SettingsPage page) async {
+  await tester.ensureVisible(_nav(page));
+  await tester.tap(_nav(page));
   await tester.pumpAndSettle();
 }
 
 void main() {
-  group('narrow layout', () {
-    testWidgets('stays the single flat ListView with no sidebar', (
+  group('desktop: the reference client\'s settings modal', () {
+    testWidgets('a centred 1400 px modal clear of the window edges', (
       tester,
     ) async {
-      await _pumpAt(tester, const Size(600, 900));
+      await _pumpAt(tester, const Size(1920, 927));
 
-      expect(_sidebar(), findsNothing);
-      expect(_contentColumn(), findsNothing);
-      expect(find.byType(ListView), findsOneWidget);
-    });
-
-    testWidgets('still shows all ten sections and Log out in one scroll', (
-      tester,
-    ) async {
-      // Tall viewport so the whole (lazy) list is laid out at once.
-      await _pumpAt(tester, const Size(600, 8000));
-
-      for (final title in const [
-        'Appearance',
-        'Notifications',
-        'Sounds',
-        'Voice & Video',
-        'Account',
-        'Server Directory',
-        'Updates',
-        'Backup',
-        'Developer',
-        'About',
-      ]) {
-        expect(_section(title), findsOneWidget, reason: title);
-      }
-      // The sub-page tiles are still tiles on narrow layouts.
-      expect(find.text('Connections'), findsOneWidget);
-      expect(find.text('Privacy & Data'), findsOneWidget);
-      expect(find.text('Log out'), findsOneWidget);
-    });
-  });
-
-  group('wide layout', () {
-    testWidgets('shows the category sidebar and keeps Log out reachable', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(1400, 900));
-
-      expect(_sidebar(), findsOneWidget);
-      for (final category in SettingsCategory.values) {
-        expect(
-          find.descendant(of: _sidebar(), matching: find.text(category.label)),
-          findsOneWidget,
-          reason: category.label,
-        );
-      }
-      expect(
-        find.descendant(of: _sidebar(), matching: find.text('Log out')),
-        findsOneWidget,
-      );
+      expect(_modal(), findsOneWidget);
+      final rect = tester.getRect(_modal());
+      expect(rect.width, 1400);
+      expect(rect.top, 72);
+      expect(rect.bottom, 927 - 72);
+      expect(rect.center.dx, 960);
+      expect(find.byKey(const Key('settings-close')), findsOneWidget);
     });
 
     testWidgets(
-      'Privacy & Safety and Connections are categories of their own',
+      'the sidebar lists every page in the 2026 order, Log Out last',
       (tester) async {
-        await _pumpAt(tester, const Size(1400, 900));
+        await _pumpAt(tester, const Size(1920, 1600));
 
-        // My Account is the default category, without the sub-page tiles.
-        expect(_section('Account'), findsOneWidget);
-        expect(find.text('Privacy & Data'), findsNothing);
+        final pages = visibleSettingsPages();
+        for (var i = 1; i < pages.length; i++) {
+          expect(
+            tester.getTopLeft(_nav(pages[i])).dy,
+            greaterThan(tester.getTopLeft(_nav(pages[i - 1])).dy),
+            reason: '${pages[i - 1].name} before ${pages[i].name}',
+          );
+        }
+        expect(find.text('Experience'), findsOneWidget);
+        expect(find.text('Games & Apps'), findsOneWidget);
+        final logOut = find.byKey(const ValueKey('settings-nav-logout'));
         expect(
-          find.descendant(
-            of: _contentColumn(),
-            matching: find.text('Connections'),
-          ),
-          findsNothing,
+          tester.getTopLeft(logOut).dy,
+          greaterThan(tester.getTopLeft(_nav(pages.last)).dy),
         );
-
-        // Privacy content itself is in its pane, not behind a pushed route.
-        await _selectCategory(tester, 'Privacy & Safety');
-        expect(find.text('Request Data Export'), findsOneWidget);
-        expect(_section('Data retention'), findsOneWidget);
-
-        await _selectCategory(tester, 'Connections');
-        expect(_section('Connections'), findsOneWidget);
       },
     );
 
-    testWidgets('every section is reachable from one of the categories', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(1400, 1600));
+    testWidgets(
+      'the selected page shows its sub-sections, anchored on the page',
+      (tester) async {
+        await _pumpAt(tester, const Size(1920, 927));
+        await _open(tester, SettingsPage.appearance);
 
-      const expected = <String, List<String>>{
-        'Appearance': ['Appearance'],
-        'Accessibility': ['Accessibility'],
-        'Voice & Video': ['Voice & Video'],
-        'Text & Images': ['Text & Images'],
-        'Notifications': ['Notifications', 'Sounds'],
-        'Keybinds': ['Keybinds'],
-        'Streamer Mode': ['Streamer Mode'],
-        'Advanced': ['Developer', 'Server Directory'],
-        'System': ['Updates', 'Backup'],
-        'About': ['About'],
-        'My Account': ['Account'],
-      };
-      for (final entry in expected.entries) {
-        await _selectCategory(tester, entry.key);
-        for (final title in entry.value) {
+        expect(find.byKey(const Key('settings-page-title')), findsOneWidget);
+        for (final sub in visibleSubs(SettingsPage.appearance)) {
           expect(
-            _section(title),
+            find.byKey(ValueKey('settings-sub-${sub.id}')),
             findsOneWidget,
-            reason: '${entry.key}/$title',
+            reason: sub.id,
           );
         }
+        // Another page's sections stay folded.
+        expect(find.byKey(const ValueKey('settings-sub-camera')), findsNothing);
+
+        await tester.tap(
+          find.byKey(const ValueKey('settings-sub-streamer-mode')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('settings-streamer-mode')).hitTestable(),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('every page renders', (tester) async {
+      await _pumpAt(tester, const Size(1920, 927));
+      for (final page in visibleSettingsPages()) {
+        await _open(tester, page);
+        expect(tester.takeException(), isNull, reason: page.name);
+        expect(
+          tester
+              .widget<Text>(find.byKey(const Key('settings-page-title')))
+              .data,
+          page.label,
+          reason: page.name,
+        );
       }
     });
 
-    testWidgets('keeps one ordered content column at every desktop width', (
+    testWidgets('search narrows the sidebar to matching pages and sections', (
       tester,
     ) async {
-      for (final width in const [1000.0, 1200.0, 1700.0, 3440.0]) {
-        await _pumpAt(tester, Size(width, 900));
-        expect(_sidebar(), findsOneWidget, reason: '$width');
-        expect(_contentColumn(), findsOneWidget, reason: '$width');
-        expect(
-          tester.getSize(_contentColumn()).width,
-          lessThanOrEqualTo(kSettingsContentMaxWidth),
-          reason: '$width',
-        );
-      }
+      await _pumpAt(tester, const Size(1920, 927));
+      await tester.enterText(find.byKey(const Key('settings-search')), 'cam');
+      await tester.pumpAndSettle();
+
+      expect(_nav(SettingsPage.voiceVideo), findsOneWidget);
+      expect(find.byKey(const ValueKey('settings-sub-camera')), findsOneWidget);
+      expect(_nav(SettingsPage.appearance), findsNothing);
     });
 
-    testWidgets('preserves the notifications pane scan order', (tester) async {
-      await _pumpAt(tester, const Size(1400, 3000));
-      await _selectCategory(tester, 'Notifications');
-      final headings = [_section('Notifications'), _section('Sounds')];
-      for (var i = 1; i < headings.length; i++) {
-        expect(
-          tester.getTopLeft(headings[i]).dy,
-          greaterThan(tester.getTopLeft(headings[i - 1]).dy),
-        );
-      }
+    testWidgets('opens on the page it was asked for', (tester) async {
+      await _pumpAt(tester, const Size(1920, 927), page: SettingsPage.system);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('settings-page-title'))).data,
+        'System',
+      );
     });
 
-    testWidgets('sidebar categories expose an explicit keyboard order', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(1400, 900));
-
-      for (final category in SettingsCategory.values) {
-        final order = tester.widget<FocusTraversalOrder>(
-          find.byKey(ValueKey('settings-category-${category.name}')),
-        );
-        expect(
-          (order.order as NumericFocusOrder).order,
-          category.index.toDouble(),
-        );
-      }
-    });
-
-    testWidgets('holds up at 150% UI scale', (tester) async {
-      // `uiScale` is applied as a TextScaler, so the logical-pixel breakpoints
-      // are unchanged; only the rows get taller.
+    testWidgets('holds up at 150% text scale', (tester) async {
       await _pumpAt(tester, const Size(1200, 900), textScale: 1.5);
-
       expect(_sidebar(), findsOneWidget);
-      expect(_contentColumn(), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await _open(tester, SettingsPage.appearance);
+      expect(tester.takeException(), isNull);
+    });
+  });
 
-      await _selectCategory(tester, 'Appearance');
-      expect(_section('Appearance'), findsOneWidget);
-      expect(tester.takeException(), isNull);
+  group('phones: a page list', () {
+    testWidgets('lists the pages and opens one on its own screen', (
+      tester,
+    ) async {
+      await _pumpAt(tester, const Size(400, 1600));
+
+      expect(_modal(), findsNothing);
+      expect(find.byKey(const ValueKey('settings-page-list')), findsOneWidget);
+      expect(find.byKey(const ValueKey('settings-nav-logout')), findsOneWidget);
+
+      await tester.tap(_nav(SettingsPage.accessibility));
+      await tester.pumpAndSettle();
+      expect(_title('Text Readability'), findsOneWidget);
+      expect(_title('Reduced Motion'), findsWidgets);
     });
   });
 
@@ -235,35 +190,20 @@ void main() {
     setUp(() => debugAppStoreBuild = true);
     tearDown(() => debugAppStoreBuild = null);
 
-    testWidgets('hide the Updates section in the narrow layout', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(600, 8000));
+    testWidgets('hide Updates under System', (tester) async {
+      await _pumpAt(tester, const Size(1920, 1600));
+      await _open(tester, SettingsPage.system);
 
-      expect(_section('Updates'), findsNothing);
+      expect(find.byKey(const ValueKey('settings-sub-updates')), findsNothing);
+      expect(find.text('Check for Updates'), findsNothing);
       // The rest of System is untouched.
-      expect(_section('Backup'), findsOneWidget);
+      expect(find.byKey(const ValueKey('settings-sub-backup')), findsOneWidget);
     });
 
-    testWidgets('hide the Updates section in the wide System pane', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(1400, 900));
-      await _selectCategory(tester, 'System');
-
-      expect(_section('Updates'), findsNothing);
-      expect(_section('Backup'), findsOneWidget);
-    });
-
-    testWidgets('hide Developer Mode (it implies a non-store build)', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(1400, 900));
-      await _selectCategory(tester, 'Advanced');
-
-      expect(_section('Developer'), findsNothing);
+    testWidgets('hide the Developer page', (tester) async {
+      await _pumpAt(tester, const Size(1920, 927));
+      expect(_nav(SettingsPage.developer), findsNothing);
       expect(find.text('Developer Mode'), findsNothing);
-      expect(_section('Server Directory'), findsOneWidget);
     });
   });
 
@@ -271,33 +211,15 @@ void main() {
     setUp(() => debugDeveloperModeAvailable = false);
     tearDown(() => debugDeveloperModeAvailable = null);
 
-    testWidgets('hide Developer Mode in the narrow layout', (tester) async {
-      await _pumpAt(tester, const Size(600, 8000));
+    testWidgets('hide the Developer page, keep Updates', (tester) async {
+      await _pumpAt(tester, const Size(1920, 1600));
+      expect(_nav(SettingsPage.developer), findsNothing);
 
-      expect(_section('Developer'), findsNothing);
-      expect(find.text('Developer Mode'), findsNothing);
-      // Neighbouring sections still render, so nothing else was dropped.
-      expect(_section('Backup'), findsOneWidget);
-      expect(_section('About'), findsOneWidget);
-    });
-
-    testWidgets('hide Developer Mode in the wide Advanced pane', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(1400, 900));
-      await _selectCategory(tester, 'Advanced');
-
-      expect(_section('Developer'), findsNothing);
-      expect(_section('Server Directory'), findsOneWidget);
-    });
-
-    testWidgets('the Updates section is untouched (sideload keeps it)', (
-      tester,
-    ) async {
-      await _pumpAt(tester, const Size(1400, 900));
-      await _selectCategory(tester, 'System');
-
-      expect(_section('Updates'), findsOneWidget);
+      await _open(tester, SettingsPage.system);
+      expect(
+        find.byKey(const ValueKey('settings-sub-updates')),
+        findsOneWidget,
+      );
     });
   });
 }

@@ -109,8 +109,9 @@ void main() {
     await tester.ensureVisible(swatch);
     await tester.pumpAndSettle();
     await tester.tap(swatch);
-    await tester.pump();
-    final save = find.text('Save');
+    // The change brings up the "Don't forget to save" bar.
+    await tester.pumpAndSettle();
+    final save = find.byKey(const Key('unsaved-changes-save'));
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();

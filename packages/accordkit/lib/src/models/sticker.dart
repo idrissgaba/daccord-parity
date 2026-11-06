@@ -6,6 +6,7 @@ class AccordSticker {
     required this.id,
     required this.name,
     this.spaceId,
+    this.creatorId,
     this.description,
     this.tags,
     this.image,
@@ -15,6 +16,9 @@ class AccordSticker {
   final String id;
   final String name;
   final String? spaceId;
+
+  /// Who uploaded it (Create Expressions lets them edit their own).
+  final String? creatorId;
   final String? description;
 
   /// An emoji the sticker relates to.
@@ -30,6 +34,7 @@ class AccordSticker {
         id: asString(d['id']),
         name: asString(d['name']),
         spaceId: asStringOrNull(d['space_id']),
+        creatorId: asStringOrNull(d['creator_id']),
         description: asStringOrNull(d['description']),
         tags: asStringOrNull(d['tags']),
         image: asStringOrNull(d['image']),
@@ -40,6 +45,7 @@ class AccordSticker {
         'id': id,
         'name': name,
         if (spaceId != null) 'space_id': spaceId,
+        if (creatorId != null) 'creator_id': creatorId,
         if (description != null) 'description': description,
         if (tags != null) 'tags': tags,
         'image': image,

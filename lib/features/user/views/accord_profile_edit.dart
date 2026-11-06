@@ -2,7 +2,6 @@ import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'dart:typed_data';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
-import 'package:bonfire/shared/utils/responsive_dialog.dart';
 
 import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
@@ -14,6 +13,8 @@ import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/color_swatch_chip.dart';
 import 'package:bonfire/shared/components/image_crop_dialog.dart';
 import 'package:bonfire/shared/components/ticker_aware_circle_avatar.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
+import 'package:bonfire/shared/components/unsaved_changes_bar.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bonfire/features/member/views/profile_extras.dart'
@@ -21,23 +22,37 @@ import 'package:bonfire/features/member/views/profile_extras.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Opens the self-profile editor (display name, bio, avatar). Mirrors the
-/// reference client's editable profile card. Calls `users.updateMe` and
-/// updates the global user cache so the change is visible everywhere the
-/// current user is rendered.
+/// Opens the reference client's Edit Profile modal: the editing panel at the
+/// left (profile switcher, avatar, avatar background, profile theme) and the
+/// profile card at the right, whose display name, pronouns and bio are edited
+/// in place. Changes wait for the "Don't forget to save your changes!" bar.
+/// Calls `users.updateMe` and updates the global user cache so the change is
+/// visible everywhere the current user is rendered.
 ///
 /// [serverKey] targets a specific server connection's account — its own
 /// display name / bio / avatar on that instance (a *per-server* profile). When
 /// null the active connection is used.
 Future<void> showAccordProfileEdit(BuildContext context, {String? serverKey}) {
-  return showDialog<void>(
+  return showGeneralDialog<void>(
     context: context,
-    builder: (_) => _ProfileEdit(serverKey: serverKey),
+    barrierDismissible: true,
+    barrierLabel: 'Close',
+    barrierColor: const Color(0xB8000000),
+    transitionDuration: const Duration(milliseconds: 150),
+    transitionBuilder: (_, animation, _, child) => FadeTransition(
+      opacity: animation,
+      child: ScaleTransition(
+        scale: Tween(begin: 0.96, end: 1.0).animate(animation),
+        child: child,
+      ),
+    ),
+    pageBuilder: (_, _, _) => _ProfileEdit(serverKey: serverKey),
   );
 }
 
 class _ProfileEdit extends ConsumerStatefulWidget {
   const _ProfileEdit({this.serverKey});
+
 
   /// The server connection to edit, or null for the active connection.
   final String? serverKey;
@@ -50,6 +65,18 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
   final _displayName = TextEditingController();
   final _bio = TextEditingController();
   final _pronouns = TextEditingController();
+  final UnsavedChangesController _unsaved = UnsavedChangesController();
+
+  /// The values as loaded (or last saved), for Reset and the dirty check.
+  ({
+    String name,
+    String bio,
+    String pronouns,
+    int? primary,
+    int? accent,
+    int? accentColor,
+  })?
+  _initial;
 
   /// Profile theme colours (`0xRRGGBB`), null when unset.
   int? _themePrimary;
@@ -91,6 +118,9 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
   @override
   void initState() {
     super.initState();
+    for (final c in [_displayName, _bio, _pronouns]) {
+      c.addListener(_changed);
+    }
     _loadInitial();
   }
 
@@ -99,7 +129,47 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
     _displayName.dispose();
     _bio.dispose();
     _pronouns.dispose();
+    _unsaved.dispose();
     super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  void _snapshot() => _initial = (
+    name: _displayName.text,
+    bio: _bio.text,
+    pronouns: _pronouns.text,
+    primary: _themePrimary,
+    accent: _themeAccent,
+    accentColor: _accentColor,
+  );
+
+  bool get _dirty {
+    final i = _initial;
+    if (i == null) return false;
+    return _newAvatarBytes != null ||
+        _displayName.text != i.name ||
+        _bio.text != i.bio ||
+        _pronouns.text != i.pronouns ||
+        _themePrimary != i.primary ||
+        _themeAccent != i.accent ||
+        _accentColor != i.accentColor;
+  }
+
+  void _reset() {
+    final i = _initial;
+    if (i == null) return;
+    setState(() {
+      _displayName.text = i.name;
+      _bio.text = i.bio;
+      _pronouns.text = i.pronouns;
+      _themePrimary = i.primary;
+      _themeAccent = i.accent;
+      _accentColor = i.accentColor;
+      _newAvatarBytes = null;
+    });
   }
 
   /// Pulls the current profile via `users.getMe` (the cached session only
@@ -142,6 +212,7 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
             .upsert(data);
       }
     }
+    _snapshot();
     setState(() => _loaded = true);
   }
 
@@ -227,15 +298,20 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
             .applyUserUpdate(updated);
       }
     }
-    if (mounted) Navigator.of(context).maybePop();
+    // The reference client keeps the editor open: the bar goes away.
+    if (mounted) {
+      setState(() {
+        _newAvatarBytes = null;
+        _snapshot();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
     // Rebuild on connection changes so the resolved session stays current.
-    ref.watch(connectionsControllerProvider);
+    final connections = ref.watch(connectionsControllerProvider);
     final session = _conn?.session;
     // Prefer the profile loaded from the targeted server; fall back to the
     // active user cache when editing the active server.
@@ -254,207 +330,589 @@ class _ProfileEditState extends ConsumerState<_ProfileEdit> {
     final previewBg = _accentColor != null
         ? Color(_accentColor!)
         : accordIdColor(session?.userId ?? '');
-    final serverName = widget.serverKey == null
-        ? null
-        : (session?.server.name ?? session?.server.baseUrl);
+    final dirty = _dirty;
+    if (dirty != _unsaved.dirty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _unsaved.dirty = _dirty;
+      });
+    }
+    final size = MediaQuery.sizeOf(context);
+    final width = (size.width - 80).clamp(0.0, 1202.0);
+    final height = (size.height - 96).clamp(0.0, size.height - 16);
+    final ImageProvider? avatar = _newAvatarBytes != null
+        ? MemoryImage(_newAvatarBytes!)
+        : (avatarUrl != null ? CachedNetworkImageProvider(avatarUrl) : null);
+    final profileLabel = widget.serverKey == null
+        ? 'Main Profile'
+        : (session?.server.name ?? session?.server.baseUrl ?? 'Profile');
 
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 460, maxHeight: 600),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    AppIcons.personOutline,
-                    size: 18,
-                    color: colors.dirtyWhite,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      serverName == null
-                          ? 'Edit profile'
-                          : 'Edit profile · $serverName',
-                      style: theme.textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(AppIcons.close, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (!_loaded)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: LoadingView(),
-                )
-              else ...[
-                // The fields scroll; the buttons below always stay in reach.
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Center(
-                          child: Stack(
-                            children: [
-                              TickerAwareCircleAvatar(
-                                radius: 40,
-                                backgroundColor: previewBg,
-                                foregroundImage: _newAvatarBytes != null
-                                    ? MemoryImage(_newAvatarBytes!)
-                                    : (avatarUrl != null
-                                          ? CachedNetworkImageProvider(
-                                              avatarUrl,
-                                            )
-                                          : null),
-                                child:
-                                    (_newAvatarBytes == null &&
-                                        avatarUrl == null)
-                                    ? Text(
-                                        accordInitial(session?.username),
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          color: accordOnColor(previewBg),
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              Positioned(
-                                right: -4,
-                                bottom: -4,
-                                child: IconButton(
-                                  tooltip: 'Change avatar',
-                                  onPressed: _busy ? null : _pickAvatar,
-                                  icon: const Icon(AppIcons.cameraAlt, size: 18),
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: colors.darkGray,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          controller: _displayName,
-                          enabled: !_busy,
-                          decoration: const InputDecoration(
-                            labelText: 'Display name',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _bio,
-                          enabled: !_busy,
-                          minLines: 3,
-                          maxLines: 6,
-                          decoration: const InputDecoration(
-                            labelText: 'Bio',
-                            hintText: 'A short bio shown on your profile',
-                          ),
-                        ),
-                        if (_extrasLoaded) ...[
-                          const SizedBox(height: 12),
-                          TextField(
-                            key: const Key('profile-pronouns'),
-                            controller: _pronouns,
-                            enabled: !_busy,
-                            maxLength: 40,
-                            decoration: const InputDecoration(
-                              labelText: 'Pronouns',
-                              hintText: 'e.g. she/her, they/them',
-                            ),
-                          ),
-                          _ThemeColorRow(
-                            label: 'Profile theme — main colour',
-                            value: _themePrimary,
-                            onChanged: (c) => setState(() => _themePrimary = c),
-                          ),
-                          _ThemeColorRow(
-                            label: 'Profile theme — accent colour',
-                            value: _themeAccent,
-                            onChanged: (c) => setState(() => _themeAccent = c),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Avatar background',
-                            style: theme.textTheme.bodySmall!.copyWith(
-                              color: colors.dirtyWhite,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            ColorSwatchChip(
-                              color: accordIdColor(session?.userId ?? ''),
-                              selected: _accentColor == null,
-                              transparent: true,
-                              label: 'Transparent (auto)',
-                              onTap: _busy
-                                  ? null
-                                  : () => setState(() => _accentColor = null),
-                            ),
-                            for (final (argb, _) in avatarColorPalette)
-                              ColorSwatchChip(
-                                color: Color(argb),
-                                selected: _accentColor == argb,
-                                label: null,
-                                onTap: _busy
-                                    ? null
-                                    : () => setState(() => _accentColor = argb),
-                              ),
-                          ],
-                        ),
-                        if (_error != null) ...[
-                          const SizedBox(height: 10),
-                          InlineError(_error!, centered: false),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => Navigator.of(context).maybePop(),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: _busy ? null : _save,
-                      child: _busy
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Save'),
-                    ),
-                  ],
+    final panel = _EditPanel(
+      profileLabel: profileLabel,
+      connections: connections.hasMultiple ? connections.connections : const [],
+      onPickProfile: (key) {
+        if (!_unsaved.attemptLeave()) return;
+        Navigator.of(context).pop();
+        showAccordProfileEdit(context, serverKey: key);
+      },
+      avatar: avatar,
+      initial: accordInitial(session?.username),
+      previewBg: previewBg,
+      busy: _busy,
+      onPickAvatar: _pickAvatar,
+      accentColor: _accentColor,
+      userId: session?.userId ?? '',
+      onAccentColor: (c) => setState(() => _accentColor = c),
+      extrasLoaded: _extrasLoaded,
+      themePrimary: _themePrimary,
+      themeAccent: _themeAccent,
+      onThemePrimary: (c) => setState(() => _themePrimary = c),
+      onThemeAccent: (c) => setState(() => _themeAccent = c),
+    );
+
+    final card = _ProfileCard(
+      displayName: _displayName,
+      bio: _bio,
+      pronouns: _extrasLoaded ? _pronouns : null,
+      username: session?.username ?? '',
+      avatar: avatar,
+      initial: accordInitial(session?.username),
+      previewBg: previewBg,
+      banner: _themePrimary != null
+          ? profileColor(_themePrimary!)
+          : const Color(0xFFDCDFE4),
+      busy: _busy,
+      onPickAvatar: _pickAvatar,
+    );
+
+    return UnsavedChangesPopGuard(
+      controller: _unsaved,
+      child: Center(
+        child: Material(
+          type: MaterialType.transparency,
+          child: Container(
+            key: const Key('profile-edit-modal'),
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: colors.foreground,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x3D000000),
+                  blurRadius: 24,
+                  offset: Offset(0, 12),
                 ),
               ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: !_loaded
+                ? const Center(child: LoadingView())
+                : Stack(
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(width: 241, child: panel),
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: colors.background,
+                                borderRadius: const BorderRadius.horizontal(
+                                  right: Radius.circular(16),
+                                ),
+                                border: Border.all(
+                                  color: const Color(0x339696A0),
+                                ),
+                              ),
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(
+                                  48,
+                                  48,
+                                  48,
+                                  120,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(width: 400, child: card),
+                                    if (_error != null) ...[
+                                      const SizedBox(height: 12),
+                                      InlineError(_error!, centered: false),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Positioned(
+                        top: 12,
+                        right: 12,
+                        child: Tooltip(
+                          message: 'Close',
+                          child: InkWell(
+                            key: const Key('profile-edit-close'),
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: () => Navigator.of(context).maybePop(),
+                            child: Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: colors.raised,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: colors.hairline),
+                              ),
+                              child: Icon(
+                                AppIcons.close,
+                                size: 16,
+                                color: colors.dirtyWhite,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 24,
+                        child: Center(
+                          child: ListenableBuilder(
+                            listenable: _unsaved,
+                            builder: (context, _) => UnsavedChangesBar(
+                              style: UnsavedChangesBarStyle.profile,
+                              visible: dirty,
+                              warning: _unsaved.warning,
+                              shakes: _unsaved.shakes,
+                              saving: _busy,
+                              onReset: _reset,
+                              onSave: _save,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The modal's left panel: "Main Profile ▾" (or the per-server profile being
+/// edited) and the sections the right-hand card can't edit in place.
+class _EditPanel extends StatelessWidget {
+  const _EditPanel({
+    required this.profileLabel,
+    required this.connections,
+    required this.onPickProfile,
+    required this.avatar,
+    required this.initial,
+    required this.previewBg,
+    required this.busy,
+    required this.onPickAvatar,
+    required this.accentColor,
+    required this.userId,
+    required this.onAccentColor,
+    required this.extrasLoaded,
+    required this.themePrimary,
+    required this.themeAccent,
+    required this.onThemePrimary,
+    required this.onThemeAccent,
+  });
+
+  final String profileLabel;
+  final List<AccordConnection> connections;
+  final ValueChanged<String?> onPickProfile;
+  final ImageProvider? avatar;
+  final String initial;
+  final Color previewBg;
+  final bool busy;
+  final VoidCallback onPickAvatar;
+  final int? accentColor;
+  final String userId;
+  final ValueChanged<int?> onAccentColor;
+  final bool extrasLoaded;
+  final int? themePrimary;
+  final int? themeAccent;
+  final ValueChanged<int?> onThemePrimary;
+  final ValueChanged<int?> onThemeAccent;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final heading = TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+      height: 18 / 14,
+      color: colors.dirtyWhite,
+    );
+    Widget section(String title, Widget child) => Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: heading),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      children: [
+        SizedBox(
+          height: 64,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Builder(
+              builder: (context) => InkWell(
+                key: const Key('profile-edit-switch'),
+                borderRadius: BorderRadius.circular(4),
+                onTapUp: connections.isEmpty
+                    ? null
+                    : (d) => showAccordContextMenu(
+                        context,
+                        globalPosition: d.globalPosition,
+                        entries: [
+                          AccordMenuEntry(
+                            label: 'Main Profile',
+                            onSelected: () => onPickProfile(null),
+                          ),
+                          const AccordMenuEntry.divider(),
+                          for (final conn in connections)
+                            AccordMenuEntry(
+                              label:
+                                  conn.session.server.name ??
+                                  conn.session.server.baseUrl,
+                              subtitle: conn.session.username,
+                              onSelected: () => onPickProfile(conn.key),
+                            ),
+                        ],
+                      ),
+                onTap: connections.isEmpty ? null : () {},
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        profileLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: colors.dirtyWhite,
+                        ),
+                      ),
+                    ),
+                    if (connections.isNotEmpty) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        AppIcons.expandMore,
+                        size: 16,
+                        color: colors.dirtyWhite,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        section(
+          'Avatar',
+          InkWell(
+            key: const Key('profile-edit-avatar'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: busy ? null : onPickAvatar,
+            child: Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: const Color(0xFF94949C).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              alignment: Alignment.center,
+              child: TickerAwareCircleAvatar(
+                radius: 36,
+                backgroundColor: previewBg,
+                foregroundImage: avatar,
+                child: avatar == null
+                    ? Text(
+                        initial,
+                        style: TextStyle(
+                          fontSize: 24,
+                          color: accordOnColor(previewBg),
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ),
+        section(
+          'Avatar Background',
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ColorSwatchChip(
+                color: accordIdColor(userId),
+                selected: accentColor == null,
+                transparent: true,
+                label: 'Transparent (auto)',
+                onTap: busy ? null : () => onAccentColor(null),
+              ),
+              for (final (argb, _) in avatarColorPalette)
+                ColorSwatchChip(
+                  color: Color(argb),
+                  selected: accentColor == argb,
+                  label: null,
+                  onTap: busy ? null : () => onAccentColor(argb),
+                ),
             ],
+          ),
+        ),
+        if (extrasLoaded)
+          section(
+            'Profile Theme',
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ThemeColorRow(
+                  label: 'Primary',
+                  value: themePrimary,
+                  onChanged: onThemePrimary,
+                ),
+                _ThemeColorRow(
+                  label: 'Accent',
+                  value: themeAccent,
+                  onChanged: onThemeAccent,
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The profile card at the right: banner, avatar, then the display name,
+/// pronouns and bio, each edited in place like the reference client's card.
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
+    required this.displayName,
+    required this.bio,
+    required this.pronouns,
+    required this.username,
+    required this.avatar,
+    required this.initial,
+    required this.previewBg,
+    required this.banner,
+    required this.busy,
+    required this.onPickAvatar,
+  });
+
+  final TextEditingController displayName;
+  final TextEditingController bio;
+  final TextEditingController? pronouns;
+  final String username;
+  final ImageProvider? avatar;
+  final String initial;
+  final Color previewBg;
+  final Color banner;
+  final bool busy;
+  final VoidCallback onPickAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final muted = TextStyle(fontSize: 14, height: 18 / 14, color: colors.dirtyWhite);
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.raised,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(height: 140, color: banner),
+              Positioned(
+                left: 20,
+                top: 72,
+                child: GestureDetector(
+                  onTap: busy ? null : onPickAvatar,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: colors.raised,
+                      shape: BoxShape.circle,
+                    ),
+                    child: TickerAwareCircleAvatar(
+                      radius: 54,
+                      backgroundColor: previewBg,
+                      foregroundImage: avatar,
+                      child: avatar == null
+                          ? Text(
+                              initial,
+                              style: TextStyle(
+                                fontSize: 36,
+                                color: accordOnColor(previewBg),
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 82, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _InlineField(
+                  key: const Key('profile-display-name'),
+                  controller: displayName,
+                  enabled: !busy,
+                  hint: username,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                    height: 32 / 24,
+                    color: colors.dirtyWhite,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Text(username, style: muted),
+                    if (pronouns != null) ...[
+                      Text('  •  ', style: muted),
+                      Expanded(
+                        child: _InlineField(
+                          key: const Key('profile-pronouns'),
+                          controller: pronouns!,
+                          enabled: !busy,
+                          hint: 'Add pronouns',
+                          maxLength: 40,
+                          style: muted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Bio',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 16 / 12,
+                    color: colors.dirtyWhite,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _InlineField(
+                  key: const Key('profile-bio'),
+                  controller: bio,
+                  enabled: !busy,
+                  hint: 'Describe yourself',
+                  maxLines: 6,
+                  style: muted,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Text edited in place: plain until hovered or focused, then the settings
+/// field's well and an accent outline while focused.
+class _InlineField extends StatefulWidget {
+  const _InlineField({
+    super.key,
+    required this.controller,
+    required this.enabled,
+    required this.hint,
+    required this.style,
+    this.maxLines = 1,
+    this.maxLength,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final String hint;
+  final TextStyle style;
+  final int maxLines;
+  final int? maxLength;
+
+  @override
+  State<_InlineField> createState() => _InlineFieldState();
+}
+
+class _InlineFieldState extends State<_InlineField> {
+  final FocusNode _focus = FocusNode();
+  bool _hover = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final active = _focus.hasFocus || _hover;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: active ? Colors.black.withValues(alpha: 0.12) : null,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _focus.hasFocus ? colors.primary : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: TextField(
+          controller: widget.controller,
+          focusNode: _focus,
+          enabled: widget.enabled,
+          minLines: 1,
+          maxLines: widget.maxLines,
+          maxLength: widget.maxLength,
+          cursorColor: colors.dirtyWhite,
+          style: widget.style,
+          decoration: InputDecoration(
+            isCollapsed: true,
+            border: InputBorder.none,
+            counterText: '',
+            hintText: widget.hint,
+            hintStyle: widget.style.copyWith(
+              color: colors.gray,
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
       ),

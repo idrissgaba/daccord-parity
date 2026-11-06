@@ -228,6 +228,13 @@ abstract final class AppIcons {
   static const IconData shortcut = PhosphorIconsBold.arrowBendUpRight;
   static const IconData smartDisplay = PhosphorIconsFill.monitorPlay;
   static const IconData sort = PhosphorIconsBold.sortAscending;
+
+  // The channel topic's formatting toolbar (Edit Channel › Overview).
+  static const IconData formatBold = PhosphorIconsBold.textB;
+  static const IconData formatItalic = PhosphorIconsBold.textItalic;
+  static const IconData formatUnderline = PhosphorIconsBold.textUnderline;
+  static const IconData formatStrikethrough =
+      PhosphorIconsBold.textStrikethrough;
   static const IconData sportsEsportsOutlined =
       PhosphorIconsFill.gameController;
   static const IconData sportsEsportsRounded = PhosphorIconsFill.gameController;

@@ -7,7 +7,7 @@ import 'package:bonfire/features/messaging/views/emoji_picker.dart';
 import 'package:bonfire/features/soundboard/controllers/soundboard_sounds.dart';
 import 'package:bonfire/features/soundboard/views/sound_emoji.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
-import 'package:bonfire/features/spaces/views/space_settings_frame.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
 import 'package:bonfire/features/voice/services/soundboard_player.dart';
 import 'package:bonfire/shared/components/accord_dialog.dart';
 import 'package:bonfire/shared/components/accord_slider.dart';
@@ -23,36 +23,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 part 'soundboard_settings_page/sound_row.dart';
 part 'soundboard_settings_page/sound_dialog.dart';
 
-/// Opens the space's Soundboard settings page — the reference client's
-/// Server Settings › Soundboard, full screen with the ✕ / ESC close — and,
-/// with [openUpload], its "Upload a Sound" dialog straight away (the
-/// soundboard's "Add Sound" card does that).
+/// Opens Server Settings › Soundboard for [spaceId] and, with [openUpload],
+/// its "Upload a Sound" dialog straight away (the soundboard's "Add Sound"
+/// card does that).
 Future<void> showSpaceSoundboardSettings(
   BuildContext context, {
   required String serverKey,
   required String spaceId,
   bool openUpload = false,
-}) {
-  return Navigator.of(context, rootNavigator: true).push(
-    PageRouteBuilder<void>(
-      settings: const RouteSettings(name: 'space-soundboard-settings'),
-      transitionDuration: const Duration(milliseconds: 150),
-      reverseTransitionDuration: const Duration(milliseconds: 100),
-      pageBuilder: (_, _, _) => SoundboardSettingsPage(
-        serverKey: serverKey,
-        spaceId: spaceId,
-        openUpload: openUpload,
-      ),
-      transitionsBuilder: (_, animation, _, child) => FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(
-          scale: Tween(begin: 1.04, end: 1.0).animate(animation),
-          child: child,
-        ),
-      ),
-    ),
-  );
-}
+}) => showAccordSpaceSettings(
+  context,
+  spaceId: spaceId,
+  serverKey: serverKey,
+  page: SpaceSettingsPages.soundboard,
+  openSoundUpload: openUpload,
+);
 
 /// What the active user may do with a space's sounds.
 ({bool create, bool manage, String? userId}) _rights(
@@ -75,8 +60,10 @@ Future<void> showSpaceSoundboardSettings(
   );
 }
 
-class SoundboardSettingsPage extends ConsumerStatefulWidget {
-  const SoundboardSettingsPage({
+/// The page body: title, description, then either the empty state ("No
+/// Sounds" + Upload Sound) or the Upload Sound button and one row per sound.
+class SoundboardSettingsView extends ConsumerStatefulWidget {
+  const SoundboardSettingsView({
     super.key,
     required this.serverKey,
     required this.spaceId,
@@ -85,73 +72,35 @@ class SoundboardSettingsPage extends ConsumerStatefulWidget {
 
   final String serverKey;
   final String spaceId;
+
+  /// Opens "Upload a Sound" once the page is up.
   final bool openUpload;
 
   @override
-  ConsumerState<SoundboardSettingsPage> createState() =>
-      _SoundboardSettingsPageState();
+  ConsumerState<SoundboardSettingsView> createState() =>
+      _SoundboardSettingsViewState();
 }
 
-class _SoundboardSettingsPageState
-    extends ConsumerState<SoundboardSettingsPage> {
+class _SoundboardSettingsViewState
+    extends ConsumerState<SoundboardSettingsView> {
   @override
   void initState() {
     super.initState();
     if (widget.openUpload) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _upload();
+        if (mounted) onUpload();
       });
     }
   }
 
-  Future<void> _upload() => showSoundDialog(
-    context,
-    serverKey: widget.serverKey,
-    spaceId: widget.spaceId,
-  );
+  String get serverKey => widget.serverKey;
+  String get spaceId => widget.spaceId;
+
+  void onUpload() =>
+      showSoundDialog(context, serverKey: serverKey, spaceId: spaceId);
 
   @override
   Widget build(BuildContext context) {
-    final spaceName = ref.watch(
-      spacesControllerProvider.select(
-        (s) => s?.firstWhereOrNull((sp) => sp.id == widget.spaceId)?.name,
-      ),
-    );
-    return SpaceSettingsFrame(
-      spaceName: spaceName ?? '',
-      groups: const [
-        SpaceSettingsGroup(
-          title: 'Expression',
-          items: [SpaceSettingsItem(key: 'soundboard', label: 'Soundboard')],
-        ),
-      ],
-      selected: 'soundboard',
-      onSelect: (_) {},
-      child: SoundboardSettingsView(
-        serverKey: widget.serverKey,
-        spaceId: widget.spaceId,
-        onUpload: _upload,
-      ),
-    );
-  }
-}
-
-/// The page body: title, description, then either the empty state ("No
-/// Sounds" + Upload Sound) or the Upload Sound button and one row per sound.
-class SoundboardSettingsView extends ConsumerWidget {
-  const SoundboardSettingsView({
-    super.key,
-    required this.serverKey,
-    required this.spaceId,
-    required this.onUpload,
-  });
-
-  final String serverKey;
-  final String spaceId;
-  final VoidCallback onUpload;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
     final colors = BonfireThemeExtension.of(context);
     final sounds = ref.watch(
       soundboardSoundsControllerProvider(serverKey, spaceId),

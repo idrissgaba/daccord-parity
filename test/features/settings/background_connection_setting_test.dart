@@ -4,6 +4,7 @@ import 'package:bonfire/features/settings/controllers/settings.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
 import 'package:bonfire/features/settings/views/accord_settings_screen.dart';
 import 'package:bonfire/shared/app_info.dart';
+import 'package:bonfire/shared/components/settings_controls.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +51,9 @@ Future<_MemorySettingsController> _pumpTall(WidgetTester tester) async {
     ),
   );
   await tester.pump();
+  // The phone layout lists the pages; the switch lives under Notifications.
+  await tester.tap(find.byKey(const ValueKey('settings-nav-notifications')));
+  await tester.pumpAndSettle();
   return settings;
 }
 
@@ -102,13 +106,13 @@ void main() {
     final settings = await _pumpTall(tester);
 
     expect(find.byKey(_switch), findsOneWidget);
-    expect(tester.widget<SwitchListTile>(find.byKey(_switch)).value, isFalse);
+    expect(tester.widget<SettingsSwitchRow>(find.byKey(_switch)).value, isFalse);
 
     await tester.tap(find.byKey(_switch));
     await tester.pump();
 
     expect(settings.backgroundWrites, [true]);
-    expect(tester.widget<SwitchListTile>(find.byKey(_switch)).value, isTrue);
+    expect(tester.widget<SettingsSwitchRow>(find.byKey(_switch)).value, isTrue);
   });
 
   testWidgets('the toggle is hidden where the service cannot run', (
@@ -120,6 +124,6 @@ void main() {
 
     expect(find.byKey(_switch), findsNothing);
     // The rest of the Notifications section is unaffected.
-    expect(find.text('Enable notifications'), findsOneWidget);
+    expect(find.text('Enable Desktop Notifications'), findsOneWidget);
   });
 }

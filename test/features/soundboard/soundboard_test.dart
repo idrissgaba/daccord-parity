@@ -11,10 +11,10 @@ import 'package:bonfire/features/soundboard/controllers/soundboard_activity.dart
 import 'package:bonfire/features/soundboard/controllers/soundboard_sounds.dart';
 import 'package:bonfire/features/soundboard/views/soundboard_avatar_cue.dart';
 import 'package:bonfire/features/soundboard/views/soundboard_picker.dart';
-import 'package:bonfire/features/soundboard/views/soundboard_settings_page.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -363,7 +363,11 @@ void main() {
     final host = _Host();
     await tester.pumpWidget(
       host.wrap(
-        const SoundboardSettingsPage(serverKey: '', spaceId: 's1'),
+        const SpaceSettingsScreen(
+          spaceId: 's1',
+          serverKey: '',
+          initialPage: SpaceSettingsPages.soundboard,
+        ),
         spaces: owned,
       ),
     );
@@ -391,7 +395,11 @@ void main() {
     final host = _Host();
     await tester.pumpWidget(
       host.wrap(
-        const SoundboardSettingsPage(serverKey: '', spaceId: 's1'),
+        const SpaceSettingsScreen(
+          spaceId: 's1',
+          serverKey: '',
+          initialPage: SpaceSettingsPages.soundboard,
+        ),
         spaces: owned,
       ),
     );
@@ -423,7 +431,11 @@ void main() {
     final host = _Host();
     await tester.pumpWidget(
       host.wrap(
-        const SoundboardSettingsPage(serverKey: '', spaceId: 's2'),
+        const SpaceSettingsScreen(
+          spaceId: 's2',
+          serverKey: '',
+          initialPage: SpaceSettingsPages.soundboard,
+        ),
         spaces: [_space('s2', 'Tide', owner: 'me')],
       ),
     );

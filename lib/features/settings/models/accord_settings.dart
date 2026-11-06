@@ -106,6 +106,7 @@ class AccordSettings {
     this.voiceEchoCancellation = true,
     this.voiceAutoGainControl = true,
     this.voiceHighQualityAudio = false,
+    this.voiceInputProfile = VoiceInputProfile.custom,
     this.pushToTalk = false,
     this.pushToTalkKey = defaultPushToTalkKey,
     this.pushToTalkKeyLabel = defaultPushToTalkKeyLabel,
@@ -275,6 +276,10 @@ class AccordSettings {
 
   /// Publish the microphone at 128 kbps without DTX (music, instruments).
   final bool voiceHighQualityAudio;
+
+  /// Settings › Voice & Video › Input Profile: Voice Isolation (every filter
+  /// on), Studio (none) or Custom (each filter on its own switch).
+  final VoiceInputProfile voiceInputProfile;
 
   /// Push-to-talk: the mic transmits only while [pushToTalkKey] is held (or
   /// the voice bar's talk button is pressed).
@@ -522,6 +527,7 @@ class AccordSettings {
     bool? voiceEchoCancellation,
     bool? voiceAutoGainControl,
     bool? voiceHighQualityAudio,
+    VoiceInputProfile? voiceInputProfile,
     bool? pushToTalk,
     int? pushToTalkKey,
     String? pushToTalkKeyLabel,
@@ -610,6 +616,7 @@ class AccordSettings {
       voiceAutoGainControl: voiceAutoGainControl ?? this.voiceAutoGainControl,
       voiceHighQualityAudio:
           voiceHighQualityAudio ?? this.voiceHighQualityAudio,
+      voiceInputProfile: voiceInputProfile ?? this.voiceInputProfile,
       pushToTalk: pushToTalk ?? this.pushToTalk,
       pushToTalkKey: pushToTalkKey ?? this.pushToTalkKey,
       pushToTalkKeyLabel: pushToTalkKeyLabel ?? this.pushToTalkKeyLabel,
@@ -886,6 +893,7 @@ class AccordSettings {
     'voiceEchoCancellation': voiceEchoCancellation,
     'voiceAutoGainControl': voiceAutoGainControl,
     'voiceHighQualityAudio': voiceHighQualityAudio,
+    'voiceInputProfile': voiceInputProfile.name,
     'pushToTalk': pushToTalk,
     'pushToTalkKey': pushToTalkKey,
     'pushToTalkKeyLabel': pushToTalkKeyLabel,
@@ -981,6 +989,9 @@ class AccordSettings {
       voiceEchoCancellation: json['voiceEchoCancellation'] as bool? ?? true,
       voiceAutoGainControl: json['voiceAutoGainControl'] as bool? ?? true,
       voiceHighQualityAudio: json['voiceHighQualityAudio'] as bool? ?? false,
+      voiceInputProfile: VoiceInputProfile.fromName(
+        json['voiceInputProfile'] as String?,
+      ),
       pushToTalk: json['pushToTalk'] as bool? ?? false,
       pushToTalkKey:
           (json['pushToTalkKey'] as num?)?.toInt() ?? defaultPushToTalkKey,
@@ -1172,4 +1183,21 @@ int _screenShareQualityFrom(Map json) {
     3 => 2, // 1440p
     _ => AccordSettings.screenShareSourceResolution, // 2160p → Source
   };
+}
+
+/// The reference client's microphone input profiles.
+enum VoiceInputProfile {
+  /// Noise suppression, echo cancellation and gain control all on.
+  voiceIsolation,
+
+  /// No processing at all.
+  studio,
+
+  /// Each filter on its own switch.
+  custom;
+
+  static VoiceInputProfile fromName(String? name) => values.firstWhere(
+    (p) => p.name == name,
+    orElse: () => VoiceInputProfile.custom,
+  );
 }

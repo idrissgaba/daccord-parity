@@ -11,6 +11,9 @@ import 'package:accordkit/accordkit.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
+import 'package:bonfire/features/spaces/utils/message_time.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
+import 'package:bonfire/shared/components/settings_controls.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,18 +24,32 @@ Future<void> showAccordAuditLog(
   BuildContext context, {
   required String spaceId,
 }) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => _AuditLogDialog(spaceId: spaceId),
+  return showAccordSpaceSettings(
+    context,
+    spaceId: spaceId,
+    page: SpaceSettingsPages.auditLog,
   );
 }
 
 const _pageSize = 25;
 
-class _AuditLogDialog extends ConsumerStatefulWidget {
-  const _AuditLogDialog({required this.spaceId});
+/// Server Settings › Audit Log: the log as a page — "Audit Log" with the
+/// Filter by User / Filter by Action selects, one card per entry.
+class AuditLogSettingsPage extends StatelessWidget {
+  const AuditLogSettingsPage({super.key, required this.spaceId});
 
   final String spaceId;
+
+  @override
+  Widget build(BuildContext context) =>
+      _AuditLogDialog(spaceId: spaceId, embedded: true);
+}
+
+class _AuditLogDialog extends ConsumerStatefulWidget {
+  const _AuditLogDialog({required this.spaceId, this.embedded = false});
+
+  final String spaceId;
+  final bool embedded;
 
   @override
   ConsumerState<_AuditLogDialog> createState() => _AuditLogDialogState();
@@ -42,6 +59,7 @@ class _AuditLogDialogState extends ConsumerState<_AuditLogDialog>
     with PaginatedListState<AccordAuditLogEntry, _AuditLogDialog> {
   String? _actionFilter; // null = all
   String _userQuery = '';
+  String? _userFilter; // the page's Filter by User; null = all
   StreamSubscription<Map<String, dynamic>>? _liveSub;
 
   @override
@@ -147,6 +165,108 @@ class _AuditLogDialogState extends ConsumerState<_AuditLogDialog>
       return true;
     }).toList();
 
+    if (widget.embedded) {
+      final actors = <String>{for (final e in items) e.userId}.toList();
+      final rows = _userFilter == null
+          ? visible
+          : visible.where((e) => e.userId == _userFilter).toList();
+      String actorOf(String id) => accordAuthorName(
+        id,
+        members: members,
+        users: users,
+        ensure: ensureUser,
+      );
+      Widget filter(String label, Widget select) => SizedBox(
+        width: 222,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [SettingsFieldLabel(label), select],
+        ),
+      );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Audit Log',
+                    style: SettingsText.pageTitle(colors),
+                  ),
+                ),
+              ),
+              filter(
+                'Filter by User',
+                AccordSelect<String?>(
+                  key: const Key('audit-filter-user'),
+                  value: _userFilter,
+                  options: [
+                    const AccordSelectOption(null, 'All Users'),
+                    for (final id in actors)
+                      AccordSelectOption(id, actorOf(id)),
+                  ],
+                  onChanged: (v) => setState(() => _userFilter = v),
+                ),
+              ),
+              const SizedBox(width: 16),
+              filter(
+                'Filter by Action',
+                AccordSelect<String?>(
+                  key: const Key('audit-filter-action'),
+                  value: _actionFilter,
+                  options: [
+                    const AccordSelectOption(null, 'All Actions'),
+                    for (final a in actionTypes)
+                      AccordSelectOption(a, _actionLabel(a)),
+                  ],
+                  onChanged: (v) => setState(() => _actionFilter = v),
+                ),
+              ),
+            ],
+          ),
+          const SettingsDivider(top: 20, bottom: 20),
+          Expanded(
+            child: error != null && items.isEmpty
+                ? Center(child: Text(error!, style: theme.textTheme.bodyMedium))
+                : loading
+                ? const LoadingView()
+                : rows.isEmpty
+                ? Center(
+                    child: Text(
+                      'No logs yet',
+                      style: SettingsText.description(colors),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 40),
+                    itemCount: rows.length + (hasMore ? 1 : 0),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      if (index >= rows.length) {
+                        return LoadMoreFooter(
+                          loading: loadingMore,
+                          onPressed: loadMore,
+                          padding: const EdgeInsets.all(12),
+                        );
+                      }
+                      final entry = rows[index];
+                      return _AuditRow(
+                        actor: actorOf(entry.userId),
+                        action: _actionLabel(entry.actionType),
+                        reason: entry.reason,
+                        when: entry.createdAt.isEmpty
+                            ? null
+                            : messageTimeFromIso(entry.createdAt),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      );
+    }
     return Dialog(
       child: ConstrainedBox(
         constraints: dialogConstraints(context, maxWidth: 520, maxHeight: 640),
@@ -282,6 +402,86 @@ class _AuditLogDialogState extends ConsumerState<_AuditLogDialog>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// One entry as the reference client's card: the action glyph, who did it,
+/// what, and when.
+class _AuditRow extends StatelessWidget {
+  const _AuditRow({
+    required this.actor,
+    required this.action,
+    required this.reason,
+    required this.when,
+  });
+
+  final String actor;
+  final String action;
+  final String reason;
+  final String? when;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.hairline),
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.listAltOutlined, size: 20, color: colors.interactive),
+          const SizedBox(width: 12),
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: colors.darkGray,
+            child: Text(
+              accordInitial(actor),
+              style: TextStyle(color: colors.dirtyWhite, fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: actor,
+                        style: TextStyle(color: colors.dirtyWhite),
+                      ),
+                      TextSpan(text: ' ${action.toLowerCase()}'),
+                      if (reason.isNotEmpty) TextSpan(text: ' — $reason'),
+                    ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 18 / 14,
+                    color: colors.interactive,
+                  ),
+                ),
+                if (when != null)
+                  Text(
+                    when!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 16 / 12,
+                      color: colors.gray,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

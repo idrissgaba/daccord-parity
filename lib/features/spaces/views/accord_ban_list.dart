@@ -8,6 +8,9 @@ import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/shared/utils/responsive_dialog.dart';
 import 'package:bonfire/shared/utils/self_loading_list.dart';
 import 'package:bonfire/features/user/controllers/accord_users.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
+import 'package:bonfire/features/spaces/views/space_settings_frame.dart';
+import 'package:bonfire/shared/components/settings_controls.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,16 +22,31 @@ Future<void> showAccordBanList(
   BuildContext context, {
   required String spaceId,
 }) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => _BanList(spaceId: spaceId),
+  return showAccordSpaceSettings(
+    context,
+    spaceId: spaceId,
+    page: SpaceSettingsPages.bans,
   );
 }
 
-class _BanList extends ConsumerStatefulWidget {
-  const _BanList({required this.spaceId});
+/// Server Settings › Bans: the same list as a page.
+class BansSettingsPage extends StatelessWidget {
+  const BansSettingsPage({super.key, required this.spaceId});
 
   final String spaceId;
+
+  @override
+  Widget build(BuildContext context) =>
+      _BanList(spaceId: spaceId, embedded: true);
+}
+
+class _BanList extends ConsumerStatefulWidget {
+  const _BanList({required this.spaceId, this.embedded = false});
+
+  final String spaceId;
+
+  /// Laid out as the Server Settings page rather than a dialog.
+  final bool embedded;
 
   @override
   ConsumerState<_BanList> createState() => _BanListState();
@@ -161,15 +179,65 @@ class _BanListState extends ConsumerState<_BanList>
       }
     }
 
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 480, maxHeight: 560),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    final embedded = widget.embedded;
+    final body = Column(
+            mainAxisSize: embedded ? MainAxisSize.max : MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (embedded) ...[
+                const SettingsPageHeader(
+                  title: 'Server Ban List',
+                  description:
+                      'Bans are by account. A banned user cannot rejoin '
+                      'this server until you unban them.',
+                  bottom: 16,
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 40,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: settingsFieldDecoration(colors),
+                        child: Row(
+                          children: [
+                            Icon(
+                              AppIcons.search,
+                              size: 16,
+                              color: colors.interactive,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                key: const Key('bans-search'),
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: colors.dirtyWhite,
+                                ),
+                                decoration: InputDecoration(
+                                  isCollapsed: true,
+                                  border: InputBorder.none,
+                                  hintText: 'Search Bans by User ID or Username',
+                                  hintStyle: TextStyle(
+                                    fontSize: 16,
+                                    color: colors.gray,
+                                  ),
+                                ),
+                                onChanged: (v) => setState(() => _query = v),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    AccordButton(
+                      label: 'Search',
+                      onPressed: () => FocusScope.of(context).unfocus(),
+                    ),
+                  ],
+                ),
+              ] else
               Row(
                 children: [
                   Icon(AppIcons.gavel, size: 18, color: colors.dirtyWhite),
@@ -189,7 +257,7 @@ class _BanListState extends ConsumerState<_BanList>
                 ],
               ),
               const SizedBox(height: 8),
-              if (bans != null && bans.isNotEmpty)
+              if (!embedded && bans != null && bans.isNotEmpty)
                 TextField(
                   decoration: const InputDecoration(
                     isDense: true,
@@ -231,6 +299,8 @@ class _BanListState extends ConsumerState<_BanList>
               Flexible(
                 child: loading && bans == null
                     ? const LoadingView()
+                    : embedded && bans != null && bans.isEmpty
+                    ? const _NoBans()
                     : bans == null || bans.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.all(24),
@@ -310,8 +380,63 @@ class _BanListState extends ConsumerState<_BanList>
                       ),
               ),
             ],
-          ),
+          );
+    if (embedded) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(19, 44, 0, 0),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(width: 500, child: body),
         ),
+      );
+    }
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: dialogConstraints(context, maxWidth: 480, maxHeight: 560),
+        child: Padding(padding: const EdgeInsets.all(20), child: body),
+      ),
+    );
+  }
+}
+
+/// The reference client's empty ban list: a card with a large glyph, "No
+/// Bans" and its line.
+class _NoBans extends StatelessWidget {
+  const _NoBans();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    return Container(
+      key: const Key('bans-empty'),
+      margin: const EdgeInsets.only(bottom: 40),
+      decoration: BoxDecoration(
+        color: colors.background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.hairline),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.gavel, size: 120, color: colors.darkGray),
+          const SizedBox(height: 24),
+          Text(
+            'No Bans',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: colors.interactive,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "You haven't banned anybody… but if and when you must, do not "
+            'hesitate!',
+            textAlign: TextAlign.center,
+            style: SettingsText.description(colors),
+          ),
+        ],
       ),
     );
   }

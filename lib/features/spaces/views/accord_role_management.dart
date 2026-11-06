@@ -1,16 +1,21 @@
 import 'package:bonfire/theme/app_icons.dart';
 import 'package:accordkit/accordkit.dart';
+import 'package:bonfire/features/channels/views/channel_member_picker_dialog.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
+import 'package:bonfire/features/spaces/views/space_settings_frame.dart';
+import 'package:bonfire/shared/components/accord_dialog.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/components/color_swatch_chip.dart';
-import 'package:bonfire/shared/components/dialog_title_bar.dart';
-import 'package:bonfire/shared/utils/confirm_dialog.dart';
+import 'package:bonfire/shared/components/context_menu.dart';
+import 'package:bonfire/shared/components/settings_controls.dart';
+import 'package:bonfire/shared/components/unsaved_changes_bar.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
-import 'package:bonfire/shared/utils/responsive_dialog.dart';
 import 'package:bonfire/features/member/controllers/accord_members.dart';
 import 'package:bonfire/features/member/utils/member_display.dart';
 import 'package:bonfire/features/member/utils/permission_catalog.dart';
 import 'package:bonfire/features/member/utils/permissions.dart';
+import 'package:bonfire/features/member/views/accord_member_avatar.dart';
 import 'package:bonfire/features/spaces/controllers/role_preview.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/theme/theme.dart';
@@ -19,23 +24,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 part 'role_management/panes.dart';
+part 'role_management/editor.dart';
 
-/// Opens the role management dialog for [spaceId]: list, create, edit, delete,
-/// and reorder roles, with a permission grid. The Accord analogue of the
-/// reference client's `role_management_dialog`. Hierarchy is enforced — a user
-/// may only act on roles strictly below their own highest role.
+/// Opens Server Settings › Roles for [spaceId].
 Future<void> showAccordRoleManagement(
   BuildContext context, {
   required String spaceId,
-}) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => _RoleManagement(spaceId: spaceId),
-  );
-}
+}) => showAccordSpaceSettings(
+  context,
+  spaceId: spaceId,
+  page: SpaceSettingsPages.roles,
+);
 
-/// A small preset palette for the color picker, matching the reference client's
-/// common role colors. The leading entry (0) means "no color".
+/// A small preset palette for the colour picker, matching the reference
+/// client's common role colours. The leading entry (0) means "no colour".
 const _palette = <int>[
   0x000000,
   0x1ABC9C,
@@ -58,21 +60,29 @@ const _palette = <int>[
   0x992D22,
 ];
 
-class _RoleManagement extends ConsumerStatefulWidget {
-  const _RoleManagement({required this.spaceId});
+/// Server Settings › Roles, as the reference client's page: the role list
+/// ("Default permissions" for @everyone, search, Create Role, one row per
+/// role with its member count) and, once a role is picked, the role column
+/// beside the editor with its Display / Permissions / Manage Members tabs.
+/// Hierarchy is enforced — a user may only act on roles strictly below their
+/// own highest role.
+class RolesSettingsPage extends ConsumerStatefulWidget {
+  const RolesSettingsPage({super.key, required this.spaceId});
 
   final String spaceId;
 
   @override
-  ConsumerState<_RoleManagement> createState() => _RoleManagementState();
+  ConsumerState<RolesSettingsPage> createState() => _RolesSettingsPageState();
 }
 
-class _RoleManagementState extends ConsumerState<_RoleManagement> {
+class _RolesSettingsPageState extends ConsumerState<RolesSettingsPage> {
   String? _selectedRoleId;
   bool _busy = false;
   String? _error;
 
   AccordClient? get _client => ref.accordClient;
+
+  String get _serverKey => ref.readActiveServerKey() ?? '';
 
   List<AccordRole> get _roles {
     final space = ref
@@ -86,27 +96,32 @@ class _RoleManagementState extends ConsumerState<_RoleManagement> {
         .read(spacesControllerProvider)
         ?.firstWhereOrNull((s) => s.id == widget.spaceId);
     final currentUserId = ref.readUserId();
-    final isAdmin = ref.readIsAdmin();
     final members = ref.read(
-      accordMembersControllerProvider(
-        ref.readActiveServerKey() ?? '',
-        widget.spaceId,
-      ),
+      accordMembersControllerProvider(_serverKey, widget.spaceId),
     );
     return accordMyHighestRolePosition(
       space: space,
       selfMember: currentUserId == null ? null : members?[currentUserId],
       roles: _roles,
       currentUserId: currentUserId ?? '',
-      currentUserIsAdmin: isAdmin,
+      currentUserIsAdmin: ref.readIsAdmin(),
     );
   }
 
-  /// A role is editable when it sits strictly below the user's highest role and
-  /// isn't integration-managed. `@everyone` (position 0) is editable for its
-  /// permissions but can't be deleted or reordered.
+  /// A role is editable when it sits strictly below the user's highest role
+  /// and isn't integration-managed. `@everyone` (position 0) is editable for
+  /// its permissions but can't be deleted or reordered.
   bool _canEdit(AccordRole role) =>
       !role.managed && role.position < _myHighest();
+
+  /// Switches the editor to [roleId] (null = back to the list), unless the
+  /// open role has unsaved edits — then the bar warns instead.
+  void _open(String? roleId) {
+    if (roleId == _selectedRoleId) return;
+    final guard = UnsavedChangesScope.maybeOf(context);
+    if (guard != null && !guard.attemptLeave()) return;
+    setState(() => _selectedRoleId = roleId);
+  }
 
   Future<T?> _run<T>(
     Future<RestResult> Function(AccordClient client) action, {
@@ -142,10 +157,10 @@ class _RoleManagementState extends ConsumerState<_RoleManagement> {
     ref
         .read(spacesControllerProvider.notifier)
         .upsertRole(widget.spaceId, role);
-    setState(() => _selectedRoleId = role.id);
+    _open(role.id);
   }
 
-  Future<void> _saveRole(AccordRole edited) async {
+  Future<bool> _saveRole(AccordRole edited) async {
     final role = await _run<AccordRole>(
       (c) => c.roles.update(widget.spaceId, edited.id, {
         'name': edited.name,
@@ -156,13 +171,14 @@ class _RoleManagementState extends ConsumerState<_RoleManagement> {
       }),
       failure: 'Failed to save role',
     );
-    if (role == null || !mounted) return;
+    if (role == null || !mounted) return false;
     ref
         .read(spacesControllerProvider.notifier)
         .upsertRole(widget.spaceId, role);
+    return true;
   }
 
-  /// Enters "preview as role" for [role] and closes this dialog so the user
+  /// Enters "preview as role" for [role] and closes the settings so the user
   /// sees the app gated as that role would (with the exit banner up top).
   void _previewRole(AccordRole role) {
     ref
@@ -178,12 +194,16 @@ class _RoleManagementState extends ConsumerState<_RoleManagement> {
   }
 
   Future<void> _deleteRole(AccordRole role) async {
-    final confirmed = await showConfirmDialog(
-      context,
-      title: 'Delete role',
-      message: 'Delete the "${role.name}" role? This cannot be undone.',
-      confirmLabel: 'Delete',
-      danger: true,
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AccordDialog(
+        title: 'Delete Role',
+        subtitle:
+            'Are you sure you want to delete the "${role.name}" role? This '
+            'cannot be undone.',
+        primaryLabel: 'Delete',
+        tone: AccordDialogTone.danger,
+      ),
     );
     if (confirmed != true) return;
     final ok = await _run(
@@ -195,15 +215,40 @@ class _RoleManagementState extends ConsumerState<_RoleManagement> {
     ref
         .read(spacesControllerProvider.notifier)
         .removeRole(widget.spaceId, role.id);
+    UnsavedChangesScope.maybeOf(context)?.dirty = false;
     setState(() {
       if (_selectedRoleId == role.id) _selectedRoleId = null;
     });
   }
 
-  /// Reorders the editable (non-@everyone) roles after a drag, then persists the
-  /// new positions. Positions count down from the top so higher roles outrank.
+  Future<void> _setMember(String userId, AccordRole role, bool add) async {
+    final member = await _run<Object?>(
+      (c) => add
+          ? c.members.addRole(widget.spaceId, userId, role.id)
+          : c.members.removeRole(widget.spaceId, userId, role.id),
+      failure: add ? 'Failed to add the member' : 'Failed to remove the member',
+    );
+    if (!mounted || _error != null) return;
+    final members = ref.read(
+      accordMembersControllerProvider(_serverKey, widget.spaceId).notifier,
+    );
+    final current = ref.read(
+      accordMembersControllerProvider(_serverKey, widget.spaceId),
+    )?[userId];
+    if (member is AccordMember) {
+      members.upsertMember(member);
+    } else if (current != null) {
+      final roles = {...current.roles};
+      add ? roles.add(role.id) : roles.remove(role.id);
+      current.roles = roles.toList();
+      members.upsertMember(current);
+    }
+  }
+
+  /// Reorders the editable (non-@everyone) roles after a drag, then persists
+  /// the new positions. Positions count down from the top so higher roles
+  /// outrank.
   Future<void> _reorder(List<AccordRole> ordered) async {
-    // Assign descending positions, keeping @everyone pinned at 0.
     final payload = <Map<String, dynamic>>[];
     var position = ordered.length;
     for (final role in ordered) {
@@ -224,7 +269,7 @@ class _RoleManagementState extends ConsumerState<_RoleManagement> {
         return;
       }
     }
-    // Fall back to optimistic local reorder if the server returns nothing.
+    // Fall back to an optimistic local reorder if the server returns nothing.
     for (final entry in payload) {
       final role = _roles.firstWhereOrNull((r) => r.id == entry['id']);
       if (role != null) role.position = entry['position'] as int;
@@ -236,7 +281,6 @@ class _RoleManagementState extends ConsumerState<_RoleManagement> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = BonfireThemeExtension.of(context);
     final roles = ref.watch(
       spacesControllerProvider.select(
         (spaces) =>
@@ -244,74 +288,71 @@ class _RoleManagementState extends ConsumerState<_RoleManagement> {
             const <AccordRole>[],
       ),
     );
+    final members =
+        ref.watch(
+          accordMembersControllerProvider(
+            ref.watchActiveServerKey() ?? '',
+            widget.spaceId,
+          ),
+        ) ??
+        const <String, AccordMember>{};
     final sorted = [...roles]..sort((a, b) => b.position.compareTo(a.position));
     final selected = sorted.firstWhereOrNull((r) => r.id == _selectedRoleId);
+    int count(AccordRole role) =>
+        members.values.where((m) => m.roles.contains(role.id)).length;
 
-    return Dialog(
-      backgroundColor: colors.foreground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 720, maxHeight: 560),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: colors.background, width: 1),
-                ),
-              ),
-              child: const DialogTitleBar('Roles'),
-            ),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    width: 240,
-                    child: _RoleListPane(
-                      roles: sorted,
-                      selectedId: _selectedRoleId,
-                      busy: _busy,
-                      canEdit: _canEdit,
-                      onSelect: (id) => setState(() => _selectedRoleId = id),
-                      onCreate: _createRole,
-                      onReorder: _reorder,
-                    ),
-                  ),
-                  VerticalDivider(width: 1, color: colors.background),
-                  Expanded(
-                    child: selected == null
-                        ? Center(
-                            child: Text(
-                              'Select a role to edit',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          )
-                        : _RoleEditorPane(
-                            key: ValueKey(selected.id),
-                            role: selected,
-                            editable: _canEdit(selected),
-                            busy: _busy,
-                            onSave: _saveRole,
-                            onDelete: selected.position == 0
-                                ? null
-                                : () => _deleteRole(selected),
-                            onPreview: () => _previewRole(selected),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: InlineError(_error!, centered: false),
-              ),
-          ],
+    if (selected == null) {
+      return _RoleListView(
+        roles: sorted,
+        busy: _busy,
+        error: _error,
+        memberCount: count,
+        onOpen: _open,
+        onCreate: _createRole,
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: 190,
+          child: _RoleColumn(
+            roles: sorted,
+            selectedId: selected.id,
+            busy: _busy,
+            canEdit: _canEdit,
+            onBack: () => _open(null),
+            onSelect: _open,
+            onCreate: _createRole,
+            onReorder: _reorder,
+          ),
         ),
-      ),
+        const SizedBox(width: 26),
+        Expanded(
+          child: _RoleEditor(
+            key: ValueKey(selected.id),
+            role: selected,
+            editable: _canEdit(selected),
+            busy: _busy,
+            error: _error,
+            members: [
+              for (final m in members.values)
+                if (m.roles.contains(selected.id)) m,
+            ],
+            candidates: [
+              for (final m in members.values)
+                if (!m.roles.contains(selected.id)) m,
+            ],
+            onSave: _saveRole,
+            onDelete: selected.position == 0
+                ? null
+                : () => _deleteRole(selected),
+            onPreview: () => _previewRole(selected),
+            onAddMember: (id) => _setMember(id, selected, true),
+            onRemoveMember: (id) => _setMember(id, selected, false),
+          ),
+        ),
+      ],
     );
   }
 }

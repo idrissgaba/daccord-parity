@@ -154,65 +154,58 @@ AccordMenuEntry _hideMutedEntry(WidgetRef ref, _SpaceMenuFacts f) =>
     );
 
 /// Server Settings ›: one row per settings page the user may open, in the
-/// reference client's order. Pages Accord lacks (Server Tag, Engagement, Boost
-/// Perks, Stickers, Members, Access, App Directory, Safety Setup, Community,
-/// Template) are omitted (§4).
+/// reference client's order; each opens the full-screen settings on that
+/// page. Pages Accord lacks (Server Tag, Boost Perks, App Directory, Safety
+/// Setup, Community, Template) are omitted (§4).
 List<AccordMenuEntry> _serverSettingsSubmenu(
   BuildContext context,
   _SpaceMenuFacts f,
 ) {
   final id = f.space.id;
+  AccordMenuEntry page(String label, String key) => AccordMenuEntry(
+    label: label,
+    onSelected: () => showAccordSpaceSettings(
+      context,
+      spaceId: id,
+      serverKey: f.serverKey,
+      page: key,
+    ),
+  );
+  final manageSpace = f.has(AccordPermission.manageSpace);
+  final expressions =
+      f.has(AccordPermission.manageEmojis) ||
+      f.has(AccordPermission.createExpressions);
   return [
-    if (f.has(AccordPermission.manageSpace))
-      AccordMenuEntry(
-        label: 'Server Profile',
-        onSelected: () => showAccordSpaceSettings(context, spaceId: id),
-      ),
-    if (f.has(AccordPermission.manageEmojis))
-      AccordMenuEntry(
-        label: 'Emoji',
-        onSelected: () => showAccordEmojiManagement(context, spaceId: id),
-      ),
+    if (manageSpace) ...[
+      page('Server Profile', SpaceSettingsPages.profile),
+      page('Engagement', SpaceSettingsPages.engagement),
+    ],
+    if (expressions) ...[
+      page('Emoji', SpaceSettingsPages.emoji),
+      page('Stickers', SpaceSettingsPages.stickers),
+    ],
     if (f.has(AccordPermission.manageSoundboard) ||
         f.has(AccordPermission.createExpressions))
-      AccordMenuEntry(
-        label: 'Soundboard',
-        onSelected: () => showSpaceSoundboardSettings(
-          context,
-          serverKey: f.serverKey,
-          spaceId: id,
-        ),
-      ),
+      page('Soundboard', SpaceSettingsPages.soundboard),
+    if (manageSpace ||
+        f.has(AccordPermission.kickMembers) ||
+        f.has(AccordPermission.banMembers) ||
+        f.has(AccordPermission.manageRoles))
+      page('Members', SpaceSettingsPages.members),
     if (f.has(AccordPermission.manageRoles))
-      AccordMenuEntry(
-        label: 'Roles',
-        onSelected: () => showAccordRoleManagement(context, spaceId: id),
-      ),
-    if (f.has(AccordPermission.manageSpace))
-      AccordMenuEntry(
-        label: 'Invites',
-        onSelected: () => showAccordInvites(context, spaceId: id),
-      ),
+      page('Roles', SpaceSettingsPages.roles),
+    if (manageSpace) ...[
+      page('Invites', SpaceSettingsPages.invites),
+      page('Access', SpaceSettingsPages.access),
+    ],
     if (f.has(AccordPermission.manageWebhooks))
-      AccordMenuEntry(
-        label: 'Integrations',
-        onSelected: () => showAccordWebhooks(context, spaceId: id),
-      ),
+      page('Integrations', SpaceSettingsPages.integrations),
     if (f.has(AccordPermission.viewAuditLog))
-      AccordMenuEntry(
-        label: 'Audit Log',
-        onSelected: () => showAccordAuditLog(context, spaceId: id),
-      ),
+      page('Audit Log', SpaceSettingsPages.auditLog),
     if (f.has(AccordPermission.banMembers))
-      AccordMenuEntry(
-        label: 'Bans',
-        onSelected: () => showAccordBanList(context, spaceId: id),
-      ),
-    if (f.has(AccordPermission.manageSpace))
-      AccordMenuEntry(
-        label: 'AutoMod',
-        onSelected: () => showAutomodPanel(context, id),
-      ),
+      page('Bans', SpaceSettingsPages.bans),
+    if (manageSpace || f.has(AccordPermission.moderateMembers))
+      page('AutoMod', SpaceSettingsPages.automod),
   ];
 }
 

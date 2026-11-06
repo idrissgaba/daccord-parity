@@ -79,6 +79,16 @@ const accordPermissionGroups = <({String label, List<String> permissions})>[
 /// Human-facing permission names shared by both editors.
 String accordPermissionLabel(String permission) => switch (permission) {
   AccordPermission.mentionEveryone => 'Mention @everyone, @here, and all roles',
+  AccordPermission.createInvites => 'Create Invite',
+  AccordPermission.useCommands => 'Use Application Commands',
+  AccordPermission.sendTts => 'Send Text-to-Speech Messages',
+  AccordPermission.readHistory => 'Read Message History',
+  AccordPermission.sendInThreads => 'Send Messages in Threads',
+  AccordPermission.useVad => 'Use Voice Activity',
+  AccordPermission.moderateMembers => 'Time out members',
+  AccordPermission.manageSpace => 'Manage Server',
+  AccordPermission.manageEmojis => 'Manage Expressions',
+  AccordPermission.manageAutomod => 'Manage AutoMod',
   // The reference client's name for adding emoji, stickers and sounds.
   AccordPermission.createExpressions => 'Create Expressions',
   _ => titleCaseFromToken(permission),

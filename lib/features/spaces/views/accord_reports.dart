@@ -10,6 +10,8 @@ import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/shared/utils/responsive_dialog.dart';
 import 'package:bonfire/features/messaging/controllers/hidden_messages.dart';
 import 'package:bonfire/features/user/controllers/blocked_users.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
+import 'package:bonfire/features/spaces/views/space_settings_frame.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -415,16 +417,29 @@ class _ReportDialogState extends ConsumerState<_ReportDialog> {
 /// Opens the moderation reports panel for [spaceId]: lists open reports and lets
 /// a moderator resolve them. Gated by the caller (e.g. on `ban_members`).
 Future<void> showReportsPanel(BuildContext context, {required String spaceId}) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => _ReportsPanel(spaceId: spaceId),
+  return showAccordSpaceSettings(
+    context,
+    spaceId: spaceId,
+    page: SpaceSettingsPages.reports,
   );
 }
 
-class _ReportsPanel extends ConsumerStatefulWidget {
-  const _ReportsPanel({required this.spaceId});
+/// Server Settings › Reports (Accord's own, under Moderation).
+class ReportsSettingsPage extends StatelessWidget {
+  const ReportsSettingsPage({super.key, required this.spaceId});
 
   final String spaceId;
+
+  @override
+  Widget build(BuildContext context) =>
+      _ReportsPanel(spaceId: spaceId, embedded: true);
+}
+
+class _ReportsPanel extends ConsumerStatefulWidget {
+  const _ReportsPanel({required this.spaceId, this.embedded = false});
+
+  final String spaceId;
+  final bool embedded;
 
   @override
   ConsumerState<_ReportsPanel> createState() => _ReportsPanelState();
@@ -489,14 +504,18 @@ class _ReportsPanelState extends ConsumerState<_ReportsPanel>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
-    return Dialog(
-      backgroundColor: colors.foreground,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 540, maxHeight: 600),
-        child: Column(
+    final embedded = widget.embedded;
+    final body = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (embedded)
+              const SettingsPageHeader(
+                title: 'Reports',
+                description:
+                    'Review and resolve what members reported in this server.',
+                bottom: 16,
+              )
+            else
             Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
               decoration: BoxDecoration(
@@ -562,7 +581,14 @@ class _ReportsPanelState extends ConsumerState<_ReportsPanel>
                 child: InlineError(error!, centered: false),
               ),
           ],
-        ),
+        );
+    if (embedded) return body;
+    return Dialog(
+      backgroundColor: colors.foreground,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ConstrainedBox(
+        constraints: dialogConstraints(context, maxWidth: 540, maxHeight: 600),
+        child: body,
       ),
     );
   }

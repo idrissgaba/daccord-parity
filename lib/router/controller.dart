@@ -89,8 +89,31 @@ final routerController = GoRouter(
         ),
         GoRoute(
           path: '/settings',
-          builder: (context, state) =>
-              const EscapeToClose(child: AccordSettingsScreen()),
+          // A see-through page: on desktop the settings are a modal over the
+          // screen they were opened from, as in the reference client.
+          pageBuilder: (context, state) => CustomTransitionPage<void>(
+            key: state.pageKey,
+            opaque: false,
+            transitionDuration: const Duration(milliseconds: 150),
+            reverseTransitionDuration: const Duration(milliseconds: 100),
+            transitionsBuilder: (context, animation, _, child) =>
+                FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(
+                    scale: Tween(begin: 0.96, end: 1.0).animate(
+                      CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                    ),
+                    child: child,
+                  ),
+                ),
+            child: EscapeToClose(
+              child: AccordSettingsScreen(
+                initialPage: SettingsPage.fromName(
+                  state.uri.queryParameters['page'],
+                ),
+              ),
+            ),
+          ),
         ),
         GoRoute(
           path: '/admin',

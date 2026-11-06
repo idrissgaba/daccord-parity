@@ -17,6 +17,7 @@ import 'package:bonfire/shared/components/context_menu.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/theme/app_icons.dart';
 import 'package:bonfire/theme/theme.dart';
+import 'package:bonfire/features/user/views/accord_profile_edit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,9 +26,8 @@ import 'package:go_router/go_router.dart';
 part 'account_card/status_dialog.dart';
 part 'account_card/card_rows.dart';
 
-/// "Edit Profile": the profile page of the settings (its modal form comes
-/// with the settings lot).
-void openEditProfile(BuildContext context) => context.push('/settings');
+/// "Edit Profile": the reference client's Edit Profile modal.
+void openEditProfile(BuildContext context) => showAccordProfileEdit(context);
 
 /// The reference client's label for a presence status.
 String statusLabel(String status) => switch (status) {

@@ -4,9 +4,14 @@ import 'package:bonfire/features/messaging/controllers/space_stickers.dart';
 import 'package:bonfire/shared/components/async_state_views.dart';
 import 'package:bonfire/shared/utils/client_access.dart';
 import 'package:bonfire/shared/utils/confirm_dialog.dart';
-import 'package:bonfire/shared/utils/responsive_dialog.dart';
+import 'package:collection/collection.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
 import 'package:bonfire/shared/utils/text_prompt_dialog.dart';
+import 'package:bonfire/features/member/utils/permissions.dart';
+import 'package:bonfire/features/spaces/controllers/spaces.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
+import 'package:bonfire/features/spaces/views/space_settings_frame.dart';
+import 'package:bonfire/shared/components/settings_controls.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
@@ -51,28 +56,31 @@ class MessageSticker extends ConsumerWidget {
 }
 
 /// Upload, rename and delete a space's stickers (needs `manage_emojis`).
+/// Opens Server Settings › Stickers for [spaceId].
 Future<void> showStickerManagement(
   BuildContext context, {
   required String spaceId,
-}) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => StickerManagementDialog(spaceId: spaceId),
-  );
-}
+}) => showAccordSpaceSettings(
+  context,
+  spaceId: spaceId,
+  page: SpaceSettingsPages.stickers,
+);
 
-class StickerManagementDialog extends ConsumerStatefulWidget {
-  const StickerManagementDialog({super.key, required this.spaceId});
+/// Server Settings › Stickers: the space's stickers as the reference
+/// client's slot grid, with "Upload Sticker". Uploading needs Create
+/// Expressions (or Manage Expressions); renaming and deleting your own
+/// stickers needs Create Expressions, anyone else's Manage Expressions.
+class StickerSettingsPage extends ConsumerStatefulWidget {
+  const StickerSettingsPage({super.key, required this.spaceId});
 
   final String spaceId;
 
   @override
-  ConsumerState<StickerManagementDialog> createState() =>
-      _StickerManagementDialogState();
+  ConsumerState<StickerSettingsPage> createState() =>
+      _StickerSettingsPageState();
 }
 
-class _StickerManagementDialogState
-    extends ConsumerState<StickerManagementDialog> {
+class _StickerSettingsPageState extends ConsumerState<StickerSettingsPage> {
   bool _busy = false;
   String? _error;
 
@@ -163,7 +171,6 @@ class _StickerManagementDialogState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final colors = BonfireThemeExtension.of(context);
     final stickers = ref.watch(
       spaceStickersControllerProvider(
@@ -172,104 +179,247 @@ class _StickerManagementDialogState
       ),
     );
     final cdnUrl = ref.watchCdnUrl();
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 480, maxHeight: 600),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+    final space = ref.watch(
+      spacesControllerProvider.select(
+        (s) => s?.firstWhereOrNull((sp) => sp.id == widget.spaceId),
+      ),
+    );
+    final perms = ref.watchAccordPermissions(space, widget.spaceId);
+    final manage = accordHasPermission(perms, AccordPermission.manageEmojis);
+    final create =
+        manage ||
+        accordHasPermission(perms, AccordPermission.createExpressions);
+    final me = ref.watchUserId();
+    final count = stickers?.length ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SettingsPageHeader(
+          title: 'Stickers',
+          description:
+              'Upload custom stickers that anyone in this server can send. '
+              'PNG, GIF or WebP, up to 60 per server.',
+          bottom: 24,
+        ),
+        if (_error != null) ...[
+          InlineError(_error!, centered: false),
+          const SizedBox(height: 12),
+        ],
+        Container(
+          decoration: BoxDecoration(
+            color: colors.background,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: colors.hairline),
+          ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    AppIcons.stickyNote2Outlined,
-                    size: 18,
-                    color: colors.dirtyWhite,
-                  ),
-                  const SizedBox(width: 8),
-                  Text('Stickers', style: theme.textTheme.titleMedium),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(AppIcons.close, size: 18),
-                  ),
-                ],
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Stickers',
+                            style: SettingsText.label(
+                              colors,
+                            ).copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            '$count of 60 slots used',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: colors.dirtyWhite,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AccordButton(
+                      key: const Key('sticker-upload'),
+                      label: 'Upload Sticker',
+                      small: true,
+                      onPressed: _busy || !create ? null : _upload,
+                    ),
+                  ],
+                ),
               ),
-              Text(
-                'PNG, GIF or WebP, up to 60 per space.',
-                style: theme.textTheme.bodySmall!.copyWith(color: colors.gray),
-              ),
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                key: const Key('sticker-upload'),
-                onPressed: _busy ? null : _upload,
-                icon: const Icon(AppIcons.upload, size: 18),
-                label: const Text('Upload sticker'),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                InlineError(_error!, centered: false),
-              ],
-              const SizedBox(height: 12),
-              Flexible(
+              Container(height: 1, color: colors.hairline),
+              Padding(
+                padding: const EdgeInsets.all(16),
                 child: stickers == null
                     ? const LoadingView()
-                    : stickers.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Center(child: Text('No stickers yet.')),
-                      )
-                    : ListView.separated(
+                    : GridView.count(
+                        crossAxisCount: 5,
                         shrinkWrap: true,
-                        itemCount: stickers.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (_, index) {
-                          final sticker = stickers[index];
-                          final url = stickerUrl(sticker, cdnUrl);
-                          return ListTile(
-                            key: ValueKey('manage-sticker-${sticker.id}'),
-                            leading: url == null
-                                ? const Icon(AppIcons.imageOutlined)
-                                : CachedNetworkImage(
-                                    imageUrl: url,
-                                    width: 40,
-                                    height: 40,
-                                    errorWidget: (_, _, _) =>
-                                        const Icon(AppIcons.brokenImage),
-                                  ),
-                            title: Text(sticker.name),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  tooltip: 'Rename',
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _rename(sticker),
-                                  icon: const Icon(AppIcons.edit, size: 18),
-                                ),
-                                IconButton(
-                                  tooltip: 'Delete',
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _delete(sticker),
-                                  icon: Icon(
-                                    AppIcons.deleteOutline,
-                                    size: 18,
-                                    color: colors.red,
-                                  ),
-                                ),
-                              ],
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: 92 / 111,
+                        children: [
+                          for (final sticker in stickers)
+                            _StickerSlot(
+                              key: ValueKey('manage-sticker-${sticker.id}'),
+                              url: stickerUrl(sticker, cdnUrl),
+                              name: sticker.name,
+                              editable:
+                                  !_busy &&
+                                  (manage ||
+                                      (create &&
+                                          me != null &&
+                                          sticker.creatorId == me)),
+                              onRename: () => _rename(sticker),
+                              onDelete: () => _delete(sticker),
                             ),
-                          );
-                        },
+                          // Empty slots up to a full row, as the reference
+                          // client shows its free slots.
+                          for (var i = count; i < ((count ~/ 5) + 1) * 5; i++)
+                            const _StickerSlot(),
+                        ],
                       ),
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// One sticker slot: the sticker and its name, or an empty dashed slot.
+/// Rename and delete show on hover.
+class _StickerSlot extends StatefulWidget {
+  const _StickerSlot({
+    super.key,
+    this.url,
+    this.name,
+    this.editable = false,
+    this.onRename,
+    this.onDelete,
+  });
+
+  final String? url;
+  final String? name;
+  final bool editable;
+  final VoidCallback? onRename;
+  final VoidCallback? onDelete;
+
+  @override
+  State<_StickerSlot> createState() => _StickerSlotState();
+}
+
+class _StickerSlotState extends State<_StickerSlot> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final name = widget.name;
+    final url = widget.url;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: name == null ? 0.0 : 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0x339696A0)),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: name == null
+                          ? Icon(
+                              AppIcons.stickyNote2Outlined,
+                              size: 40,
+                              color: colors.darkGray,
+                            )
+                          : url == null
+                          ? Icon(AppIcons.imageOutlined, color: colors.gray)
+                          : CachedNetworkImage(
+                              imageUrl: url,
+                              width: 64,
+                              height: 64,
+                              errorWidget: (_, _, _) => Icon(
+                                AppIcons.brokenImage,
+                                color: colors.gray,
+                              ),
+                            ),
+                    ),
+                  ),
+                  if (name != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: colors.dirtyWhite,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (_hover && widget.editable)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Row(
+                  children: [
+                    InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: widget.onRename,
+                      child: Tooltip(
+                        message: 'Rename',
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: colors.raised,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            AppIcons.edit,
+                            size: 13,
+                            color: colors.dirtyWhite,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: widget.onDelete,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          AppIcons.close,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ),
       ),
     );

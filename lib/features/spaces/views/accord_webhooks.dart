@@ -9,6 +9,9 @@ import 'package:bonfire/shared/utils/confirm_dialog.dart';
 import 'package:bonfire/shared/utils/responsive_dialog.dart';
 import 'package:bonfire/shared/utils/rest_result_ext.dart';
 import 'package:bonfire/shared/utils/text_prompt_dialog.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
+import 'package:bonfire/features/spaces/views/space_settings_frame.dart';
+import 'package:bonfire/shared/components/settings_controls.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -33,16 +36,46 @@ Future<void> showAccordWebhooks(
   BuildContext context, {
   required String spaceId,
 }) {
-  return showDialog<void>(
-    context: context,
-    builder: (_) => AccordWebhooksDialog(spaceId: spaceId),
+  return showAccordSpaceSettings(
+    context,
+    spaceId: spaceId,
+    page: SpaceSettingsPages.integrations,
+  );
+}
+
+/// Server Settings › Integrations: the Webhooks card (count, Create Webhook)
+/// with the webhooks listed under it.
+class WebhooksSettingsPage extends StatelessWidget {
+  const WebhooksSettingsPage({super.key, required this.spaceId, this.channelId});
+
+  final String spaceId;
+
+  /// Edit Channel › Integrations: only the webhooks posting there.
+  final String? channelId;
+
+  @override
+  Widget build(BuildContext context) => AccordWebhooksDialog(
+    spaceId: spaceId,
+    embedded: true,
+    channelId: channelId,
   );
 }
 
 class AccordWebhooksDialog extends ConsumerStatefulWidget {
-  const AccordWebhooksDialog({super.key, required this.spaceId});
+  const AccordWebhooksDialog({
+    super.key,
+    required this.spaceId,
+    this.embedded = false,
+    this.channelId,
+  });
 
   final String spaceId;
+
+  /// Laid out as the Integrations page rather than a dialog.
+  final bool embedded;
+
+  /// Only this channel's webhooks (Edit Channel › Integrations).
+  final String? channelId;
 
   @override
   ConsumerState<AccordWebhooksDialog> createState() =>
@@ -226,17 +259,66 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
     String channelName(String id) =>
         channels.where((c) => c.id == id).firstOrNull?.name ??
         'unknown channel';
-    final webhooks = _webhooks;
-
-    return Dialog(
-      child: ConstrainedBox(
-        constraints: dialogConstraints(context, maxWidth: 520, maxHeight: 640),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+    final channelFilter = widget.channelId;
+    final webhooks = channelFilter == null
+        ? _webhooks
+        : _webhooks?.where((w) => w.channelId == channelFilter).toList();
+    final embedded = widget.embedded;
+    Widget list(Widget child) => embedded ? child : Flexible(child: child);
+    final body = Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (embedded) ...[
+                SettingsPageHeader(
+                  title: 'Integrations',
+                  description: channelFilter == null
+                      ? 'Customise your server with integrations. Manage the '
+                            'webhooks that post into its channels.'
+                      : 'Customise your server with integrations. Manage '
+                            'the webhooks that post into this channel.',
+                  bottom: 24,
+                ),
+                const SettingsDivider(top: 0, bottom: 28),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  decoration: BoxDecoration(
+                    color: colors.background,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(AppIcons.webhook, size: 24, color: colors.dirtyWhite),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Webhooks', style: SettingsText.label(colors)),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${webhooks?.length ?? 0} webhooks',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: colors.dirtyWhite,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AccordButton(
+                        key: const Key('webhook-create'),
+                        label: 'Create Webhook',
+                        small: true,
+                        onPressed: _busy || channels.isEmpty
+                            ? null
+                            : () => _create(channels),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
               Row(
                 children: [
                   Icon(AppIcons.webhook, size: 18, color: colors.dirtyWhite),
@@ -265,14 +347,17 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
                 icon: const Icon(AppIcons.add, size: 18),
                 label: const Text('New webhook'),
               ),
+              ],
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 InlineError(_error!, centered: false),
               ],
               const SizedBox(height: 12),
-              Flexible(
-                child: webhooks == null
+              list(
+                webhooks == null
                     ? const LoadingView()
+                    : webhooks.isEmpty && embedded
+                    ? const SizedBox.shrink()
                     : webhooks.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.all(24),
@@ -285,6 +370,9 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
                       )
                     : ListView.separated(
                         shrinkWrap: true,
+                        physics: embedded
+                            ? const NeverScrollableScrollPhysics()
+                            : null,
                         itemCount: webhooks.length,
                         separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (context, index) {
@@ -365,8 +453,12 @@ class _AccordWebhooksDialogState extends ConsumerState<AccordWebhooksDialog> {
                       ),
               ),
             ],
-          ),
-        ),
+          );
+    if (embedded) return body;
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: dialogConstraints(context, maxWidth: 520, maxHeight: 640),
+        child: Padding(padding: const EdgeInsets.all(20), child: body),
       ),
     );
   }

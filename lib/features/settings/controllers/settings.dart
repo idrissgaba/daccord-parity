@@ -193,6 +193,26 @@ class SettingsController extends _$SettingsController {
   void setVoiceHighQualityAudio(bool enabled) =>
       _update(state.copyWith(voiceHighQualityAudio: enabled));
 
+  /// Picks an input profile: Voice Isolation turns every filter on, Studio
+  /// turns them all off, Custom keeps the switches as they are.
+  void setVoiceInputProfile(VoiceInputProfile profile) => _update(
+    switch (profile) {
+      VoiceInputProfile.voiceIsolation => state.copyWith(
+        voiceInputProfile: profile,
+        voiceNoiseSuppression: true,
+        voiceEchoCancellation: true,
+        voiceAutoGainControl: true,
+      ),
+      VoiceInputProfile.studio => state.copyWith(
+        voiceInputProfile: profile,
+        voiceNoiseSuppression: false,
+        voiceEchoCancellation: false,
+        voiceAutoGainControl: false,
+      ),
+      VoiceInputProfile.custom => state.copyWith(voiceInputProfile: profile),
+    },
+  );
+
   void setPushToTalk(bool enabled) =>
       _update(state.copyWith(pushToTalk: enabled));
 

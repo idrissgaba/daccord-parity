@@ -8,6 +8,12 @@ import 'package:bonfire/shared/utils/self_loading_list.dart';
 import 'package:bonfire/features/authentication/models/accord_auth_state.dart';
 import 'package:bonfire/features/authentication/repositories/accord_auth.dart';
 import 'package:bonfire/features/settings/controllers/settings.dart';
+import 'package:bonfire/features/member/controllers/accord_members.dart';
+import 'package:bonfire/features/member/utils/member_display.dart';
+import 'package:bonfire/features/spaces/views/space_settings_frame.dart';
+import 'package:bonfire/features/user/controllers/accord_users.dart';
+import 'package:bonfire/shared/components/accord_dialog.dart';
+import 'package:bonfire/shared/components/settings_controls.dart';
 import 'package:bonfire/theme/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,10 +56,32 @@ const _maxUsesPresets = <({String label, int uses})>[
   (label: '100 uses', uses: 100),
 ];
 
-class _InvitesDialog extends ConsumerStatefulWidget {
-  const _InvitesDialog({required this.spaceId});
+/// Server Settings › Invites: the active links as the reference client's
+/// page — "No active invite links" or a table (Inviter, Invite Code, Uses,
+/// Expires), and "Create Invite Link" (whose settings open in a dialog).
+class InvitesSettingsPage extends StatelessWidget {
+  const InvitesSettingsPage({super.key, required this.spaceId, this.channelId});
 
   final String spaceId;
+
+  /// Edit Channel › Invites: only that channel's links.
+  final String? channelId;
+
+  @override
+  Widget build(BuildContext context) =>
+      _InvitesDialog(spaceId: spaceId, embedded: true, channelId: channelId);
+}
+
+class _InvitesDialog extends ConsumerStatefulWidget {
+  const _InvitesDialog({
+    required this.spaceId,
+    this.embedded = false,
+    this.channelId,
+  });
+
+  final String spaceId;
+  final bool embedded;
+  final String? channelId;
 
   @override
   ConsumerState<_InvitesDialog> createState() => _InvitesDialogState();
@@ -167,7 +195,11 @@ class _InvitesDialogState extends ConsumerState<_InvitesDialog>
   Widget build(BuildContext context) {
     final colors = BonfireThemeExtension.of(context);
     final theme = Theme.of(context);
-    final invites = items;
+    final channelId = widget.channelId;
+    final invites = channelId == null
+        ? items
+        : items?.where((i) => i.channelId == channelId).toList();
+    if (widget.embedded) return _page(context, invites);
     return Dialog(
       child: ConstrainedBox(
         constraints: dialogConstraints(context, maxWidth: 480, maxHeight: 600),
@@ -411,6 +443,245 @@ class _InvitesDialogState extends ConsumerState<_InvitesDialog>
                     ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// "Create Invite Link": the link settings in a dialog, then the link.
+  Future<void> _createFromPage() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AccordDialog(
+          title: 'Invite link settings',
+          primaryLabel: 'Generate a New Link',
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SettingsFieldLabel('Expire After'),
+              AccordSelect<int>(
+                key: const Key('invite-expiry'),
+                value: _expirySeconds,
+                options: [
+                  for (final p in _expiryPresets)
+                    AccordSelectOption(p.seconds, p.label),
+                ],
+                onChanged: (v) => setLocal(() => _expirySeconds = v),
+              ),
+              const SizedBox(height: 20),
+              const SettingsFieldLabel('Max Number of Uses'),
+              AccordSelect<int>(
+                key: const Key('invite-max-uses'),
+                value: _maxUses,
+                options: [
+                  for (final p in _maxUsesPresets)
+                    AccordSelectOption(p.uses, p.label),
+                ],
+                onChanged: (v) => setLocal(() => _maxUses = v),
+              ),
+              const SizedBox(height: 20),
+              SettingsSwitchRow(
+                label: 'Grant temporary membership',
+                description:
+                    'Temporary members are kicked when they disconnect '
+                    'unless a role has been assigned.',
+                value: _temporary,
+                onChanged: (v) => setLocal(() => _temporary = v),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (ok == true && mounted) await _create();
+  }
+
+  Widget _page(BuildContext context, List<AccordInvite>? invites) {
+    final colors = BonfireThemeExtension.of(context);
+    final streamer = ref.watch(
+      settingsControllerProvider.select((s) => s.streamerMode),
+    );
+    final head = TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      height: 16 / 12,
+      color: colors.interactive,
+    );
+    Widget columns(List<Widget> cells) => Row(
+      children: [
+        Expanded(flex: 3, child: cells[0]),
+        Expanded(flex: 3, child: cells[1]),
+        Expanded(flex: 1, child: cells[2]),
+        Expanded(flex: 2, child: cells[3]),
+        const SizedBox(width: 32),
+      ],
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingsPageHeader(
+          title: 'Invites',
+          description: widget.channelId == null
+              ? 'Create an invite link that anyone can use to join, or invite '
+                    'friends directly.'
+              : "Here's a list of all active invite links. You can revoke any "
+                    'one or create one.',
+          bottom: 24,
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                invites == null || invites.isEmpty
+                    ? 'No active invite links'
+                    : 'Active Invite Links',
+                style: SettingsText.description(colors).copyWith(
+                  fontSize: invites == null || invites.isEmpty ? 14 : 12,
+                ),
+              ),
+            ),
+            AccordButton(
+              key: const Key('invites-create'),
+              label: 'Create Invite Link',
+              onPressed: _creating ? null : _createFromPage,
+            ),
+          ],
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 8),
+          Text(error!, style: TextStyle(color: colors.red, fontSize: 14)),
+        ],
+        if (invites != null && invites.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          columns([
+            Text('INVITER', style: head),
+            Text('INVITE CODE', style: head),
+            Text('USES', style: head),
+            Text('EXPIRES', style: head),
+          ]),
+          const SizedBox(height: 8),
+          for (final invite in invites)
+            _InviteRow(
+              key: Key('invite-${invite.code}'),
+              cells: columns,
+              inviter: invite.inviterId == null
+                  ? 'Unknown'
+                  : accordAuthorName(
+                      invite.inviterId!,
+                      members: ref.watch(
+                        accordMembersControllerProvider(
+                          ref.watchActiveServerKey() ?? '',
+                          widget.spaceId,
+                        ),
+                      ),
+                      users: ref.watch(
+                        accordUsersControllerProvider(
+                          ref.watchActiveServerKey() ?? '',
+                        ),
+                      ),
+                    ),
+              code: streamer ? '••••••••' : invite.code,
+              uses: '${invite.uses}',
+              expires: _expiresLabel(invite),
+              onCopy: () => _copy(invite),
+              onRevoke: () => _revoke(invite),
+            ),
+        ],
+      ],
+    );
+  }
+
+  String _expiresLabel(AccordInvite invite) {
+    final raw = invite.expiresAt?.toString();
+    final at = raw == null ? null : DateTime.tryParse(raw)?.toLocal();
+    if (at == null) return '∞';
+    final left = at.difference(DateTime.now());
+    if (left.isNegative) return 'Expired';
+    if (left.inDays >= 1) return '${left.inDays}d ${left.inHours % 24}h';
+    if (left.inHours >= 1) return '${left.inHours}h ${left.inMinutes % 60}m';
+    return '${left.inMinutes}m';
+  }
+}
+
+/// One invite in the table; Copy and the revoke ✕ show on hover.
+class _InviteRow extends StatefulWidget {
+  const _InviteRow({
+    super.key,
+    required this.cells,
+    required this.inviter,
+    required this.code,
+    required this.uses,
+    required this.expires,
+    required this.onCopy,
+    required this.onRevoke,
+  });
+
+  final Widget Function(List<Widget>) cells;
+  final String inviter;
+  final String code;
+  final String uses;
+  final String expires;
+  final VoidCallback onCopy;
+  final VoidCallback onRevoke;
+
+  @override
+  State<_InviteRow> createState() => _InviteRowState();
+}
+
+class _InviteRowState extends State<_InviteRow> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = BonfireThemeExtension.of(context);
+    final text = TextStyle(fontSize: 14, height: 18 / 14, color: colors.dirtyWhite);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onCopy,
+        child: Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: _hover ? colors.hover : Colors.transparent,
+            border: Border(top: BorderSide(color: colors.hairline)),
+          ),
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              widget.cells([
+                Text(widget.inviter, style: text, overflow: TextOverflow.ellipsis),
+                Text(widget.code, style: text),
+                Text(widget.uses, style: text),
+                Text(widget.expires, style: text),
+              ]),
+              if (_hover)
+                Positioned(
+                  right: 0,
+                  child: Tooltip(
+                    message: 'Revoke Invite',
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: widget.onRevoke,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          AppIcons.close,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

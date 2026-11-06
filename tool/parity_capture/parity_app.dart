@@ -16,6 +16,11 @@
 // which show locked), `&crowd=1` seats three more people in the call and
 // `&play=<user id>` makes that person play a sound (the emoji rising over
 // their tile), held for a minute; `&sounds=0` empties the space's soundboard.
+// Lot G: `&open=settings&page=voiceVideo` (any `SettingsPage` name) opens the
+// user settings modal on that page; `&open=space-settings&page=roles` (any
+// `SpaceSettingsPages` key) the server settings, whose lists start empty;
+// `&open=profile` the Edit Profile modal, `&open=channel-settings` Edit
+// Channel on #general.
 // Nothing here is shipped.
 
 import 'dart:convert';
@@ -35,9 +40,14 @@ import 'package:bonfire/features/profiles/services/profile_store.dart';
 import 'package:bonfire/features/server/controllers/connections.dart';
 import 'package:bonfire/features/server/models/accord_server.dart';
 import 'package:bonfire/features/settings/models/accord_settings.dart';
+import 'package:bonfire/features/settings/views/accord_settings_screen.dart';
+import 'package:bonfire/features/channels/controllers/accord_channels.dart';
+import 'package:bonfire/features/channels/views/channel_management.dart';
+import 'package:bonfire/features/user/views/accord_profile_edit.dart';
 import 'package:bonfire/features/soundboard/controllers/soundboard_activity.dart';
 import 'package:bonfire/features/soundboard/controllers/soundboard_sounds.dart';
 import 'package:bonfire/features/spaces/controllers/role_preview.dart';
+import 'package:bonfire/features/spaces/views/accord_space_settings.dart';
 import 'package:bonfire/features/spaces/controllers/spaces.dart';
 import 'package:bonfire/features/spaces/views/accord_home.dart';
 import 'package:bonfire/features/spaces/views/keyboard_shortcuts_dialog.dart';
@@ -271,6 +281,20 @@ MockClient _transport() {
         path.endsWith('/channels/$_dmChannelId/messages')) {
       return _json(_dmMessages.reversed.toList());
     }
+    // Lot G: the server settings' lists start empty (their empty states).
+    if (request.method == 'GET' &&
+        path.contains('/spaces/$seedSpaceId/') &&
+        const [
+          '/bans',
+          '/invites',
+          '/audit-log',
+          '/audit-logs',
+          '/webhooks',
+          '/emojis',
+          '/stickers',
+        ].any(path.endsWith)) {
+      return _json([]);
+    }
     if (path.endsWith('/users/@me/channels')) return _json([_dm]);
     if (path.endsWith('/users/@me/mutes')) return _json([]);
     if (path.endsWith('/users/@me/relationships')) {
@@ -474,6 +498,37 @@ Future<void> main() async {
       if (context == null || !context.mounted) return;
       if (open == 'shortcuts') showKeyboardShortcutsDialog(context);
       if (open == 'switcher') showQuickSwitcher(context);
+      // Lot G: `&open=profile` (Edit Profile) and `&open=channel-settings`
+      // (Edit Channel on #general).
+      if (open == 'profile') showAccordProfileEdit(context);
+      if (open == 'channel-settings') {
+        final general = container
+            .read(accordChannelsControllerProvider(key, seedSpaceId))
+            ?.where((c) => c.id == seedGeneralChannelId)
+            .firstOrNull;
+        if (general != null) {
+          showEditChannelDialog(
+            context,
+            spaceId: seedSpaceId,
+            channel: general,
+          );
+        }
+      }
+      // Lot G: `&open=space-settings&page=<SpaceSettingsPages key>`.
+      if (open == 'space-settings') {
+        showAccordSpaceSettings(
+          context,
+          spaceId: seedSpaceId,
+          page: Uri.base.queryParameters['page'],
+        );
+      }
+      // Lot G: `&open=settings&page=<SettingsPage name>`.
+      if (open == 'settings') {
+        showUserSettings(
+          context,
+          page: SettingsPage.fromName(Uri.base.queryParameters['page']),
+        );
+      }
     });
   }
   runApp(
